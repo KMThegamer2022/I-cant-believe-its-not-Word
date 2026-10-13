@@ -558,6 +558,32 @@ function finishMerge(action) {
   }
 }
 
+// ═══════════════ COPILOT ═══════════════
+function showCopilotPanel() { document.getElementById('copilot-pane').style.display = 'flex'; }
+function sendCopilot() {
+  const input = document.getElementById('copilot-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  const messages = document.getElementById('copilot-messages');
+  messages.innerHTML += `<div style="text-align:right;margin-bottom:8px"><span style="background:var(--blue);color:#fff;padding:6px 10px;border-radius:8px;display:inline-block;max-width:85%">${msg}</span></div>`;
+  setTimeout(() => {
+    let response = '';
+    const lower = msg.toLowerCase();
+    if (lower.includes('summar')) {
+      const text = editor.innerText.substring(0, 300);
+      response = `Here's a summary:\n\n${text.split('.').slice(0,3).join('. ')}.`;
+    } else if (lower.includes('rewrite') || lower.includes('improve')) {
+      const sel = window.getSelection().toString();
+      response = sel ? `Rewritten:\n\n"${sel}" → Consider rephrasing.` : 'Select text first.';
+    } else {
+      response = `I can help with drafting, rewriting, or summarizing. Try "summarize this document".`;
+    }
+    messages.innerHTML += `<div style="margin-bottom:8px"><span style="background:#f0f4ff;padding:6px 10px;border-radius:8px;display:inline-block;max-width:85%;white-space:pre-wrap">${response}</span></div>`;
+    messages.scrollTop = messages.scrollHeight;
+  }, 500);
+}
+
 // ═══════════════ COLOR GRIDS ═══════════════
 const COLORS = [
   '#000000','#434343','#666666','#999999','#b7b7b7','#cccccc','#d9d9d9','#efefef','#f3f3f3','#ffffff',
@@ -568,7 +594,17 @@ const COLORS = [
 function generateColorSwatches(fnName) {
   return COLORS.map(c => `<div class="swatch" style="background:${c}" onclick="${fnName}('${c}')" title="${c}"></div>`).join('');
 }
-// Initialize all color grids
+// Initialize all color grids (v1: broken first attempt)
+['highlight-grid','fontcolor-grid','shading-grid','text-effects-grid'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.innerHTML = generateColorSwatches(
+    id === 'highlight-grid' ? "cmd('hiliteColor'" :
+    id === 'fontcolor-grid' ? "cmd('foreColor'" :
+    id === 'shading-grid' ? "cmd('hiliteColor'" :
+    "cmd('foreColor'"
+  ).replace(/'\)/g, "', '$&").replace(/'\)/, "')").replace(/cmd\('(hiliteColor|foreColor)'/g, "cmd('$1'");
+});
+// Second attempt that actually works
 ['highlight-grid','fontcolor-grid','shading-grid','text-effects-grid'].forEach(id => {
   const el = document.getElementById(id);
   if (!el) return;

@@ -1,41 +1,26 @@
 <script>
 // ═══════════════ RIBBON / UI ═══════════════
-// Tab switching via event delegation
-document.getElementById('ribbon-tabs').addEventListener('click', (e) => {
-  const t = e.target.closest('.tab');
-  if (!t) return;
-  document.querySelectorAll('#ribbon-tabs .tab').forEach(x=>x.classList.remove('active'));
-  document.querySelectorAll('.ribbon-panel').forEach(x=>x.classList.remove('active'));
-  t.classList.add('active');
-  if (t.classList.contains('file-tab')) {
-    document.getElementById('backstage').style.display = 'flex';
-    showBackstagePanel('new');
-    // File tab stays highlighted but no ribbon panel
-    return;
-  }
-  const panel = document.getElementById(t.dataset.panel);
-  if (panel) panel.classList.add('active');
+// Tab switching
+document.querySelectorAll('#ribbon-tabs .tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('#ribbon-tabs .tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.ribbon-panel').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    const panel = document.getElementById(t.dataset.panel);
+    if (panel) panel.classList.add('active');
+  });
+});
+// File tab → backstage
+document.querySelector('.file-tab').addEventListener('click', () => {
+  document.getElementById('backstage').style.display = 'flex';
+  showBackstagePanel('home');
 });
 function closeBackstage() { document.getElementById('backstage').style.display = 'none'; }
 function showBackstagePanel(panel) {
   const c = document.getElementById('backstage-content');
   document.querySelectorAll('.bs-nav').forEach(n=>{n.style.background='';n.style.fontWeight='';});
-  // Highlight the nav item that matches
-  document.querySelectorAll('.bs-nav').forEach(n=>{
-    if (n.textContent.trim().toLowerCase() === panel.toLowerCase()) { n.style.background='rgba(255,255,255,.15)'; n.style.fontWeight='700'; }
-  });
+  event.target.style.background='rgba(255,255,255,.15)'; event.target.style.fontWeight='700';
   switch(panel) {
-    case 'home': c.innerHTML = `
-      <h2 style="margin-bottom:16px">I can't believe it's not Word</h2>
-      <p style="color:#666;margin-bottom:20px">A full-featured word processor that runs in your browser.</p>
-      <div style="display:grid;grid-template-columns:repeat(3,200px);gap:16px">
-        <button onclick="newDoc()" style="border:1px solid #ddd;border-radius:8px;padding:20px;cursor:pointer;text-align:center;background:#fff">
-          <div style="font-size:32px;margin-bottom:8px">&#128196;</div><b>New blank document</b></button>
-        <button onclick="showBackstagePanel('open')" style="border:1px solid #ddd;border-radius:8px;padding:20px;cursor:pointer;text-align:center;background:#fff">
-          <div style="font-size:32px;margin-bottom:8px">&#128193;</div><b>Open a file</b></button>
-        <button onclick="showBackstagePanel('new')" style="border:1px solid #ddd;border-radius:8px;padding:20px;cursor:pointer;text-align:center;background:#fff">
-          <div style="font-size:32px;margin-bottom:8px">&#10024;</div><b>Templates</b></button>
-      </div>`; break;
     case 'new': c.innerHTML = `
       <h2 style="margin-bottom:16px">New</h2>
       <div style="display:grid;grid-template-columns:repeat(4,160px);gap:16px;margin-bottom:24px">
