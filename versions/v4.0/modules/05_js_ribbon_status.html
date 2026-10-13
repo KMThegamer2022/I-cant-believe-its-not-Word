@@ -1,0 +1,156 @@
+<script>
+// ═══════════════ RIBBON / UI ═══════════════
+// switchTab, closeBackstage, showBackstagePanel, showBackstageSaveAs, showBackstagePrint, showBackstageOptions, showOptPanel are all defined in module 00 (standalone scripts)
+// ═══════════════ STATUS BAR ═══════════════
+function updateStatus() {
+  const text = editor.innerText || '';
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  document.getElementById('sb-words').textContent = words + ' words';
+  document.getElementById('sb-chars').textContent = text.length + ' characters';
+  // page estimate
+  const pageH = (typeof PAGE_HEIGHT !== 'undefined') ? PAGE_HEIGHT : 1056;
+  const breaks = editor.querySelectorAll('.page-break').length;
+  const totalPages = Math.max(1, Math.ceil(editor.scrollHeight / pageH) + breaks);
+  document.getElementById('sb-page').textContent = `Page ${totalPages} of ${totalPages}`;
+  // info panel
+  const iw = document.getElementById('info-words'); if (iw) iw.textContent = words;
+  const ic = document.getElementById('info-chars'); if (ic) ic.textContent = text.length;
+  const ip = document.getElementById('info-paras'); if (ip) ip.textContent = editor.querySelectorAll('p,div,li').length;
+  const im = document.getElementById('info-modified'); if (im) im.textContent = new Date().toLocaleString();
+  updateNavPane();
+  checkActiveButtons();
+}
+editor.addEventListener('input', () => { updateStatus(); saveUndo(); scheduleAutoSave(); checkAutoPageBreak(); });
+// Initial
+updateStatus();
+saveUndo();
+
+// Track active formatting buttons
+function checkActiveButtons() {
+  document.getElementById('btn-bold').classList.toggle('active', document.queryCommandState('bold'));
+  document.getElementById('btn-italic').classList.toggle('active', document.queryCommandState('italic'));
+  document.getElementById('btn-underline').classList.toggle('active', document.queryCommandState('underline'));
+}
+document.addEventListener('selectionchange', checkActiveButtons);
+
+// ═══════════════ ZOOM / VIEWS ═══════════════
+let zoomLevel = 1;
+function setZoom(z) {
+  zoomLevel = Math.max(0.25, Math.min(5, z));
+  const page = document.getElementById('editor-page');
+  // Use CSS zoom (supported in Chrome, Edge, Safari, Firefox 126+)
+  if (CSS.supports('zoom', '1')) {
+    page.style.zoom = zoomLevel;
+  } else {
+    // Fallback: transform scale + manual container adjustment
+    page.style.transform = `scale(${zoomLevel})`;
+    page.style.transformOrigin = 'top left';
+    page.style.width = (816 / zoomLevel) + 'px';
+    page.style.minHeight = (1056 / zoomLevel) + 'px';
+  }
+  document.getElementById('zoom-pct').textContent = Math.round(zoomLevel * 100) + '%';
+  document.getElementById('zoom-slider').value = Math.round(zoomLevel * 100);
+}
+function zoomOnePage() { setZoom(Math.min(window.innerHeight / 1100, 2)); }
+function zoomPageWidth() { setZoom(Math.min((document.getElementById('page-container').clientWidth - 60) / 816, 3)); }
+function setView(v) {
+  document.querySelectorAll('[id^="btn-view-"]').forEach(b=>b.classList.remove('active'));
+  const btn = document.getElementById('btn-view-'+v); if (btn) btn.classList.add('active');
+  switch(v) {
+    case 'read':
+      editor.style.cssText += ';column-count:2;column-gap:40px;max-width:700px;margin:0 auto;font-size:14pt;line-height:1.6';
+      document.getElementById('page-container').style.background = '#faf8f5';
+      break;
+    case 'print':
+      editor.style.cssText = editor.style.cssText.replace(/column-count[^;]+;?/g,'');
+      editor.style.maxWidth = ''; editor.style.fontSize = ''; editor.style.lineHeight = '';
+      document.getElementById('page-container').style.background = 'var(--page-bg)';
+      break;
+    case 'web':
+      editor.style.cssText += ';max-width:100%;padding:20px;column-count:unset';
+      document.getElementById('page-container').style.background = '#fff';
+      break;
+    case 'outline':
+      editor.style.cssText += ';font-family:monospace;font-size:12pt;column-count:unset';
+      editor.querySelectorAll('p,div,li,h1,h2,h3').forEach(el=>{
+        const t = el.textContent.trim();
+        if (t) el.textContent = (el.style.fontSize && parseInt(el.style.fontSize) > 14 ? '» ' : '  ') + t;
+      });
+      break;
+    case 'draft':
+      editor.style.cssText += ';max-width:100%;padding:8px 40px;font-size:12pt;column-count:unset';
+      document.getElementById('page-container').style.background = '#fff';
+      break;
+  }
+}
+function toggleRuler() {
+  const pc = document.getElementById('page-container');
+  let ruler = document.getElementById('ruler');
+  if (ruler) { ruler.remove(); return; }
+  ruler = document.createElement('div');
+  ruler.id = 'ruler';
+  ruler.style.cssText = 'height:24px;background:#fff;border-bottom:1px solid #ccc;width:816px;margin:0 auto;font-size:9px;color:#999;position:relative;overflow:hidden;user-select:none';
+  let marks = '';
+  for (let i = 0; i <= 8.5; i++) {
+    marks += `<span style="position:absolute;left:${i*96}px;top:2px;border-left:1px solid #999;padding-left:2px;height:20px">${i}</span>`;
+    for (let j = 1; j < 8; j++) marks += `<span style="position:absolute;left:${i*96+j*12}px;top:14px;border-left:1px solid #ccc;height:10px"></span>`;
+  }
+  ruler.innerHTML = marks;
+  pc.prepend(ruler);
+}
+function toggleGridlines() {
+  const pc = document.getElementById('page-container');
+  if (pc.querySelector('.grid-overlay')) { pc.querySelector('.grid-overlay').remove(); return; }
+  const g = document.createElement('div');
+  g.className = 'grid-overlay';
+  g.style.cssText = `position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(#eee 1px,transparent 1px),linear-gradient(90deg,#eee 1px,transparent 1px);background-size:24px 24px;z-index:5`;
+  editor.style.position = 'relative';
+  editor.appendChild(g);
+}
+function toggleNavPane() {
+  const np = document.getElementById('nav-pane');
+  np.style.display = np.style.display === 'none' ? 'block' : 'none';
+  updateNavPane();
+}
+function updateNavPane() {
+  const list = document.getElementById('nav-headings-list');
+  if (!list) return;
+  let html = '';
+  editor.querySelectorAll('p,h1,h2,h3').forEach(el => {
+    const fs = parseInt(getComputedStyle(el).fontSize);
+    if (fs > 14 || el.tagName.startsWith('H')) {
+      html += `<p style="cursor:pointer;padding:3px 0;font-size:12px" onclick="this.scrollIntoView()">${el.textContent.trim().substring(0,50)}</p>`;
+    }
+  });
+  list.innerHTML = html || '<p style="color:#999;font-size:11px">No headings found. Apply Heading styles.</p>';
+}
+function navPaneTab(t) {
+  ['headings','pages','results'].forEach(x => {
+    document.getElementById('nav-'+x).classList.toggle('active', x===t);
+    document.getElementById('nav-'+x+'-list').style.display = x===t ? 'block' : 'none';
+  });
+}
+function togglePageMovement(dir) {
+  const pc = document.getElementById('page-container');
+  pc.style.scrollSnapType = dir === 'sideways' ? 'x mandatory' : '';
+  document.getElementById('btn-pg-vert').classList.toggle('active', dir==='vertical');
+  document.getElementById('btn-pg-side').classList.toggle('active', dir==='sideways');
+}
+function immersiveReader() {
+  showModal('Immersive Reader', `
+    <div style="background:#faf8f5;padding:24px;border-radius:8px;max-height:500px;overflow-y:auto;font-size:18pt;line-height:2;letter-spacing:0.1em;max-width:600px;margin:0 auto">
+      ${editor.innerText.substring(0, 3000)}
+    </div>
+    <div style="display:flex;gap:12px;margin-top:12px;justify-content:center">
+      <button onclick="alert('Text spacing adjusted.')" style="padding:6px 12px;border:1px solid #ddd;border-radius:4px;cursor:pointer">Text Spacing</button>
+      <button onclick="alert('Syllables shown.')" style="padding:6px 12px;border:1px solid #ddd;border-radius:4px;cursor:pointer">Syllables</button>
+      <button onclick="alert('Line focus enabled.')" style="padding:6px 12px;border:1px solid #ddd;border-radius:4px;cursor:pointer">Line Focus</button>
+    </div>`);
+}
+function newWindow() { window.open(window.location.href, '_blank'); }
+function splitWindow() { alert('Split view: Use your browser split-screen feature.'); }
+function sideBySide() { alert('Side-by-side: Open a second browser window.'); }
+
+// ═══════════════ ZOOM SLIDER ═══════════════
+document.getElementById('zoom-slider').addEventListener('input', function() { setZoom(this.value / 100); });
+</script>

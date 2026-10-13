@@ -103,7 +103,7 @@ function showEditorPanel() {
   }
   document.getElementById('editor-results').innerHTML = html;
 }
-const COMMON_WORDS = new Set('the be to of and a in that have i it for not on with he as you do at this but his by from they we say her she or an will my one all would there their what so up out if about who get which go me when make can like time no just him know take people into year your good some could them see other than then now look only come its over think also back after use two how our work first well way even new want because any these give day most us is are was were been has had did does said says got make made going went gone came saw seen took taken gave given told asked seemed felt put set let run ran sing sang drink drank eat ate sleep slept wake woke drive drove ride rode fly flew swim swam write wrote read draw drew throw threw catch caught break broke speak spoke hear heard understand understood learn learned teach taught think thought know knew grow grew win won lose lost find found leave left keep kept hold held stand stood sit sat pay paid meet met bring brought begin began start stop stopped help helped play played watch looked listen try tried need wanted use used find felt move moved live lived believe turn turned ask asked answer called worked looked seemed felt became left put mean meant keep let begin started showed heard run ran lost paid met included continued set learned changed lead walked won offered kept closing dealing opening ending starting running going coming making taking getting giving putting bringing turning keeping holding letting beginning adding ending moving living walking working playing watching listening reading writing drawing throwing catching breaking speaking hearing understanding learning teaching thinking knowing growing winning losing finding leaving keeping holding standing sitting paying meeting bringing starting stopping helping using trying needing wanting asking answering calling working believing turning moving living'.split(' ')));
+const COMMON_WORDS = new Set('the be to of and a in that have i it for not on with he as you do at this but his by from they we say her she or an will my one all would there their what so up out if about who get which go me when make can like time no just him know take people into year your good some could them see other than then now look only come its over think also back after use two how our work first well way even new want because any these give day most us is are was were been has had did does said says got make made going went gone came saw seen took taken gave given told asked seemed felt put set let run ran sing sang drink drank eat ate sleep slept wake woke drive drove ride rode fly flew swim swam write wrote read draw drew throw threw catch caught break broke speak spoke hear heard understand understood learn learned teach taught think thought know knew grow grew win won lose lost find found leave left keep kept hold held stand stood sit sat pay paid meet met bring brought begin began start stop stopped help helped play played watch looked listen try tried need wanted use used find felt move moved live lived believe turn turned ask asked answer called worked looked seemed felt became left put mean meant keep let begin started showed heard run ran lost paid met included continued set learned changed lead walked won offered kept closing dealing opening ending starting running going coming making taking getting giving putting bringing turning keeping holding letting beginning adding ending moving living walking working playing watching listening reading writing drawing throwing catching breaking speaking hearing understanding learning teaching thinking knowing growing winning losing finding leaving keeping holding standing sitting paying meeting bringing starting stopping helping using trying needing wanting asking answering calling working believing turning moving living'.split(' '));
 
 function showThesaurus() {
   const sel = window.getSelection().toString() || prompt('Enter a word:');
@@ -270,35 +270,66 @@ function runMacro() {
 let drawing = false, drawMode = false, currentPen = 'pen', strokes = [];
 function setPen(p) {
   currentPen = p;
-  document.getElementById('btn-drawmode')?.classList.add('active');
   if (!drawMode) toggleDrawMode();
 }
 function toggleDrawMode() {
   drawMode = !drawMode;
-  document.getElementById('btn-drawmode').classList.toggle('active', drawMode);
-  const canvas = document.getElementById('ink-canvas');
+  var btn = document.getElementById('btn-drawmode');
+  if (btn) btn.classList.toggle('active', drawMode);
+  var canvas = document.getElementById('ink-canvas');
+  var page = document.getElementById('editor-page');
   if (drawMode) {
-    const pc = document.getElementById('page-container');
-    canvas.width = pc.scrollWidth; canvas.height = pc.scrollHeight;
+    // Canvas is inside editor-page, so position at 0,0 relative to page
+    canvas.width = page.offsetWidth;
+    canvas.height = page.offsetHeight;
     canvas.style.display = 'block';
+    canvas.style.position = 'absolute';
+    canvas.style.left = '0';
+    canvas.style.top = '0';
+    canvas.style.width = page.offsetWidth + 'px';
+    canvas.style.height = page.offsetHeight + 'px';
     canvas.style.pointerEvents = 'auto';
     canvas.style.cursor = 'crosshair';
+    canvas.style.zIndex = '50';
     canvas.addEventListener('mousedown', startDraw);
     canvas.addEventListener('mousemove', doDraw);
     canvas.addEventListener('mouseup', endDraw);
+    canvas.addEventListener('mouseleave', endDraw);
     canvas.addEventListener('touchstart', startDraw);
     canvas.addEventListener('touchmove', doDraw);
     canvas.addEventListener('touchend', endDraw);
+    // Show visual indicator
+    showDrawIndicator(true);
+    // Listen for Escape to exit
+    document.addEventListener('keydown', drawEscapeHandler);
   } else {
     canvas.style.display = 'none';
     canvas.style.pointerEvents = 'none';
     canvas.removeEventListener('mousedown', startDraw);
     canvas.removeEventListener('mousemove', doDraw);
     canvas.removeEventListener('mouseup', endDraw);
+    canvas.removeEventListener('mouseleave', endDraw);
     canvas.removeEventListener('touchstart', startDraw);
     canvas.removeEventListener('touchmove', doDraw);
     canvas.removeEventListener('touchend', endDraw);
+    showDrawIndicator(false);
+    document.removeEventListener('keydown', drawEscapeHandler);
   }
+}
+function drawEscapeHandler(e) {
+  if (e.key === 'Escape' && drawMode) toggleDrawMode();
+}
+function showDrawIndicator(on) {
+  var ind = document.getElementById('draw-indicator');
+  if (on) {
+    if (!ind) {
+      ind = document.createElement('div');
+      ind.id = 'draw-indicator';
+      ind.style.cssText = 'position:fixed;bottom:40px;left:50%;transform:translateX(-50%);background:#c0392b;color:#fff;padding:6px 16px;border-radius:20px;font-size:12px;z-index:9999;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.3)';
+      ind.textContent = '✏️ Drawing mode — press Esc or click "Draw on Page" to stop';
+      document.body.appendChild(ind);
+    }
+  } else if (ind) ind.remove();
 }
 function startDraw(e) {
   e.preventDefault();

@@ -118,3 +118,79 @@ select,input{font-family:inherit;font-size:13px}
   <div class="tab" data-panel="panel-review" onclick="switchTab(this)">Review</div>
   <div class="tab" data-panel="panel-view" onclick="switchTab(this)">View</div>
 </div>
+<script>
+// STANDALONE tab switching — runs immediately, independent of all other scripts
+function switchTab(t) {
+  var all = document.querySelectorAll('#ribbon-tabs .tab');
+  for (var i = 0; i < all.length; i++) all[i].classList.remove('active');
+  var panels = document.querySelectorAll('.ribbon-panel');
+  for (var j = 0; j < panels.length; j++) panels[j].classList.remove('active');
+  t.classList.add('active');
+  if (t.classList.contains('file-tab')) {
+    document.getElementById('backstage').style.display = 'flex';
+    // Try to show home panel if that function exists yet
+    try { showBackstagePanel('new'); } catch(e) {}
+    return;
+  }
+  var p = document.getElementById(t.getAttribute('data-panel'));
+  if (p) {
+    p.classList.add('active');
+    // Also set inline style as belt-and-suspenders
+    p.style.display = 'flex';
+    // Remove inline display from all others
+    for (var k = 0; k < panels.length; k++) {
+      if (panels[k] !== p) panels[k].style.display = 'none';
+    }
+  }
+}
+// Also attach via addEventListener as another fallback
+document.getElementById('ribbon-tabs').addEventListener('click', function(e) {
+  var t = e.target;
+  while (t && t !== this && !t.classList.contains('tab')) t = t.parentNode;
+  if (t && t !== this && t.classList.contains('tab')) switchTab(t);
+});
+console.log('Tab switching loaded OK');
+</script>
+<script>
+// STANDALONE backstage functions — bulletproof, defined early
+function closeBackstage() {
+  document.getElementById('backstage').style.display = 'none';
+  // Re-activate the current ribbon tab
+  var active = document.querySelector('#ribbon-tabs .tab.active');
+  if (active) active.classList.add('active');
+}
+function showBackstagePanel(panel) {
+  var c = document.getElementById('backstage-content');
+  if (!c) return;
+  // Highlight nav
+  var navs = document.querySelectorAll('.bs-nav');
+  for (var i = 0; i < navs.length; i++) {
+    navs[i].style.background = '';
+    navs[i].style.fontWeight = '';
+    if (navs[i].textContent.trim().toLowerCase() === panel.toLowerCase()) {
+      navs[i].style.background = 'rgba(255,255,255,.15)';
+      navs[i].style.fontWeight = '700';
+    }
+  }
+  // Default content per panel
+  var d = new Date().toLocaleString();
+  var content = {
+    home: '<h2>I can\'t believe it\'s not Word</h2><p style="color:#666">A word processor that runs in your browser.</p><div style="margin-top:16px"><button onclick="newDoc()" style="padding:12px 24px;border:1px solid #ddd;border-radius:4px;cursor:pointer;margin-right:8px">&#128196; New blank document</button><button onclick="openLocalFile()" style="padding:12px 24px;border:1px solid #ddd;border-radius:4px;cursor:pointer">&#128193; Open a file</button></div>',
+    new: '<h2>New</h2><div style="display:flex;gap:16px;margin-top:16px"><button onclick="newDoc()" style="padding:12px 24px;border:1px solid #ddd;border-radius:4px;cursor:pointer">&#128196; Blank document</button><button onclick="newDoc()" style="padding:12px 24px;border:1px solid #ddd;border-radius:4px;cursor:pointer">&#128196; Resume</button><button onclick="newDoc()" style="padding:12px 24px;border:1px solid #ddd;border-radius:4px;cursor:pointer">&#128196; Report</button></div>',
+    open: '<h2>Open</h2><div style="margin-top:16px"><button onclick="openLocalFile()" style="padding:12px 24px;border:1px solid #ddd;border-radius:4px;cursor:pointer">&#128193; Browse this device...</button></div>',
+    info: '<h2>Info</h2><div style="margin-top:16px"><p><b>Pages:</b> <span id="info-pages">1</span></p><p><b>Words:</b> <span id="info-words">0</span></p><p><b>Characters:</b> <span id="info-chars">0</span></p><p><b>Created:</b> ' + d + '</p><p style="margin-top:12px"><button onclick="encryptDoc()" style="padding:8px 16px;border:1px solid #ddd;border-radius:4px;cursor:pointer">&#128274; Encrypt with Password</button></p></div>',
+    save: '',
+    saveas: '<h2>Save As</h2><div style="margin-top:16px"><p>File name:</p><input id="saveas-name" value="Document" style="width:300px;padding:6px;border:1px solid #ccc;border-radius:4px;margin:8px 0"><p>Save as type:</p><select id="saveas-type" style="width:300px;padding:6px;border:1px solid #ccc;border-radius:4px;margin:8px 0"><option value="html">Web Page (.html)</option><option value="txt">Plain Text (.txt)</option></select><br><button onclick="doSaveAs()" style="padding:8px 24px;background:#2b579a;color:#fff;border:none;border-radius:4px;cursor:pointer">Save</button></div>',
+    print: '<h2>Print</h2><div style="margin-top:16px"><button onclick="window.print()" style="padding:12px 32px;background:#2b579a;color:#fff;border:none;border-radius:4px;font-size:16px;cursor:pointer">&#128424; Print</button></div>',
+    share: '<h2>Share</h2><div style="margin-top:16px"><button onclick="shareByEmail()" style="padding:12px 24px;background:#2b579a;color:#fff;border:none;border-radius:4px;cursor:pointer">&#9993; Send via Email</button></div>',
+    export: '<h2>Export</h2><div style="margin-top:16px"><button onclick="exportPDF()" style="padding:12px 24px;background:#c0392b;color:#fff;border:none;border-radius:4px;cursor:pointer;margin-right:8px">&#128196; PDF</button><button onclick="exportFile(\'html\')" style="padding:12px 24px;border:1px solid #ddd;border-radius:4px;cursor:pointer;margin-right:8px">HTML</button><button onclick="exportFile(\'txt\')" style="padding:12px 24px;border:1px solid #ddd;border-radius:4px;cursor:pointer">TXT</button></div>',
+    transform: '<h2>Transform</h2><p style="margin-top:16px">Turn your document into a web page.</p>',
+    account: '<h2>Account</h2><div style="margin-top:16px;display:flex;gap:16px"><div style="width:64px;height:64px;border-radius:50%;background:#7c4dff;display:flex;align-items:center;justify-content:center;color:#fff;font-size:28px;font-weight:700">W</div><div><p><b>Word User</b></p><p style="color:#999">user@example.com</p><p style="color:#999;font-size:11px">I can\'t believe it\'s not Word (Free Web Edition)</p></div></div>',
+    options: '<h2>Options</h2><div style="margin-top:16px"><label style="display:block;margin:8px 0"><input type="checkbox" checked> Show paragraph marks</label><label style="display:block;margin:8px 0"><input type="checkbox" checked> Check spelling as you type</label><label style="display:block;margin:8px 0"><input type="checkbox"> Update fields before printing</label></div>'
+  };
+  if (panel === 'save') { saveDoc(); return; }
+  c.innerHTML = content[panel] || '<h2>' + panel + '</h2><p style="color:#999;margin-top:16px">Coming soon.</p>';
+  c.scrollTop = 0;
+}
+console.log('Backstage functions loaded OK');
+</script>

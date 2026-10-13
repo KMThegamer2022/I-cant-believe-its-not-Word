@@ -118,6 +118,82 @@ select,input{font-family:inherit;font-size:13px}
   <div class="tab" data-panel="panel-review" onclick="switchTab(this)">Review</div>
   <div class="tab" data-panel="panel-view" onclick="switchTab(this)">View</div>
 </div>
+<script>
+// STANDALONE tab switching — runs immediately, independent of all other scripts
+function switchTab(t) {
+  var all = document.querySelectorAll('#ribbon-tabs .tab');
+  for (var i = 0; i < all.length; i++) all[i].classList.remove('active');
+  var panels = document.querySelectorAll('.ribbon-panel');
+  for (var j = 0; j < panels.length; j++) panels[j].classList.remove('active');
+  t.classList.add('active');
+  if (t.classList.contains('file-tab')) {
+    document.getElementById('backstage').style.display = 'flex';
+    // Try to show home panel if that function exists yet
+    try { showBackstagePanel('new'); } catch(e) {}
+    return;
+  }
+  var p = document.getElementById(t.getAttribute('data-panel'));
+  if (p) {
+    p.classList.add('active');
+    // Also set inline style as belt-and-suspenders
+    p.style.display = 'flex';
+    // Remove inline display from all others
+    for (var k = 0; k < panels.length; k++) {
+      if (panels[k] !== p) panels[k].style.display = 'none';
+    }
+  }
+}
+// Also attach via addEventListener as another fallback
+document.getElementById('ribbon-tabs').addEventListener('click', function(e) {
+  var t = e.target;
+  while (t && t !== this && !t.classList.contains('tab')) t = t.parentNode;
+  if (t && t !== this && t.classList.contains('tab')) switchTab(t);
+});
+console.log('Tab switching loaded OK');
+</script>
+<script>
+// STANDALONE backstage functions — bulletproof, defined early
+function closeBackstage() {
+  document.getElementById('backstage').style.display = 'none';
+  // Re-activate the current ribbon tab
+  var active = document.querySelector('#ribbon-tabs .tab.active');
+  if (active) active.classList.add('active');
+}
+function showBackstagePanel(panel) {
+  var c = document.getElementById('backstage-content');
+  if (!c) return;
+  // Highlight nav
+  var navs = document.querySelectorAll('.bs-nav');
+  for (var i = 0; i < navs.length; i++) {
+    navs[i].style.background = '';
+    navs[i].style.fontWeight = '';
+    if (navs[i].textContent.trim().toLowerCase() === panel.toLowerCase()) {
+      navs[i].style.background = 'rgba(255,255,255,.15)';
+      navs[i].style.fontWeight = '700';
+    }
+  }
+  // Default content per panel
+  var d = new Date().toLocaleString();
+  var content = {
+    home: '<h2>I can\'t believe it\'s not Word</h2><p style="color:#666">A word processor that runs in your browser.</p><div style="margin-top:16px"><button onclick="newDoc()" style="padding:12px 24px;border:1px solid #ddd;border-radius:4px;cursor:pointer;margin-right:8px">&#128196; New blank document</button><button onclick="openLocalFile()" style="padding:12px 24px;border:1px solid #ddd;border-radius:4px;cursor:pointer">&#128193; Open a file</button></div>',
+    new: '<h2>New</h2><div style="display:flex;gap:16px;margin-top:16px"><button onclick="newDoc()" style="padding:12px 24px;border:1px solid #ddd;border-radius:4px;cursor:pointer">&#128196; Blank document</button><button onclick="newDoc()" style="padding:12px 24px;border:1px solid #ddd;border-radius:4px;cursor:pointer">&#128196; Resume</button><button onclick="newDoc()" style="padding:12px 24px;border:1px solid #ddd;border-radius:4px;cursor:pointer">&#128196; Report</button></div>',
+    open: '<h2>Open</h2><div style="margin-top:16px"><button onclick="openLocalFile()" style="padding:12px 24px;border:1px solid #ddd;border-radius:4px;cursor:pointer">&#128193; Browse this device...</button></div>',
+    info: '<h2>Info</h2><div style="margin-top:16px"><p><b>Pages:</b> <span id="info-pages">1</span></p><p><b>Words:</b> <span id="info-words">0</span></p><p><b>Characters:</b> <span id="info-chars">0</span></p><p><b>Created:</b> ' + d + '</p><p style="margin-top:12px"><button onclick="encryptDoc()" style="padding:8px 16px;border:1px solid #ddd;border-radius:4px;cursor:pointer">&#128274; Encrypt with Password</button></p></div>',
+    save: '',
+    saveas: '<h2>Save As</h2><div style="margin-top:16px"><p>File name:</p><input id="saveas-name" value="Document" style="width:300px;padding:6px;border:1px solid #ccc;border-radius:4px;margin:8px 0"><p>Save as type:</p><select id="saveas-type" style="width:300px;padding:6px;border:1px solid #ccc;border-radius:4px;margin:8px 0"><option value="html">Web Page (.html)</option><option value="txt">Plain Text (.txt)</option></select><br><button onclick="doSaveAs()" style="padding:8px 24px;background:#2b579a;color:#fff;border:none;border-radius:4px;cursor:pointer">Save</button></div>',
+    print: '<h2>Print</h2><div style="margin-top:16px"><button onclick="window.print()" style="padding:12px 32px;background:#2b579a;color:#fff;border:none;border-radius:4px;font-size:16px;cursor:pointer">&#128424; Print</button></div>',
+    share: '<h2>Share</h2><div style="margin-top:16px"><button onclick="shareByEmail()" style="padding:12px 24px;background:#2b579a;color:#fff;border:none;border-radius:4px;cursor:pointer">&#9993; Send via Email</button></div>',
+    export: '<h2>Export</h2><div style="margin-top:16px"><button onclick="exportPDF()" style="padding:12px 24px;background:#c0392b;color:#fff;border:none;border-radius:4px;cursor:pointer;margin-right:8px">&#128196; PDF</button><button onclick="exportFile(\'html\')" style="padding:12px 24px;border:1px solid #ddd;border-radius:4px;cursor:pointer;margin-right:8px">HTML</button><button onclick="exportFile(\'txt\')" style="padding:12px 24px;border:1px solid #ddd;border-radius:4px;cursor:pointer">TXT</button></div>',
+    transform: '<h2>Transform</h2><p style="margin-top:16px">Turn your document into a web page.</p>',
+    account: '<h2>Account</h2><div style="margin-top:16px;display:flex;gap:16px"><div style="width:64px;height:64px;border-radius:50%;background:#7c4dff;display:flex;align-items:center;justify-content:center;color:#fff;font-size:28px;font-weight:700">W</div><div><p><b>Word User</b></p><p style="color:#999">user@example.com</p><p style="color:#999;font-size:11px">I can\'t believe it\'s not Word (Free Web Edition)</p></div></div>',
+    options: '<h2>Options</h2><div style="margin-top:16px"><label style="display:block;margin:8px 0"><input type="checkbox" checked> Show paragraph marks</label><label style="display:block;margin:8px 0"><input type="checkbox" checked> Check spelling as you type</label><label style="display:block;margin:8px 0"><input type="checkbox"> Update fields before printing</label></div>'
+  };
+  if (panel === 'save') { saveDoc(); return; }
+  c.innerHTML = content[panel] || '<h2>' + panel + '</h2><p style="color:#999;margin-top:16px">Coming soon.</p>';
+  c.scrollTop = 0;
+}
+console.log('Backstage functions loaded OK');
+</script>
 
 <div id="ribbon">
 <!-- ═══════ HOME ═══════ -->
@@ -729,11 +805,10 @@ select,input{font-family:inherit;font-size:13px}
   </div>
   <!-- Page Container -->
   <div id="page-container" style="flex:1;overflow:auto;background:var(--page-bg);padding:20px">
-    <div id="editor-page" style="background:#fff;width:816px;min-height:1056px;margin:0 auto;box-shadow:0 2px 8px rgba(0,0,0,.25);padding:72px 72px;position:relative;outline:none;font-size:12pt;line-height:1.15" contenteditable="true" spellcheck="true">
+    <div id="editor-page" style="background:#fff;width:816px;min-height:1056px;margin:0 auto;box-shadow:0 2px 8px rgba(0,0,0,.25);padding:72px;position:relative;outline:none;font-size:12pt;line-height:1.15" contenteditable="true" spellcheck="true">
       <p>Start typing your document here...</p>
+      <canvas id="ink-canvas" style="display:none;position:absolute;top:0;left:0;pointer-events:none;z-index:50"></canvas>
     </div>
-    <!-- Drawing canvas overlay -->
-    <canvas id="ink-canvas" style="display:none;position:absolute;top:0;left:0;pointer-events:none;z-index:50"></canvas>
   </div>
   <!-- Comments Pane -->
   <div id="comments-pane" style="display:none;width:280px;background:#f9f9f9;border-left:1px solid var(--border);flex-shrink:0;overflow-y:auto;padding:10px">
@@ -1443,218 +1518,7 @@ function insertSectionBreak() { insertPageBreak(); }
 
 <script>
 // ═══════════════ RIBBON / UI ═══════════════
-// Tab switching — inline onclick calls this directly (bulletproof)
-function switchTab(t) {
-  try {
-    document.querySelectorAll('#ribbon-tabs .tab').forEach(x=>x.classList.remove('active'));
-    document.querySelectorAll('.ribbon-panel').forEach(x=>x.classList.remove('active'));
-    t.classList.add('active');
-    if (t.classList.contains('file-tab')) {
-      document.getElementById('backstage').style.display = 'flex';
-      showBackstagePanel('new');
-      return;
-    }
-    const panel = document.getElementById(t.dataset.panel);
-    if (panel) panel.classList.add('active');
-  } catch(e) { console.error('switchTab error:', e); }
-}
-// Backup: event delegation in case inline handlers fail
-try {
-  document.getElementById('ribbon-tabs').addEventListener('click', (e) => {
-    const t = e.target.closest('.tab');
-    if (t) switchTab(t);
-  });
-} catch(e) {}
-function closeBackstage() { document.getElementById('backstage').style.display = 'none'; }
-function showBackstagePanel(panel) {
-  const c = document.getElementById('backstage-content');
-  document.querySelectorAll('.bs-nav').forEach(n=>{n.style.background='';n.style.fontWeight='';});
-  // Highlight the nav item that matches
-  document.querySelectorAll('.bs-nav').forEach(n=>{
-    if (n.textContent.trim().toLowerCase() === panel.toLowerCase()) { n.style.background='rgba(255,255,255,.15)'; n.style.fontWeight='700'; }
-  });
-  switch(panel) {
-    case 'home': c.innerHTML = `
-      <h2 style="margin-bottom:16px">I can't believe it's not Word</h2>
-      <p style="color:#666;margin-bottom:20px">A full-featured word processor that runs in your browser.</p>
-      <div style="display:grid;grid-template-columns:repeat(3,200px);gap:16px">
-        <button onclick="newDoc()" style="border:1px solid #ddd;border-radius:8px;padding:20px;cursor:pointer;text-align:center;background:#fff">
-          <div style="font-size:32px;margin-bottom:8px">&#128196;</div><b>New blank document</b></button>
-        <button onclick="showBackstagePanel('open')" style="border:1px solid #ddd;border-radius:8px;padding:20px;cursor:pointer;text-align:center;background:#fff">
-          <div style="font-size:32px;margin-bottom:8px">&#128193;</div><b>Open a file</b></button>
-        <button onclick="showBackstagePanel('new')" style="border:1px solid #ddd;border-radius:8px;padding:20px;cursor:pointer;text-align:center;background:#fff">
-          <div style="font-size:32px;margin-bottom:8px">&#10024;</div><b>Templates</b></button>
-      </div>`; break;
-    case 'new': c.innerHTML = `
-      <h2 style="margin-bottom:16px">New</h2>
-      <div style="display:grid;grid-template-columns:repeat(4,160px);gap:16px;margin-bottom:24px">
-        <button onclick="newDoc()" style="border:1px solid #ddd;border-radius:4px;padding:16px;cursor:pointer;text-align:center;background:#fff">
-          <div style="width:80px;height:100px;background:#fff;border:1px solid #ccc;margin:0 auto 8px;box-shadow:0 2px 4px rgba(0,0,0,.1)"></div>
-          Blank document</button>
-        <button onclick="newDoc()" style="border:1px solid #ddd;border-radius:4px;padding:16px;cursor:pointer;text-align:center;background:#fff">
-          <div style="width:80px;height:100px;background:linear-gradient(135deg,#2b579a,#7bb3f0);margin:0 auto 8px;border-radius:4px"></div>
-          Resume</button>
-        <button onclick="newDoc()" style="border:1px solid #ddd;border-radius:4px;padding:16px;cursor:pointer;text-align:center;background:#fff">
-          <div style="width:80px;height:100px;background:linear-gradient(135deg,#2e7d32,#66bb6a);margin:0 auto 8px;border-radius:4px"></div>
-          Report</button>
-        <button onclick="newDoc()" style="border:1px solid #ddd;border-radius:4px;padding:16px;cursor:pointer;text-align:center;background:#fff">
-          <div style="width:80px;height:100px;background:linear-gradient(135deg,#c62828,#ef5350);margin:0 auto 8px;border-radius:4px"></div>
-          Newsletter</button>
-      </div>
-      <p style="color:#999">Search thousands of online templates...</p>`; break;
-    case 'open': c.innerHTML = `
-      <h2 style="margin-bottom:16px">Open</h2>
-      <div style="display:flex;gap:24px">
-        <div>
-          <p style="font-weight:600;margin-bottom:8px">Recent Documents</p>
-          <div id="recent-docs"><p style="color:#999">No recent documents</p></div>
-        </div>
-        <div style="border-left:1px solid #ddd;padding-left:24px">
-          <p style="font-weight:600;margin-bottom:8px">Open from</p>
-          <button onclick="openLocalFile()" style="display:block;padding:8px 16px;border:1px solid #ddd;border-radius:4px;margin-bottom:6px;cursor:pointer;width:200px">&#128193; This Device</button>
-          <button onclick="alert('Sign in to OneDrive to open cloud documents.')" style="display:block;padding:8px 16px;border:1px solid #ddd;border-radius:4px;margin-bottom:6px;cursor:pointer;width:200px">&#9729; OneDrive</button>
-          <button onclick="alert('Connect to SharePoint.')" style="display:block;padding:8px 16px;border:1px solid #ddd;border-radius:4px;margin-bottom:6px;cursor:pointer;width:200px">&#128196; SharePoint</button>
-          <hr style="margin:8px 0">
-          <button onclick="openLocalFile()" style="display:block;padding:8px 16px;border:1px solid #ddd;border-radius:4px;cursor:pointer;width:200px">&#128269; Browse...</button>
-        </div>
-      </div>`; break;
-    case 'info': c.innerHTML = `
-      <h2 style="margin-bottom:16px">Info</h2>
-      <div style="display:flex;gap:24px">
-        <div style="flex:1">
-          <div style="margin-bottom:16px"><b>Protect Document</b>
-            <button onclick="encryptDoc()" style="display:block;padding:8px;border:1px solid #ddd;border-radius:4px;margin-top:6px;cursor:pointer;width:100%;text-align:left">&#128274; Encrypt with Password</button>
-            <button onclick="restrictEditing()" style="display:block;padding:8px;border:1px solid #ddd;border-radius:4px;margin-top:4px;cursor:pointer;width:100%;text-align:left">&#9998; Restrict Editing</button>
-            <button onclick="inspectDoc()" style="display:block;padding:8px;border:1px solid #ddd;border-radius:4px;margin-top:4px;cursor:pointer;width:100%;text-align:left">&#128065; Inspect Document</button>
-          </div>
-          <div><b>Version History</b><p style="color:#999;margin-top:4px">AutoSave to see version history.</p></div>
-        </div>
-        <div style="width:280px;border-left:1px solid #ddd;padding-left:24px">
-          <b>Properties</b>
-          <p style="margin-top:8px">Size: <span id="info-size">—</span></p>
-          <p>Pages: <span id="info-pages">1</span></p>
-          <p>Words: <span id="info-words">0</span></p>
-          <p>Characters: <span id="info-chars">0</span></p>
-          <p>Paragraphs: <span id="info-paras">0</span></p>
-          <p>Created: ${new Date().toLocaleString()}</p>
-          <p>Last modified: <span id="info-modified">—</span></p>
-        </div>
-      </div>`; break;
-    case 'save': saveDoc(); closeBackstage(); break;
-    case 'saveas': showBackstageSaveAs(); break;
-    case 'print': showBackstagePrint(); break;
-    case 'share': c.innerHTML = `
-      <h2 style="margin-bottom:16px">Share</h2>
-      <button onclick="shareByEmail()" style="display:block;padding:12px 24px;background:var(--blue);color:#fff;border:none;border-radius:4px;font-size:14px;cursor:pointer;margin-bottom:12px">&#9993; Send via Email</button>
-      <button onclick="shareAsLink()" style="display:block;padding:12px 24px;border:1px solid #ddd;border-radius:4px;font-size:14px;cursor:pointer;margin-bottom:12px">&#128279; Copy Shareable Link</button>
-      <button onclick="presentOnline()" style="display:block;padding:12px 24px;border:1px solid #ddd;border-radius:4px;font-size:14px;cursor:pointer">&#128250; Present Online</button>`; break;
-    case 'export': c.innerHTML = `
-      <h2 style="margin-bottom:16px">Export</h2>
-      <button onclick="exportPDF()" style="display:block;padding:12px 24px;background:#c0392b;color:#fff;border:none;border-radius:4px;font-size:14px;cursor:pointer;margin-bottom:12px">&#128196; Create PDF/XPS Document</button>
-      <button onclick="exportFile('docx')" style="display:block;padding:12px 24px;border:1px solid #ddd;border-radius:4px;font-size:14px;cursor:pointer;margin-bottom:12px">&#128196; Word Document (.docx)</button>
-      <button onclick="exportFile('rtf')" style="display:block;padding:12px 24px;border:1px solid #ddd;border-radius:4px;font-size:14px;cursor:pointer;margin-bottom:12px">&#128196; Rich Text Format (.rtf)</button>
-      <button onclick="exportFile('txt')" style="display:block;padding:12px 24px;border:1px solid #ddd;border-radius:4px;font-size:14px;cursor:pointer;margin-bottom:12px">&#128196; Plain Text (.txt)</button>
-      <button onclick="exportFile('html')" style="display:block;padding:12px 24px;border:1px solid #ddd;border-radius:4px;font-size:14px;cursor:pointer">&#127760; Web Page (.html)</button>`; break;
-    case 'transform': c.innerHTML = `
-      <h2 style="margin-bottom:16px">Transform</h2>
-      <p style="margin-bottom:12px">Turn your document into an interactive web page with Microsoft Sway.</p>
-      <button onclick="transformSway()" style="padding:12px 24px;background:var(--blue);color:#fff;border:none;border-radius:4px;font-size:14px;cursor:pointer">&#127760; Transform to Web Page</button>`; break;
-    case 'account': c.innerHTML = `
-      <h2 style="margin-bottom:16px">Account</h2>
-      <div style="display:flex;gap:24px">
-        <div style="width:80px;height:80px;border-radius:50%;background:#7c4dff;display:flex;align-items:center;justify-content:center;color:#fff;font-size:32px;font-weight:700">W</div>
-        <div>
-          <p style="font-weight:600">Word User</p>
-          <p style="color:#999">user@example.com</p>
-          <p style="margin-top:8px;color:#999">Product: I can't believe it's not Word (Free Web Edition)</p>
-          <button onclick="alert('Sign-in requires a Microsoft account.')" style="margin-top:12px;padding:6px 16px;border:1px solid #ddd;border-radius:4px;cursor:pointer">Sign in</button>
-        </div>
-      </div>`; break;
-    case 'options': showBackstageOptions(); break;
-  }
-}
-function showBackstageSaveAs() {
-  const c = document.getElementById('backstage-content');
-  c.innerHTML = `
-    <h2 style="margin-bottom:16px">Save As</h2>
-    <div style="display:flex;gap:24px">
-      <div>
-        <p style="font-weight:600;margin-bottom:8px">Save to</p>
-        <button onclick="saveDoc()" style="display:block;padding:8px 16px;border:1px solid #ddd;border-radius:4px;margin-bottom:6px;cursor:pointer;width:200px">&#128193; This Device</button>
-        <button onclick="alert('Sign in to save to OneDrive.')" style="display:block;padding:8px 16px;border:1px solid #ddd;border-radius:4px;margin-bottom:6px;cursor:pointer;width:200px">&#9729; OneDrive</button>
-      </div>
-      <div style="border-left:1px solid #ddd;padding-left:24px;flex:1">
-        <p style="font-weight:600;margin-bottom:8px">File name:</p>
-        <input id="saveas-name" value="${document.getElementById('docname').value}" style="width:100%;padding:6px;border:1px solid #ccc;border-radius:4px;margin-bottom:8px">
-        <p style="font-weight:600;margin-bottom:4px">Save as type:</p>
-        <select id="saveas-type" style="width:100%;padding:6px;border:1px solid #ccc;border-radius:4px;margin-bottom:12px">
-          <option value="html">Web Page (.html)</option>
-          <option value="txt">Plain Text (.txt)</option>
-          <option value="rtf">Rich Text Format (.rtf)</option>
-        </select>
-        <button onclick="doSaveAs()" style="padding:8px 24px;background:var(--blue);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px">Save</button>
-      </div>
-    </div>`;
-}
-function showBackstagePrint() {
-  const c = document.getElementById('backstage-content');
-  c.innerHTML = `
-    <h2 style="margin-bottom:16px">Print</h2>
-    <div style="display:flex;gap:24px">
-      <div>
-        <button onclick="window.print()" style="padding:12px 32px;background:var(--blue);color:#fff;border:none;border-radius:4px;font-size:16px;cursor:pointer;margin-bottom:16px">&#128424; Print</button>
-        <p style="font-weight:600;margin-bottom:8px">Printer</p>
-        <select style="width:240px;padding:6px;border:1px solid #ccc;border-radius:4px;margin-bottom:12px">
-          <option>Save as PDF</option>
-          <option>System Default Printer</option>
-        </select>
-        <p style="font-weight:600;margin-bottom:4px">Copies:</p>
-        <input type="number" value="1" min="1" style="width:80px;padding:6px;border:1px solid #ccc;border-radius:4px">
-        <hr style="margin:12px 0">
-        <p style="font-weight:600;margin-bottom:4px">Pages</p>
-        <p style="font-size:12px;color:#666">All pages</p>
-        <p style="font-weight:600;margin-top:8px;margin-bottom:4px">Sides</p>
-        <select style="width:200px;padding:4px;border:1px solid #ccc;border-radius:4px"><option>Print One Sided</option><option>Print on Both Sides</option></select>
-        <p style="font-weight:600;margin-top:8px;margin-bottom:4px">Orientation</p>
-        <select style="width:200px;padding:4px;border:1px solid #ccc;border-radius:4px"><option>Portrait</option><option>Landscape</option></select>
-        <p style="font-weight:600;margin-top:8px;margin-bottom:4px">Margins</p>
-        <select style="width:200px;padding:4px;border:1px solid #ccc;border-radius:4px"><option>Normal (1")</option><option>Narrow (0.5")</option><option>Moderate (0.75")</option><option>Wide (2")</option></select>
-      </div>
-      <div style="border-left:1px solid #ddd;padding-left:24px;flex:1;background:#f5f5f5;display:flex;justify-content:center;align-items:flex-start">
-        <div style="background:#fff;width:408px;height:528px;box-shadow:0 2px 8px rgba(0,0,0,.2);padding:36px;font-size:11px;overflow:hidden" id="print-preview">${editor.innerHTML.substring(0,2000)}</div>
-      </div>
-    </div>`;
-}
-function showBackstageOptions() {
-  const c = document.getElementById('backstage-content');
-  c.innerHTML = `
-    <h2 style="margin-bottom:16px">Word Options</h2>
-    <div style="display:flex;gap:24px">
-      <div style="width:160px">
-        <p class="opt-nav active" onclick="showOptPanel('display')" style="padding:6px 12px;cursor:pointer;border-radius:4px;background:#e8f0fe">Display</p>
-        <p class="opt-nav" onclick="showOptPanel('proofing')" style="padding:6px 12px;cursor:pointer;border-radius:4px">Proofing</p>
-        <p class="opt-nav" onclick="showOptPanel('language')" style="padding:6px 12px;cursor:pointer;border-radius:4px">Language</p>
-        <p class="opt-nav" onclick="showOptPanel('ribbon')" style="padding:6px 12px;cursor:pointer;border-radius:4px">Customize Ribbon</p>
-        <p class="opt-nav" onclick="showOptPanel('addins')" style="padding:6px 12px;cursor:pointer;border-radius:4px">Add-ins</p>
-        <p class="opt-nav" onclick="showOptPanel('trust')" style="padding:6px 12px;cursor:pointer;border-radius:4px">Trust Center</p>
-      </div>
-      <div id="opt-panel" style="flex:1;border-left:1px solid #ddd;padding-left:24px"></div>
-    </div>`;
-  showOptPanel('display');
-}
-function showOptPanel(p) {
-  const el = document.getElementById('opt-panel');
-  const panels = {
-    display: '<h3>Display</h3><label style="display:block;margin:8px 0"><input type="checkbox" checked> Show paragraph marks</label><label style="display:block;margin:8px 0"><input type="checkbox"> Show text boundaries</label><label style="display:block;margin:8px 0"><input type="checkbox" checked> Show white space between pages</label><label style="display:block;margin:8px 0"><input type="checkbox"> Update fields before printing</label>',
-    proofing: '<h3>Proofing</h3><label style="display:block;margin:8px 0"><input type="checkbox" checked> Check spelling as you type</label><label style="display:block;margin:8px 0"><input type="checkbox" checked> Mark grammar errors as you type</label><label style="display:block;margin:8px 0"><input type="checkbox"> Frequently confused words</label><label style="display:block;margin:8px 0"><input type="checkbox"> Writing style: Grammar & Refinements</label>',
-    language: '<h3>Language</h3><p style="margin:8px 0">Authoring language: English (United States)</p><button style="padding:6px 16px;border:1px solid #ddd;border-radius:4px;cursor:pointer">Add a Language...</button>',
-    ribbon: '<h3>Customize Ribbon</h3><p style="margin:8px 0;color:#666">Choose which tabs and commands to display.</p><label style="display:block;margin:4px 0"><input type="checkbox" checked> Home</label><label style="display:block;margin:4px 0"><input type="checkbox" checked> Insert</label><label style="display:block;margin:4px 0"><input type="checkbox" checked> Draw</label><label style="display:block;margin:4px 0"><input type="checkbox" checked> Design</label><label style="display:block;margin:4px 0"><input type="checkbox" checked> Layout</label><label style="display:block;margin:4px 0"><input type="checkbox" checked> References</label><label style="display:block;margin:4px 0"><input type="checkbox" checked> Mailings</label><label style="display:block;margin:4px 0"><input type="checkbox" checked> Review</label><label style="display:block;margin:4px 0"><input type="checkbox" checked> View</label>',
-    addins: '<h3>Add-ins</h3><p style="margin:8px 0;color:#666">Manage Office Add-ins</p><button style="padding:6px 16px;border:1px solid #ddd;border-radius:4px;cursor:pointer;margin-right:8px">Store</button><button style="padding:6px 16px;border:1px solid #ddd;border-radius:4px;cursor:pointer">My Add-ins</button>',
-    trust: '<h3>Trust Center</h3><p style="margin:8px 0;color:#666">Protect your privacy and documents.</p><button onclick="alert('Trust Center settings are managed at the browser/OS level for web apps.')" style="padding:6px 16px;border:1px solid #ddd;border-radius:4px;cursor:pointer">Trust Center Settings...</button>'
-  };
-  el.innerHTML = panels[p] || '';
-}
-
+// switchTab, closeBackstage, showBackstagePanel, showBackstageSaveAs, showBackstagePrint, showBackstageOptions, showOptPanel are all defined in module 00 (standalone scripts)
 // ═══════════════ STATUS BAR ═══════════════
 function updateStatus() {
   const text = editor.innerText || '';
@@ -1914,7 +1778,7 @@ function showEditorPanel() {
   }
   document.getElementById('editor-results').innerHTML = html;
 }
-const COMMON_WORDS = new Set('the be to of and a in that have i it for not on with he as you do at this but his by from they we say her she or an will my one all would there their what so up out if about who get which go me when make can like time no just him know take people into year your good some could them see other than then now look only come its over think also back after use two how our work first well way even new want because any these give day most us is are was were been has had did does said says got make made going went gone came saw seen took taken gave given told asked seemed felt put set let run ran sing sang drink drank eat ate sleep slept wake woke drive drove ride rode fly flew swim swam write wrote read draw drew throw threw catch caught break broke speak spoke hear heard understand understood learn learned teach taught think thought know knew grow grew win won lose lost find found leave left keep kept hold held stand stood sit sat pay paid meet met bring brought begin began start stop stopped help helped play played watch looked listen try tried need wanted use used find felt move moved live lived believe turn turned ask asked answer called worked looked seemed felt became left put mean meant keep let begin started showed heard run ran lost paid met included continued set learned changed lead walked won offered kept closing dealing opening ending starting running going coming making taking getting giving putting bringing turning keeping holding letting beginning adding ending moving living walking working playing watching listening reading writing drawing throwing catching breaking speaking hearing understanding learning teaching thinking knowing growing winning losing finding leaving keeping holding standing sitting paying meeting bringing starting stopping helping using trying needing wanting asking answering calling working believing turning moving living'.split(' ')));
+const COMMON_WORDS = new Set('the be to of and a in that have i it for not on with he as you do at this but his by from they we say her she or an will my one all would there their what so up out if about who get which go me when make can like time no just him know take people into year your good some could them see other than then now look only come its over think also back after use two how our work first well way even new want because any these give day most us is are was were been has had did does said says got make made going went gone came saw seen took taken gave given told asked seemed felt put set let run ran sing sang drink drank eat ate sleep slept wake woke drive drove ride rode fly flew swim swam write wrote read draw drew throw threw catch caught break broke speak spoke hear heard understand understood learn learned teach taught think thought know knew grow grew win won lose lost find found leave left keep kept hold held stand stood sit sat pay paid meet met bring brought begin began start stop stopped help helped play played watch looked listen try tried need wanted use used find felt move moved live lived believe turn turned ask asked answer called worked looked seemed felt became left put mean meant keep let begin started showed heard run ran lost paid met included continued set learned changed lead walked won offered kept closing dealing opening ending starting running going coming making taking getting giving putting bringing turning keeping holding letting beginning adding ending moving living walking working playing watching listening reading writing drawing throwing catching breaking speaking hearing understanding learning teaching thinking knowing growing winning losing finding leaving keeping holding standing sitting paying meeting bringing starting stopping helping using trying needing wanting asking answering calling working believing turning moving living'.split(' '));
 
 function showThesaurus() {
   const sel = window.getSelection().toString() || prompt('Enter a word:');
@@ -2081,35 +1945,66 @@ function runMacro() {
 let drawing = false, drawMode = false, currentPen = 'pen', strokes = [];
 function setPen(p) {
   currentPen = p;
-  document.getElementById('btn-drawmode')?.classList.add('active');
   if (!drawMode) toggleDrawMode();
 }
 function toggleDrawMode() {
   drawMode = !drawMode;
-  document.getElementById('btn-drawmode').classList.toggle('active', drawMode);
-  const canvas = document.getElementById('ink-canvas');
+  var btn = document.getElementById('btn-drawmode');
+  if (btn) btn.classList.toggle('active', drawMode);
+  var canvas = document.getElementById('ink-canvas');
+  var page = document.getElementById('editor-page');
   if (drawMode) {
-    const pc = document.getElementById('page-container');
-    canvas.width = pc.scrollWidth; canvas.height = pc.scrollHeight;
+    // Canvas is inside editor-page, so position at 0,0 relative to page
+    canvas.width = page.offsetWidth;
+    canvas.height = page.offsetHeight;
     canvas.style.display = 'block';
+    canvas.style.position = 'absolute';
+    canvas.style.left = '0';
+    canvas.style.top = '0';
+    canvas.style.width = page.offsetWidth + 'px';
+    canvas.style.height = page.offsetHeight + 'px';
     canvas.style.pointerEvents = 'auto';
     canvas.style.cursor = 'crosshair';
+    canvas.style.zIndex = '50';
     canvas.addEventListener('mousedown', startDraw);
     canvas.addEventListener('mousemove', doDraw);
     canvas.addEventListener('mouseup', endDraw);
+    canvas.addEventListener('mouseleave', endDraw);
     canvas.addEventListener('touchstart', startDraw);
     canvas.addEventListener('touchmove', doDraw);
     canvas.addEventListener('touchend', endDraw);
+    // Show visual indicator
+    showDrawIndicator(true);
+    // Listen for Escape to exit
+    document.addEventListener('keydown', drawEscapeHandler);
   } else {
     canvas.style.display = 'none';
     canvas.style.pointerEvents = 'none';
     canvas.removeEventListener('mousedown', startDraw);
     canvas.removeEventListener('mousemove', doDraw);
     canvas.removeEventListener('mouseup', endDraw);
+    canvas.removeEventListener('mouseleave', endDraw);
     canvas.removeEventListener('touchstart', startDraw);
     canvas.removeEventListener('touchmove', doDraw);
     canvas.removeEventListener('touchend', endDraw);
+    showDrawIndicator(false);
+    document.removeEventListener('keydown', drawEscapeHandler);
   }
+}
+function drawEscapeHandler(e) {
+  if (e.key === 'Escape' && drawMode) toggleDrawMode();
+}
+function showDrawIndicator(on) {
+  var ind = document.getElementById('draw-indicator');
+  if (on) {
+    if (!ind) {
+      ind = document.createElement('div');
+      ind.id = 'draw-indicator';
+      ind.style.cssText = 'position:fixed;bottom:40px;left:50%;transform:translateX(-50%);background:#c0392b;color:#fff;padding:6px 16px;border-radius:20px;font-size:12px;z-index:9999;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.3)';
+      ind.textContent = '✏️ Drawing mode — press Esc or click "Draw on Page" to stop';
+      document.body.appendChild(ind);
+    }
+  } else if (ind) ind.remove();
 }
 function startDraw(e) {
   e.preventDefault();
