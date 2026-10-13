@@ -24,35 +24,45 @@ A web-based word processor that tries really hard to look and feel like Microsof
 
 ## ✨ What Actually Works (Sort Of)
 
-| Area | Status |
-|------|--------|
-| Ribbon tabs (all 10) | ✅ They switch now |
-| Rich text editing | ✅ Bold, italic, underline, etc. |
-| Font controls | ✅ Family, size, colors, effects |
-| Paragraph controls | ✅ Alignment, lists, indent, spacing |
-| Styles (Heading 1-3, Title) | ✅ Applied correctly |
-| Tables | ✅ Grid picker insertion |
-| Images | ✅ Insert from device |
-| Shapes & SmartArt | ⚠️ Basic SVG shapes |
-| Charts | ⚠️ Canvas-drawn, not data-driven |
-| Find & Replace | ✅ Works |
-| Comments | ✅ Basic sidebar |
-| Track Changes | ⚠️ Visual only, no real tracking |
-| Draw tab | ✅ Pen/highlighter/eraser on canvas |
-| Watermarks | ✅ Text only |
-| Page layout | ✅ Margins, orientation, size, columns |
-| Table of Contents | ✅ Auto-generated from headings |
-| Footnotes | ⚠️ Basic superscript + footer |
-| Citations | ⚠️ Format-only, no source database |
-| Mail Merge | ⚠️ CSV import + field insertion |
-| Macros | ⚠️ Basic recorder, no real VBA |
-| Export (PDF/HTML/TXT) | ✅ Via browser print/download |
-| Share via email | ✅ Opens mailto: link |
-| AutoSave | ⚠️ To browser localStorage only |
-| Read Aloud | ✅ Uses Web Speech API |
-| Dictation | ✅ Uses Web Speech API (Chrome) |
-| Zoom & Views | ✅ Read/Print/Web/Outline/Draft |
-| Copilot AI | ❌ Removed in v2.0 |
+| Area | Status | Notes |
+|------|--------|-------|
+| Ribbon tabs (all 10) | ✅ | Switch correctly since v4.0 |
+| Rich text editing | ✅ | Bold, italic, underline, etc. |
+| Font controls | ✅ | Family, size, colors, effects |
+| Paragraph controls | ✅ | Alignment, lists, indent, spacing |
+| Styles (Heading 1-3, Title) | ✅ | Applied correctly |
+| Tables | ✅ | Grid picker insertion |
+| Images | ✅ | Insert from device |
+| Shapes & SmartArt | ⚠️ | Basic SVG shapes only |
+| Charts | ⚠️ | Canvas-drawn, not data-driven |
+| Find & Replace | ✅ | Works |
+| Comments | ✅ | Basic sidebar |
+| Track Changes | ⚠️ | Visual only, no real tracking |
+| Draw tab | ✅ | Pen/highlighter/eraser, page-only, Esc to exit |
+| Watermarks | ✅ | Text only |
+| Page layout | ✅ | Margins, orientation, size, columns |
+| Table of Contents | ✅ | Auto-generated from headings |
+| Footnotes | ⚠️ | Basic superscript + footer |
+| Citations | ⚠️ | Format-only, no source database |
+| Mail Merge | ⚠️ | CSV import + field insertion |
+| Macros | ⚠️ | Basic recorder, no real VBA |
+| File backstage | ✅ | All panels work since v4.0 |
+| Read Aloud | ✅ | Uses Web Speech API |
+| Dictation | ✅ | Uses Web Speech API (Chrome) |
+| Zoom & Views | ✅ | Read/Print/Web/Outline/Draft |
+| Copilot AI | ❌ | Removed in v2.0 |
+
+### ❌ NOT Working Yet (planned for v5.0)
+
+| Area | Problem |
+|------|---------|
+| **Save to device** | Download function unreliable — file may not appear in Downloads |
+| **Open from device** | File picker may not load documents correctly |
+| **Share via email** | mailto: link opens but doesn't attach the file |
+| **Export (PDF/HTML/TXT)** | Depends on broken save function |
+| **AutoSave** | localStorage restore prompt unreliable on reload |
+| **Page breaks** | Visual markers exist but auto-pagination doesn't trigger reliably |
+| **Zoom (older Firefox)** | CSS `zoom` works in Chrome/Edge but may fail in older Firefox |
 
 ## 🚀 Quick Start
 
@@ -69,9 +79,10 @@ A web-based word processor that tries really hard to look and feel like Microsof
 ├── build.py                           ← combines modules into one file
 ├── README.md                          ← you are here
 └── versions/
-    ├── v1.0/     ← initial release (broken)
-    │   └── modules/ (8 files)
-    └── v2.0/     ← current (less broken)
+    ├── v1.0/     ← initial release (broken tabs)
+    ├── v2.0/     ← fixed tabs/layout, removed Copilot
+    ├── v3.0/     ← internal — never released
+    └── v4.0/     ← current (tabs, backstage, drawing fixed)
         └── modules/ (8 files)
 ```
 
@@ -79,7 +90,7 @@ A web-based word processor that tries really hard to look and feel like Microsof
 
 ```bash
 python3 build.py          # build latest version
-python3 build.py v2.0     # build specific version
+python3 build.py v4.0     # build specific version
 python3 build.py --list   # list all versions
 ```
 
@@ -88,11 +99,17 @@ python3 build.py --list   # list all versions
 | Version | Status | Changes |
 |---------|--------|---------|
 | v1.0 | ❌ Broken | Initial build. Tabs didn't switch. |
-| v2.0 | ⚠️ Less broken | Fixed tabs, fixed layout, removed Copilot. |
+| v2.0 | ⚠️ Less broken | Fixed tabs/layout, removed Copilot. |
+| v3.0 | — | Internal only, never released. |
+| **v4.0** | ⚠️ **Current** | **Tabs switch, backstage works, drawing is page-only.** |
 
-Future versions will follow semver-ish conventions:
-- **v2.1, v2.2** — minor fixes, small improvements
-- **v3.0** — major features, big changes
+### Planned for v5.0
+- Fix save to device (download reliability)
+- Fix open from device (file picker)
+- Fix share via email (file attachment)
+- Fix autoSave restore on reload
+- Fix auto page breaks while typing
+- Fix zoom in older Firefox
 
 ## 🐛 Reporting Issues
 
@@ -115,9 +132,9 @@ Got an idea for a feature? Think something could work better? [Open a suggestion
 ## 🤝 Contributing
 
 1. Fork the repo
-2. Create a version branch: `git checkout -b v2.1-my-fix`
-3. Edit the modules in `versions/v2.1/modules/`
-4. Test by running `python3 build.py v2.1`
+2. Create a version branch: `git checkout -b v5.0-my-fix`
+3. Edit the modules in `versions/v5.0/modules/`
+4. Test by running `python3 build.py v5.0`
 5. Open a PR
 
 ## 📜 Legal Stuff
