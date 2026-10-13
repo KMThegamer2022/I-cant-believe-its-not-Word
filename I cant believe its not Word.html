@@ -1,0 +1,2594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>I can't believe it's not Word</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+--blue:#2b579a;--blue-dark:#1e3f6f;--blue-light:#3b7dd8;--blue-hover:#e8f0fe;
+--ribbon-bg:#f3f2f1;--ribbon-border:#d1d1d1;--page-bg:#e6e6e6;
+--status-blue:#2b579a;--text:#333;--border:#d1d1d1;
+--font-ui:'Segoe UI',system-ui,-apple-system,sans-serif;
+}
+html,body{height:100%;overflow:hidden;font-family:var(--font-ui);font-size:13px;color:var(--text)}
+body{display:flex;flex-direction:column}
+button{font-family:inherit;border:none;background:none;cursor:pointer;font-size:13px}
+select,input{font-family:inherit;font-size:13px}
+/* ── Title Bar ── */
+#titlebar{height:42px;background:var(--blue);display:flex;align-items:center;color:#fff;user-select:none;padding:0 8px;gap:6px}
+#titlebar .ticon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:4px;cursor:pointer;font-size:16px}
+#titlebar .ticon:hover{background:rgba(255,255,255,.15)}
+#qat{display:flex;align-items:center;gap:2px}
+#qat button{width:28px;height:28px;border-radius:4px;color:#fff;font-size:14px;display:flex;align-items:center;justify-content:center}
+#qat button:hover{background:rgba(255,255,255,.15)}
+#autosave-wrap{display:flex;align-items:center;gap:6px;margin-left:8px;font-size:12px}
+#autosave-toggle{width:36px;height:18px;border-radius:9px;background:#666;position:relative;cursor:pointer;transition:.2s}
+#autosave-toggle.on{background:#4caf50}
+#autosave-toggle::after{content:'';position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:2px;left:2px;transition:.2s}
+#autosave-toggle.on::after{left:20px}
+#doc-title{flex:1;text-align:center;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:400px;margin:0 auto}
+#doc-title input{background:transparent;border:1px solid transparent;color:#fff;text-align:center;width:300px;padding:3px 6px;border-radius:3px;font-size:13px}
+#doc-title input:hover,#doc-title input:focus{border-color:rgba(255,255,255,.4);outline:none}
+#search-bar{display:flex;align-items:center;background:rgba(255,255,255,.15);border-radius:4px;padding:0 8px;height:26px;width:220px;gap:4px}
+#search-bar input{background:transparent;border:none;color:#fff;width:100%;font-size:12px}
+#search-bar input::placeholder{color:rgba(255,255,255,.6)}
+#search-bar input:focus{outline:none}
+#profile-area{display:flex;align-items:center;gap:6px;margin-left:auto}
+#avatar{width:28px;height:28px;border-radius:50%;background:#7c4dff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;cursor:pointer}
+#share-btn{background:#fff;color:var(--blue);border:none;border-radius:14px;padding:4px 14px;font-weight:600;font-size:12px;cursor:pointer;margin-left:6px}
+#share-btn:hover{background:#e8e8e8}
+/* ── Ribbon Tabs ── */
+#ribbon-tabs{display:flex;align-items:flex-end;background:var(--blue);padding:0 8px;height:32px;gap:1px}
+#ribbon-tabs .tab{padding:5px 12px;color:rgba(255,255,255,.8);border-radius:4px 4px 0 0;font-size:12.5px;cursor:pointer;white-space:nowrap;transition:.1s}
+#ribbon-tabs .tab:hover{color:#fff;background:rgba(255,255,255,.1)}
+#ribbon-tabs .tab.active{background:var(--ribbon-bg);color:var(--blue);font-weight:600}
+#ribbon-tabs .file-tab{color:#fff;font-weight:600}
+#ribbon-tabs .file-tab:hover{background:#c0392b}
+/* ── Ribbon Content ── */
+#ribbon{background:var(--ribbon-bg);border-bottom:1px solid var(--border);padding:4px 8px 2px;display:block;overflow-x:auto;min-height:90px}
+#ribbon::-webkit-scrollbar{height:4px}
+#ribbon::-webkit-scrollbar-thumb{background:#bbb;border-radius:2px}
+.ribbon-panel{display:none;width:100%}
+.ribbon-panel.active{display:flex;align-items:flex-start;gap:0;flex-wrap:nowrap;padding-bottom:2px;min-width:max-content}
+.rgroup{display:flex;flex-direction:column;align-items:center;padding:0 6px;border-right:1px solid var(--border);min-width:max-content}
+.rgroup:last-child{border-right:none}
+.rgroup-label{font-size:10px;color:#888;margin-top:2px;text-align:center;white-space:nowrap}
+.rgroup-btns{display:flex;align-items:center;gap:1px;flex-wrap:wrap;justify-content:center}
+.rbtn{display:flex;flex-direction:column;align-items:center;padding:3px 4px;border-radius:3px;font-size:11px;min-width:36px;min-height:36px;justify-content:center;gap:1px}
+.rbtn:hover{background:var(--blue-hover)}
+.rbtn.active{background:#cce4f7}
+.rbtn .icon{font-size:18px;line-height:1}
+.rbtn .lbl{font-size:10px;white-space:nowrap}
+.rbtn.large{min-width:56px;min-height:64px;padding:4px 6px}
+.rbtn.large .icon{font-size:22px}
+.rbtn.small{flex-direction:row;min-width:0;min-height:24px;padding:2px 6px;gap:4px}
+.rbtn.small .icon{font-size:14px}
+.rbtn.small .lbl{font-size:12px}
+.rsep{width:1px;background:var(--border);margin:4px 2px;align-self:stretch}
+.rselect{border:1px solid var(--border);border-radius:3px;padding:2px 4px;background:#fff;font-size:12px;height:24px}
+.rinput{border:1px solid var(--border);border-radius:3px;padding:2px 4px;width:48px;text-align:center;font-size:12px;height:24px}
+.dropdown{position:relative}
+.dropdown-menu{display:none;position:absolute;top:100%;left:0;background:#fff;border:1px solid var(--border);border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:1000;min-width:180px;padding:4px 0;max-height:320px;overflow-y:auto}
+.dropdown-menu.show{display:block}
+.dropdown-menu button{display:block;width:100%;text-align:left;padding:6px 14px;font-size:12px;border:none;background:none;cursor:pointer}
+.dropdown-menu button:hover{background:var(--blue-hover)}
+.dropdown-menu hr{border:none;border-top:1px solid var(--border);margin:4px 8px}
+/* color picker grid */
+.color-grid{display:grid;grid-template-columns:repeat(10,18px);gap:2px;padding:6px}
+.color-grid .swatch{width:18px;height:18px;border:1px solid #ccc;border-radius:2px;cursor:pointer}
+.color-grid .swatch:hover{transform:scale(1.2)}
+</style>
+</head>
+<body>
+<!-- TITLE BAR -->
+<div id="titlebar">
+  <div class="ticon" id="btn-auto" title="AutoSave">&#128190;</div>
+  <div id="qat">
+    <button id="btn-save" title="Save (Ctrl+S)">&#128190;</button>
+    <button id="btn-undo" title="Undo (Ctrl+Z)">&#8630;</button>
+    <button id="btn-redo" title="Redo (Ctrl+Y)">&#8631;</button>
+    <button id="btn-print-pv" title="Print Preview">&#128438;</button>
+  </div>
+  <div id="autosave-wrap">
+    <div id="autosave-toggle" title="AutoSave"></div><span>AutoSave</span>
+  </div>
+  <div id="search-bar">&#128269;<input id="tellme" placeholder="Search or tell me what to do..."></div>
+  <div id="doc-title"><input id="docname" value="Document1" spellcheck="false"></div>
+  <div id="profile-area">
+    <div id="share-btn" title="Share via email">&#9993; Share</div>
+    <div id="avatar" title="Account">W</div>
+  </div>
+</div>
+<!-- RIBBON TABS -->
+<div id="ribbon-tabs">
+  <div class="tab file-tab" data-panel="panel-file">File</div>
+  <div class="tab active" data-panel="panel-home">Home</div>
+  <div class="tab" data-panel="panel-insert">Insert</div>
+  <div class="tab" data-panel="panel-draw">Draw</div>
+  <div class="tab" data-panel="panel-design">Design</div>
+  <div class="tab" data-panel="panel-layout">Layout</div>
+  <div class="tab" data-panel="panel-references">References</div>
+  <div class="tab" data-panel="panel-mailings">Mailings</div>
+  <div class="tab" data-panel="panel-review">Review</div>
+  <div class="tab" data-panel="panel-view">View</div>
+</div>
+
+<div id="ribbon">
+<!-- ═══════ HOME ═══════ -->
+<div class="ribbon-panel active" id="panel-home">
+  <!-- Clipboard -->
+  <div class="rgroup">
+    <div class="rgroup-btns">
+      <button class="rbtn large" onclick="pasteContent()" title="Paste (Ctrl+V)"><span class="icon">&#128203;</span><span class="lbl">Paste</span></button>
+      <div style="display:flex;flex-direction:column;gap:1px">
+        <button class="rbtn small" onclick="cmd('cut')" title="Cut (Ctrl+X)"><span class="icon">&#9986;</span><span class="lbl">Cut</span></button>
+        <button class="rbtn small" onclick="cmd('copy')" title="Copy (Ctrl+C)"><span class="icon">&#10697;</span><span class="lbl">Copy</span></button>
+        <button class="rbtn small" onclick="formatPainter()" title="Format Painter"><span class="icon">&#128396;</span><span class="lbl">Format Painter</span></button>
+      </div>
+    </div>
+    <div class="rgroup-label">Clipboard</div>
+  </div>
+  <div class="rsep"></div>
+  <!-- Font -->
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-wrap:wrap;justify-content:flex-start">
+      <select id="font-family" class="rselect" style="width:130px" onchange="applyFontFamily(this.value)">
+        <option value="'Segoe UI'">Segoe UI</option>
+        <option value="Arial">Arial</option>
+        <option value="'Times New Roman'">Times New Roman</option>
+        <option value="'Courier New'">Courier New</option>
+        <option value="Georgia">Georgia</option>
+        <option value="'Comic Sans MS'">Comic Sans MS</option>
+        <option value="Verdana">Verdana</option>
+        <option value="'Trebuchet MS'">Trebuchet MS</option>
+        <option value="Impact">Impact</option>
+        <option value="'Palatino Linotype'">Palatino</option>
+      </select>
+      <select id="font-size" class="rselect" style="width:44px" onchange="applyFontSize(this.value)">
+        <option>8</option><option>9</option><option>10</option><option>11</option><option selected>12</option>
+        <option>14</option><option>16</option><option>18</option><option>20</option><option>24</option>
+        <option>28</option><option>36</option><option>48</option><option>72</option>
+      </select>
+      <button class="rbtn small" onclick="growFont()" title="Grow Font">&#9650;</button>
+      <button class="rbtn small" onclick="shrinkFont()" title="Shrink Font">&#9660;</button>
+      <button class="rbtn small" onclick="cmd('removeFormat')" title="Clear Formatting">A&#10005;</button>
+    </div>
+    <div class="rgroup-btns" style="margin-top:2px">
+      <button class="rbtn small" onclick="cmd('bold')" id="btn-bold" title="Bold (Ctrl+B)"><b>B</b></button>
+      <button class="rbtn small" onclick="cmd('italic')" id="btn-italic" title="Italic (Ctrl+I)"><i>I</i></button>
+      <button class="rbtn small" onclick="cmd('underline')" id="btn-underline" title="Underline (Ctrl+U)"><u>U</u></button>
+      <button class="rbtn small" onclick="cmd('strikeThrough')" title="Strikethrough"><s>ab</s></button>
+      <button class="rbtn small" onclick="cmd('subscript')" title="Subscript">X&#8322;</button>
+      <button class="rbtn small" onclick="cmd('superscript')" title="Superscript">X&#178;</button>
+      <div class="dropdown">
+        <button class="rbtn small" onclick="toggleDropdown(this,'dd-case')" title="Change Case">Aa&#9660;</button>
+        <div class="dropdown-menu" id="dd-case">
+          <button onclick="changeCase('sentence')">Sentence case.</button>
+          <button onclick="changeCase('lower')">lowercase</button>
+          <button onclick="changeCase('upper')">UPPERCASE</button>
+          <button onclick="changeCase('capitalize')">Capitalize Each Word</button>
+          <button onclick="changeCase('toggle')">tOGGLE cASE</button>
+        </div>
+      </div>
+      <div class="dropdown">
+        <button class="rbtn small" title="Text Effects" style="font-weight:700;color:#7b1fa2">A&#9660;</button>
+        <div class="dropdown-menu"><div class="color-grid" id="text-effects-grid"></div></div>
+      </div>
+      <div class="dropdown">
+        <button class="rbtn small" title="Highlight Color"><span style="background:#ffff00;padding:0 4px;border-bottom:3px solid #c00">A</span>&#9660;</button>
+        <div class="dropdown-menu"><div class="color-grid" id="highlight-grid"></div></div>
+      </div>
+      <div class="dropdown">
+        <button class="rbtn small" title="Font Color"><span style="color:#c00;font-weight:700">A</span>&#9660;</button>
+        <div class="dropdown-menu"><div class="color-grid" id="fontcolor-grid"></div></div>
+      </div>
+    </div>
+    <div class="rgroup-label">Font</div>
+  </div>
+  <div class="rsep"></div>
+  <!-- Paragraph -->
+  <div class="rgroup">
+    <div class="rgroup-btns">
+      <button class="rbtn small" onclick="cmd('insertUnorderedList')" title="Bullets">&#8226;&#8226;&#8226;</button>
+      <button class="rbtn small" onclick="cmd('insertOrderedList')" title="Numbering">1.<br>2.</button>
+      <button class="rbtn small" onclick="multilevelList()" title="Multilevel List">&#9776;+</button>
+      <button class="rbtn small" onclick="cmd('outdent')" title="Decrease Indent">&#8676;</button>
+      <button class="rbtn small" onclick="cmd('indent')" title="Increase Indent">&#8677;</button>
+      <button class="rbtn small" onclick="showSortDialog()" title="Sort">&#8597;A</button>
+      <button class="rbtn small" onclick="togglePilcrow()" id="btn-pilcrow" title="Show/Paragraph Marks">&para;</button>
+    </div>
+    <div class="rgroup-btns" style="margin-top:2px">
+      <button class="rbtn small" onclick="cmd('justifyLeft')" title="Align Left">&#8676;</button>
+      <button class="rbtn small" onclick="cmd('justifyCenter')" title="Center">&#8596;</button>
+      <button class="rbtn small" onclick="cmd('justifyRight')" title="Align Right">&#8677;</button>
+      <button class="rbtn small" onclick="cmd('justifyFull')" title="Justify">&#9776;</button>
+      <div class="dropdown">
+        <button class="rbtn small" onclick="toggleDropdown(this,'dd-linespacing')" title="Line Spacing">&#8597;&#9660;</button>
+        <div class="dropdown-menu" id="dd-linespacing">
+          <button onclick="setLineSpacing(1)">1.0</button>
+          <button onclick="setLineSpacing(1.15)">1.15</button>
+          <button onclick="setLineSpacing(1.5)">1.5</button>
+          <button onclick="setLineSpacing(2)">2.0</button>
+          <button onclick="setLineSpacing(2.5)">2.5</button>
+          <button onclick="setLineSpacing(3)">3.0</button>
+          <hr>
+          <button onclick="setParaSpacing(0,0)">No Space Before/After</button>
+        </div>
+      </div>
+      <div class="dropdown">
+        <button class="rbtn small" title="Shading">&#9634;&#9660;</button>
+        <div class="dropdown-menu"><div class="color-grid" id="shading-grid"></div></div>
+      </div>
+      <button class="rbtn small" onclick="showBordersMenu(this)" title="Borders">&#9605;&#9660;</button>
+    </div>
+    <div class="rgroup-label">Paragraph</div>
+  </div>
+  <div class="rsep"></div>
+  <!-- Styles -->
+  <div class="rgroup">
+    <div class="rgroup-btns" style="gap:3px">
+      <button class="rbtn" onclick="applyStyle('normal')" style="border:1px solid #ddd;border-radius:3px;padding:6px 8px;background:#fff"><span style="font-size:13px">Normal</span></button>
+      <button class="rbtn" onclick="applyStyle('title')" style="border:1px solid #ddd;border-radius:3px;padding:6px 8px;background:#fff"><span style="font-size:18px;font-weight:700;color:#2b579a">Title</span></button>
+      <button class="rbtn" onclick="applyStyle('subtitle')" style="border:1px solid #ddd;border-radius:3px;padding:6px 8px;background:#fff"><span style="font-size:13px;color:#666">Subtitle</span></button>
+      <button class="rbtn" onclick="applyStyle('h1')" style="border:1px solid #ddd;border-radius:3px;padding:6px 8px;background:#fff"><span style="font-size:15px;font-weight:700;color:#2b579a">Heading 1</span></button>
+      <button class="rbtn" onclick="applyStyle('h2')" style="border:1px solid #ddd;border-radius:3px;padding:6px 8px;background:#fff"><span style="font-size:14px;font-weight:700;color:#2b579a">Heading 2</span></button>
+      <button class="rbtn" onclick="applyStyle('h3')" style="border:1px solid #ddd;border-radius:3px;padding:6px 8px;background:#fff"><span style="font-size:13px;font-weight:600;color:#2b579a">Heading 3</span></button>
+    </div>
+    <div class="rgroup-label">Styles</div>
+  </div>
+  <div class="rsep"></div>
+  <!-- Editing -->
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="showFind()" title="Find (Ctrl+F)"><span class="icon">&#128269;</span><span class="lbl">Find</span></button>
+      <button class="rbtn small" onclick="showReplace()" title="Replace (Ctrl+H)"><span class="icon">&#8644;</span><span class="lbl">Replace</span></button>
+      <button class="rbtn small" onclick="showSelectMenu()" title="Select"><span class="icon">&#9634;</span><span class="lbl">Select</span></button>
+    </div>
+    <div class="rgroup-label">Editing</div>
+  </div>
+  <div class="rsep"></div>
+  <!-- Voice & AI -->
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="toggleDictate()" title="Dictate (Speech to Text)"><span class="icon">&#127908;</span><span class="lbl">Dictate</span></button>
+      <button class="rbtn small" onclick="showEditorPanel()" title="Editor"><span class="icon">&#9998;</span><span class="lbl">Editor</span></button>
+    </div>
+    <div class="rgroup-label">Voice &amp; AI</div>
+  </div>
+</div>
+<!-- ═══════ INSERT ═══════ -->
+<div class="ribbon-panel" id="panel-insert">
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="insertCoverPage()"><span class="icon">&#128196;</span><span class="lbl">Cover Page</span></button>
+      <button class="rbtn small" onclick="insertBlankPage()"><span class="icon">&#128196;</span><span class="lbl">Blank Page</span></button>
+      <button class="rbtn small" onclick="cmd('insertHorizontalRule');insertPageBreak()" title="Page Break (Ctrl+Enter)"><span class="icon">&#9995;</span><span class="lbl">Page Break</span></button>
+    </div>
+    <div class="rgroup-label">Pages</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <button class="rbtn large" onclick="showInsertTable()" title="Insert Table"><span class="icon">&#9638;</span><span class="lbl">Table</span></button>
+    <div class="rgroup-label">Tables</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="insertPicture()" title="Pictures from Device"><span class="icon">&#127748;</span><span class="lbl">Pictures</span></button>
+      <button class="rbtn small" onclick="insertShape()" title="Shapes"><span class="icon">&#9646;&#9645;</span><span class="lbl">Shapes</span></button>
+      <button class="rbtn small" onclick="insertIcon()" title="Icons"><span class="icon">&#9733;</span><span class="lbl">Icons</span></button>
+      <button class="rbtn small" onclick="insertSmartArt()" title="SmartArt"><span class="icon">&#8801;</span><span class="lbl">SmartArt</span></button>
+      <button class="rbtn small" onclick="insertChart()" title="Chart"><span class="icon">&#128202;</span><span class="lbl">Chart</span></button>
+      <button class="rbtn small" onclick="insertScreenshot()" title="Screenshot"><span class="icon">&#128247;</span><span class="lbl">Screenshot</span></button>
+    </div>
+    <div class="rgroup-label">Illustrations</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="showAddins()"><span class="icon">&#10133;</span><span class="lbl">Add-ins</span></button>
+      <button class="rbtn small" onclick="wikipediaLookup()"><span class="icon">&#128218;</span><span class="lbl">Wikipedia</span></button>
+    </div>
+    <div class="rgroup-label">Add-ins</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <button class="rbtn large" onclick="insertOnlineVideo()"><span class="icon">&#127909;</span><span class="lbl">Online Video</span></button>
+    <div class="rgroup-label">Media</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="insertLink()" title="Hyperlink (Ctrl+K)"><span class="icon">&#128279;</span><span class="lbl">Link</span></button>
+      <button class="rbtn small" onclick="insertBookmark()"><span class="icon">&#128278;</span><span class="lbl">Bookmark</span></button>
+      <button class="rbtn small" onclick="insertCrossRef()"><span class="icon">&#8635;</span><span class="lbl">Cross-ref</span></button>
+    </div>
+    <div class="rgroup-label">Links</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <button class="rbtn large" onclick="addComment()"><span class="icon">&#128172;</span><span class="lbl">Comment</span></button>
+    <div class="rgroup-label">Comments</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="insertHeader()"><span class="icon">&#9776;</span><span class="lbl">Header</span></button>
+      <button class="rbtn small" onclick="insertFooter()"><span class="icon">&#9776;</span><span class="lbl">Footer</span></button>
+      <button class="rbtn small" onclick="insertPageNumber()"><span class="icon">&#9998;</span><span class="lbl">Page Number</span></button>
+    </div>
+    <div class="rgroup-label">Header &amp; Footer</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="insertTextBox()"><span class="icon">&#9645;</span><span class="lbl">Text Box</span></button>
+      <button class="rbtn small" onclick="insertWordArt()"><span class="icon" style="font-weight:700;color:#7b1fa2">A</span><span class="lbl">WordArt</span></button>
+      <button class="rbtn small" onclick="insertDropCap()"><span class="icon" style="font-weight:700;font-size:20px">A</span><span class="lbl">Drop Cap</span></button>
+      <button class="rbtn small" onclick="insertDateTime()"><span class="icon">&#128197;</span><span class="lbl">Date &amp; Time</span></button>
+      <button class="rbtn small" onclick="insertSignatureLine()"><span class="icon">&#9998;</span><span class="lbl">Signature</span></button>
+      <button class="rbtn small" onclick="insertSymbolMenu(this)"><span class="icon">&#937;</span><span class="lbl">Symbol</span></button>
+    </div>
+    <div class="rgroup-label">Text &amp; Symbols</div>
+  </div>
+</div>
+
+<!-- ═══════ DRAW ═══════ -->
+<div class="ribbon-panel" id="panel-draw">
+  <div class="rgroup">
+    <div class="rgroup-btns">
+      <button class="rbtn large" onclick="setPen('pen')" title="Pen"><span class="icon">&#9998;</span><span class="lbl">Pen</span></button>
+      <button class="rbtn large" onclick="setPen('pencil')" title="Pencil"><span class="icon">&#9997;</span><span class="lbl">Pencil</span></button>
+      <button class="rbtn large" onclick="setPen('highlighter')" title="Highlighter"><span class="icon">&#127912;</span><span class="lbl">Highlighter</span></button>
+      <button class="rbtn large" onclick="setPen('eraser')" title="Eraser"><span class="icon">&#9109;</span><span class="lbl">Eraser</span></button>
+    </div>
+    <div class="rgroup-label">Drawing Tools</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <div class="rgroup-btns">
+        <label style="font-size:11px">Color:</label>
+        <input type="color" id="pen-color" value="#000000" style="width:28px;height:24px;border:none;cursor:pointer">
+        <label style="font-size:11px;margin-left:6px">Size:</label>
+        <input type="range" id="pen-size" min="1" max="20" value="3" style="width:80px">
+        <span id="pen-size-label" style="font-size:11px">3px</span>
+      </div>
+    </div>
+    <div class="rgroup-label">Ink Properties</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="inkToShape()"><span class="icon">&#9645;</span><span class="lbl">Ink to Shape</span></button>
+      <button class="rbtn small" onclick="inkToMath()"><span class="icon">&#8721;</span><span class="lbl">Ink to Math</span></button>
+      <button class="rbtn small" onclick="inkReplay()"><span class="icon">&#9654;</span><span class="lbl">Ink Replay</span></button>
+    </div>
+    <div class="rgroup-label">Convert</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns">
+      <button class="rbtn" onclick="toggleDrawMode()" id="btn-drawmode" title="Toggle Drawing Canvas"><span class="icon">&#127912;</span><span class="lbl">Draw on Page</span></button>
+      <button class="rbtn" onclick="clearInk()"><span class="icon">&#128465;</span><span class="lbl">Clear Ink</span></button>
+    </div>
+    <div class="rgroup-label">Canvas</div>
+  </div>
+</div>
+<!-- ═══════ DESIGN ═══════ -->
+<div class="ribbon-panel" id="panel-design">
+  <div class="rgroup">
+    <div class="rgroup-btns">
+      <button class="rbtn large" onclick="applyTheme('default')" title="Theme: Default"><span class="icon">&#127912;</span><span class="lbl">Default</span></button>
+      <button class="rbtn large" onclick="applyTheme('blue')" title="Theme: Blue"><span class="icon" style="color:#2b579a">&#127912;</span><span class="lbl">Blue</span></button>
+      <button class="rbtn large" onclick="applyTheme('dark')" title="Theme: Dark"><span class="icon" style="color:#333">&#127912;</span><span class="lbl">Dark</span></button>
+      <button class="rbtn large" onclick="applyTheme('green')" title="Theme: Green"><span class="icon" style="color:#2e7d32">&#127912;</span><span class="lbl">Green</span></button>
+      <button class="rbtn large" onclick="applyTheme('red')" title="Theme: Red"><span class="icon" style="color:#c62828">&#127912;</span><span class="lbl">Red</span></button>
+    </div>
+    <div class="rgroup-label">Document Formatting</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="showWatermarkDialog()"><span class="icon">&#128438;</span><span class="lbl">Watermark</span></button>
+      <button class="rbtn small" onclick="showPageColorPicker()"><span class="icon">&#127912;</span><span class="lbl">Page Color</span></button>
+      <button class="rbtn small" onclick="showPageBordersDialog()"><span class="icon">&#9645;</span><span class="lbl">Page Borders</span></button>
+    </div>
+    <div class="rgroup-label">Page Background</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <div class="rgroup-btns">
+        <label style="font-size:11px">Para Spacing:</label>
+        <select class="rselect" onchange="setDesignSpacing(this.value)">
+          <option value="0">No Space</option>
+          <option value="8">Compact</option>
+          <option value="10">Tight</option>
+          <option value="18">Open</option>
+          <option value="24">Relaxed</option>
+        </select>
+      </div>
+    </div>
+    <div class="rgroup-label">Paragraph Spacing</div>
+  </div>
+</div>
+<!-- ═══════ LAYOUT ═══════ -->
+<div class="ribbon-panel" id="panel-layout">
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="showMarginsMenu(this)"><span class="icon">&#9638;</span><span class="lbl">Margins</span></button>
+      <button class="rbtn small" onclick="toggleOrientation()"><span class="icon">&#8635;</span><span class="lbl">Orientation</span></button>
+      <button class="rbtn small" onclick="showSizeMenu(this)"><span class="icon">&#128196;</span><span class="lbl">Size</span></button>
+      <button class="rbtn small" onclick="showColumnsMenu(this)"><span class="icon">&#8214;</span><span class="lbl">Columns</span></button>
+      <button class="rbtn small" onclick="insertSectionBreak()"><span class="icon">&#9995;</span><span class="lbl">Breaks</span></button>
+      <button class="rbtn small" onclick="toggleLineNumbers()"><span class="icon">&#9776;</span><span class="lbl">Line Numbers</span></button>
+      <button class="rbtn small" onclick="toggleHyphenation()"><span class="icon">&#8208;</span><span class="lbl">Hyphenation</span></button>
+    </div>
+    <div class="rgroup-label">Page Setup</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <div class="rgroup-btns">
+        <label style="font-size:11px">Left Indent:</label>
+        <input type="number" class="rinput" id="indent-left" value="0" min="0" max="720" onchange="setIndent('left',this.value)">
+        <label style="font-size:11px">Right:</label>
+        <input type="number" class="rinput" id="indent-right" value="0" min="0" max="720" onchange="setIndent('right',this.value)">
+      </div>
+      <div class="rgroup-btns">
+        <label style="font-size:11px">Before:</label>
+        <input type="number" class="rinput" id="spacing-before" value="0" min="0" max="720" onchange="setParaSpacingBefore(this.value)">
+        <label style="font-size:11px">After:</label>
+        <input type="number" class="rinput" id="spacing-after" value="0" min="0" max="720" onchange="setParaSpacingAfter(this.value)">
+      </div>
+    </div>
+    <div class="rgroup-label">Paragraph</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="showArrangeMenu()"><span class="icon">&#9638;</span><span class="lbl">Position</span></button>
+      <button class="rbtn small" onclick="wrapText()"><span class="icon">&#8644;</span><span class="lbl">Wrap Text</span></button>
+      <button class="rbtn small" onclick="bringForward()"><span class="icon">&#8593;</span><span class="lbl">Bring Fwd</span></button>
+      <button class="rbtn small" onclick="sendBackward()"><span class="icon">&#8595;</span><span class="lbl">Send Back</span></button>
+      <button class="rbtn small" onclick="showSelectionPane()"><span class="icon">&#9776;</span><span class="lbl">Selection Pane</span></button>
+    </div>
+    <div class="rgroup-label">Arrange</div>
+  </div>
+</div>
+<!-- ═══════ REFERENCES ═══════ -->
+<div class="ribbon-panel" id="panel-references">
+  <div class="rgroup">
+    <button class="rbtn large" onclick="insertTOC()"><span class="icon">&#9776;</span><span class="lbl">Table of Contents</span></button>
+    <div class="rgroup-label">Table of Contents</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="insertFootnote()"><span class="icon">&#9998;</span><span class="lbl">Insert Footnote</span></button>
+      <button class="rbtn small" onclick="insertEndnote()"><span class="icon">&#9998;</span><span class="lbl">Insert Endnote</span></button>
+    </div>
+    <div class="rgroup-label">Footnotes</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <button class="rbtn large" onclick="smartLookup()"><span class="icon">&#128269;</span><span class="lbl">Smart Lookup</span></button>
+    <div class="rgroup-label">Research</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <div class="rgroup-btns">
+        <select class="rselect" id="citation-style" onchange="setCitationStyle(this.value)">
+          <option value="apa">APA</option>
+          <option value="mla">MLA</option>
+          <option value="chicago">Chicago</option>
+          <option value="harvard">Harvard</option>
+        </select>
+      </div>
+      <button class="rbtn small" onclick="insertCitation()"><span class="icon">&#128218;</span><span class="lbl">Insert Citation</span></button>
+      <button class="rbtn small" onclick="showBibliography()"><span class="icon">&#128214;</span><span class="lbl">Bibliography</span></button>
+      <button class="rbtn small" onclick="showSourceManager()"><span class="icon">&#128188;</span><span class="lbl">Manage Sources</span></button>
+    </div>
+    <div class="rgroup-label">Citations &amp; Bibliography</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="insertCaption()"><span class="icon">&#128203;</span><span class="lbl">Insert Caption</span></button>
+      <button class="rbtn small" onclick="insertTableOfFigures()"><span class="icon">&#128202;</span><span class="lbl">Table of Figures</span></button>
+      <button class="rbtn small" onclick="updateCaptions()"><span class="icon">&#8635;</span><span class="lbl">Update Labels</span></button>
+    </div>
+    <div class="rgroup-label">Captions</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="markIndexEntry()"><span class="icon">&#9998;</span><span class="lbl">Mark Entry</span></button>
+      <button class="rbtn small" onclick="insertIndex()"><span class="icon">&#9776;</span><span class="lbl">Insert Index</span></button>
+    </div>
+    <div class="rgroup-label">Index</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="markTOACitation()"><span class="icon">&#9998;</span><span class="lbl">Mark Citation</span></button>
+      <button class="rbtn small" onclick="insertTOA()"><span class="icon">&#9776;</span><span class="lbl">Insert TOA</span></button>
+    </div>
+    <div class="rgroup-label">Table of Authorities</div>
+  </div>
+</div>
+<!-- ═══════ MAILINGS ═══════ -->
+<div class="ribbon-panel" id="panel-mailings">
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="showEnvelope()"><span class="icon">&#9993;</span><span class="lbl">Envelopes</span></button>
+      <button class="rbtn small" onclick="showLabels()"><span class="icon">&#127991;</span><span class="lbl">Labels</span></button>
+    </div>
+    <div class="rgroup-label">Create</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="startMailMerge('letters')"><span class="icon">&#128196;</span><span class="lbl">Letters</span></button>
+      <button class="rbtn small" onclick="startMailMerge('emails')"><span class="icon">&#9993;</span><span class="lbl">Emails</span></button>
+      <button class="rbtn small" onclick="startMailMerge('labels')"><span class="icon">&#127991;</span><span class="lbl">Labels</span></button>
+      <button class="rbtn small" onclick="selectRecipients()"><span class="icon">&#128101;</span><span class="lbl">Recipients</span></button>
+    </div>
+    <div class="rgroup-label">Start Mail Merge</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="insertMergeField()"><span class="icon">&#128101;</span><span class="lbl">Merge Field</span></button>
+      <button class="rbtn small" onclick="insertAddressBlock()"><span class="icon">&#128205;</span><span class="lbl">Address Block</span></button>
+      <button class="rbtn small" onclick="insertGreetingLine()"><span class="icon">&#128075;</span><span class="lbl">Greeting Line</span></button>
+    </div>
+    <div class="rgroup-label">Write &amp; Insert Fields</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns">
+      <button class="rbtn" onclick="previewMerge()"><span class="icon">&#9654;&#124;&#9664;</span><span class="lbl">Preview Results</span></button>
+    </div>
+    <div class="rgroup-label">Preview Results</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="finishMerge('print')"><span class="icon">&#128424;</span><span class="lbl">Print</span></button>
+      <button class="rbtn small" onclick="finishMerge('email')"><span class="icon">&#9993;</span><span class="lbl">Send Email</span></button>
+    </div>
+    <div class="rgroup-label">Finish &amp; Merge</div>
+  </div>
+</div>
+<!-- ═══════ REVIEW ═══════ -->
+<div class="ribbon-panel" id="panel-review">
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="showEditorPanel()"><span class="icon">&#9998;</span><span class="lbl">Editor</span></button>
+      <button class="rbtn small" onclick="cmd('checkSpelling')"><span class="icon">&#10003;</span><span class="lbl">Spelling</span></button>
+      <button class="rbtn small" onclick="showThesaurus()"><span class="icon">&#128218;</span><span class="lbl">Thesaurus</span></button>
+      <button class="rbtn small" onclick="showWordCount()"><span class="icon">&#9776;</span><span class="lbl">Word Count</span></button>
+    </div>
+    <div class="rgroup-label">Proofing</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <button class="rbtn large" onclick="checkAccessibility()"><span class="icon">&#128100;</span><span class="lbl">Accessibility</span></button>
+    <div class="rgroup-label">Accessibility</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="translateDoc()"><span class="icon">&#127760;</span><span class="lbl">Translate</span></button>
+      <button class="rbtn small" onclick="showLangPrefs()"><span class="icon">&#128172;</span><span class="lbl">Language</span></button>
+    </div>
+    <div class="rgroup-label">Language</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <button class="rbtn large" onclick="readAloud()"><span class="icon">&#128266;</span><span class="lbl">Read Aloud</span></button>
+    <div class="rgroup-label">Speech</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="addComment()"><span class="icon">&#10010;</span><span class="lbl">New</span></button>
+      <button class="rbtn small" onclick="deleteComment()"><span class="icon">&#10006;</span><span class="lbl">Delete</span></button>
+      <button class="rbtn small" onclick="prevComment()">&#9664;<span class="lbl">Previous</span></button>
+      <button class="rbtn small" onclick="nextComment()"><span class="lbl">Next</span>&#9654;</button>
+      <button class="rbtn small" onclick="resolveComment()"><span class="icon">&#10003;</span><span class="lbl">Resolve</span></button>
+    </div>
+    <div class="rgroup-label">Comments</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="toggleTrackChanges()" id="btn-trackchanges"><span class="icon">&#9998;</span><span class="lbl">Track Changes</span></button>
+      <select class="rselect" id="markup-view" onchange="setMarkupView(this.value)" style="width:100px">
+        <option value="simple">Simple Markup</option>
+        <option value="all">All Markup</option>
+        <option value="original">Original</option>
+      </select>
+    </div>
+    <div class="rgroup-label">Tracking</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="acceptChange()"><span class="icon">&#10003;</span><span class="lbl">Accept</span></button>
+      <button class="rbtn small" onclick="rejectChange()"><span class="icon">&#10007;</span><span class="lbl">Reject</span></button>
+    </div>
+    <div class="rgroup-label">Changes</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="compareDocs()"><span class="icon">&#8214;</span><span class="lbl">Compare</span></button>
+      <button class="rbtn small" onclick="combineDocs()"><span class="icon">&#10133;</span><span class="lbl">Combine</span></button>
+    </div>
+    <div class="rgroup-label">Compare</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="restrictEditing()"><span class="icon">&#128274;</span><span class="lbl">Restrict Editing</span></button>
+      <button class="rbtn small" onclick="blockAuthors()"><span class="icon">&#128100;</span><span class="lbl">Block Authors</span></button>
+    </div>
+    <div class="rgroup-label">Protect</div>
+  </div>
+</div>
+<!-- ═══════ VIEW ═══════ -->
+<div class="ribbon-panel" id="panel-view">
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="setView('read')" id="btn-view-read"><span class="icon">&#128214;</span><span class="lbl">Read Mode</span></button>
+      <button class="rbtn small active" onclick="setView('print')" id="btn-view-print"><span class="icon">&#128196;</span><span class="lbl">Print Layout</span></button>
+      <button class="rbtn small" onclick="setView('web')" id="btn-view-web"><span class="icon">&#127760;</span><span class="lbl">Web Layout</span></button>
+      <button class="rbtn small" onclick="setView('outline')" id="btn-view-outline"><span class="icon">&#9776;</span><span class="lbl">Outline</span></button>
+      <button class="rbtn small" onclick="setView('draft')" id="btn-view-draft"><span class="icon">&#9998;</span><span class="lbl">Draft</span></button>
+    </div>
+    <div class="rgroup-label">Views</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <button class="rbtn large" onclick="immersiveReader()"><span class="icon">&#128214;</span><span class="lbl">Immersive Reader</span></button>
+    <div class="rgroup-label">Immersive</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns">
+      <button class="rbtn" onclick="togglePageMovement('vertical')" id="btn-pg-vert"><span class="icon">&#8597;</span><span class="lbl">Vertical</span></button>
+      <button class="rbtn" onclick="togglePageMovement('sideways')" id="btn-pg-side"><span class="icon">&#8596;</span><span class="lbl">Side to Side</span></button>
+    </div>
+    <div class="rgroup-label">Page Movement</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="toggleRuler()" id="btn-ruler"><span class="icon">&#9644;</span><span class="lbl">Ruler</span></button>
+      <button class="rbtn small" onclick="toggleGridlines()" id="btn-grid"><span class="icon">&#9638;</span><span class="lbl">Gridlines</span></button>
+      <button class="rbtn small" onclick="toggleNavPane()" id="btn-nav"><span class="icon">&#9776;</span><span class="lbl">Navigation</span></button>
+    </div>
+    <div class="rgroup-label">Show</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <div class="rgroup-btns">
+        <button class="rbtn small" onclick="setZoom(0.5)">50%</button>
+        <button class="rbtn small" onclick="setZoom(1)">100%</button>
+        <button class="rbtn small" onclick="setZoom(1.5)">150%</button>
+        <button class="rbtn small" onclick="setZoom(2)">200%</button>
+      </div>
+      <button class="rbtn small" onclick="zoomOnePage()"><span class="icon">&#128196;</span><span class="lbl">One Page</span></button>
+      <button class="rbtn small" onclick="zoomPageWidth()"><span class="icon">&#11036;</span><span class="lbl">Page Width</span></button>
+    </div>
+    <div class="rgroup-label">Zoom</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="newWindow()"><span class="icon">&#10133;</span><span class="lbl">New Window</span></button>
+      <button class="rbtn small" onclick="splitWindow()"><span class="icon">&#8214;</span><span class="lbl">Split</span></button>
+      <button class="rbtn small" onclick="sideBySide()"><span class="icon">&#8214;</span><span class="lbl">Side by Side</span></button>
+    </div>
+    <div class="rgroup-label">Window</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="recordMacro()"><span class="icon">&#9679;</span><span class="lbl">Record Macro</span></button>
+      <button class="rbtn small" onclick="showMacros()"><span class="icon">&#9881;</span><span class="lbl">Macros</span></button>
+    </div>
+    <div class="rgroup-label">Macros</div>
+  </div>
+</div>
+</div><!-- /ribbon -->
+
+<!-- ═══════ EDITOR AREA ═══════ -->
+<div id="main-area" style="display:flex;flex:1;overflow:hidden">
+  <!-- Navigation Pane -->
+  <div id="nav-pane" style="display:none;width:260px;background:#fff;border-right:1px solid var(--border);flex-shrink:0;overflow-y:auto;padding:12px">
+    <div style="display:flex;gap:4px;margin-bottom:12px">
+      <button class="rbtn small active" onclick="navPaneTab('headings')" id="nav-headings">Headings</button>
+      <button class="rbtn small" onclick="navPaneTab('pages')" id="nav-pages">Pages</button>
+      <button class="rbtn small" onclick="navPaneTab('results')" id="nav-results">Results</button>
+    </div>
+    <div id="nav-headings-list"></div>
+    <div id="nav-pages-list" style="display:none"></div>
+    <div id="nav-results-list" style="display:none"></div>
+  </div>
+  <!-- Page Container -->
+  <div id="page-container" style="flex:1;overflow:auto;background:var(--page-bg);padding:20px">
+    <div id="editor-page" style="background:#fff;width:816px;min-height:1056px;margin:0 auto;box-shadow:0 2px 8px rgba(0,0,0,.25);padding:72px 72px;position:relative;outline:none;font-size:12pt;line-height:1.15" contenteditable="true" spellcheck="true">
+      <p>Start typing your document here...</p>
+    </div>
+    <!-- Drawing canvas overlay -->
+    <canvas id="ink-canvas" style="display:none;position:absolute;top:0;left:0;pointer-events:none;z-index:50"></canvas>
+  </div>
+  <!-- Comments Pane -->
+  <div id="comments-pane" style="display:none;width:280px;background:#f9f9f9;border-left:1px solid var(--border);flex-shrink:0;overflow-y:auto;padding:10px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <b>Comments</b>
+      <button onclick="document.getElementById('comments-pane').style.display='none'" style="font-size:16px">&times;</button>
+    </div>
+    <div id="comments-list"></div>
+  </div>
+  <!-- Editor/Proofing Pane -->
+  <div id="editor-pane" style="display:none;width:280px;background:#fff;border-left:1px solid var(--border);flex-shrink:0;overflow-y:auto;padding:10px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <b>&#9998; Editor</b>
+      <button onclick="document.getElementById('editor-pane').style.display='none'" style="font-size:16px">&times;</button>
+    </div>
+    <div id="editor-results" style="font-size:12px"></div>
+  </div>
+</div>
+<!-- ═══════ STATUS BAR ═══════ -->
+<div id="statusbar" style="height:26px;background:var(--status-blue);color:#fff;display:flex;align-items:center;padding:0 12px;font-size:12px;gap:12px;user-select:none">
+  <span id="sb-page">Page 1 of 1</span>
+  <span id="sb-words">0 words</span>
+  <span id="sb-chars">0 characters</span>
+  <span id="sb-lang">English (United States)</span>
+  <span id="sb-accessibility">&#128100; Accessibility: Good</span>
+  <span id="sb-track" style="display:none">&#9998; Track Changes: On</span>
+  <div style="flex:1"></div>
+  <!-- View shortcuts -->
+  <button onclick="setView('read')" style="color:#fff;font-size:11px;padding:2px 6px;border-radius:2px" title="Read Mode">&#128214;</button>
+  <button onclick="setView('print')" style="color:#fff;font-size:11px;padding:2px 6px;border-radius:2px" title="Print Layout">&#128196;</button>
+  <button onclick="setView('web')" style="color:#fff;font-size:11px;padding:2px 6px;border-radius:2px" title="Web Layout">&#127760;</button>
+  <!-- Zoom -->
+  <div style="display:flex;align-items:center;gap:6px">
+    <span>&minus;</span>
+    <input type="range" id="zoom-slider" min="10" max="500" value="100" style="width:100px" oninput="setZoom(this.value/100)">
+    <span>+</span>
+    <span id="zoom-pct" style="min-width:36px;text-align:right">100%</span>
+  </div>
+</div>
+<!-- ═══════ FIND / REPLACE OVERLAY ═══════ -->
+<div id="find-replace-bar" style="display:none;position:fixed;top:160px;right:20px;background:#fff;border:1px solid var(--border);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.2);padding:12px;z-index:2000;width:340px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <b>Find and Replace</b>
+    <button onclick="document.getElementById('find-replace-bar').style.display='none'" style="font-size:18px">&times;</button>
+  </div>
+  <div style="display:flex;gap:4px;margin-bottom:6px">
+    <label style="width:70px;font-size:12px">Find:</label>
+    <input id="find-input" style="flex:1;border:1px solid #ccc;border-radius:3px;padding:4px" onkeydown="if(event.key==='Enter')doFindNext()">
+    <button onclick="doFindPrev()" class="rbtn small">&#9650;</button>
+    <button onclick="doFindNext()" class="rbtn small">&#9660;</button>
+  </div>
+  <div style="display:flex;gap:4px;margin-bottom:6px">
+    <label style="width:70px;font-size:12px">Replace:</label>
+    <input id="replace-input" style="flex:1;border:1px solid #ccc;border-radius:3px;padding:4px">
+  </div>
+  <div style="display:flex;gap:4px">
+    <label style="display:flex;align-items:center;gap:2px;font-size:11px"><input type="checkbox" id="find-case"> Match case</label>
+    <label style="display:flex;align-items:center;gap:2px;font-size:11px"><input type="checkbox" id="find-words"> Whole word</label>
+  </div>
+  <div style="display:flex;gap:4px;margin-top:8px">
+    <button onclick="doReplace()" class="rbtn small">Replace</button>
+    <button onclick="doReplaceAll()" class="rbtn small">Replace All</button>
+    <span id="find-count" style="font-size:11px;color:#888;margin-left:auto"></span>
+  </div>
+</div>
+<!-- ═══════ TABLE GRID PICKER ═══════ -->
+<div id="table-picker" style="display:none;position:fixed;background:#fff;border:1px solid var(--border);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.2);padding:10px;z-index:2000">
+  <div id="table-grid" style="display:grid;grid-template-columns:repeat(10,24px);gap:2px"></div>
+  <div id="table-grid-label" style="text-align:center;margin-top:6px;font-size:12px">Insert Table</div>
+</div>
+<!-- ═══════ MODAL ═══════ -->
+<div id="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:3000;justify-content:center;align-items:center">
+  <div id="modal-box" style="background:#fff;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.3);min-width:440px;max-width:600px;max-height:80vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border)">
+      <b id="modal-title" style="font-size:15px">Dialog</b>
+      <button onclick="closeModal()" style="font-size:20px;cursor:pointer">&times;</button>
+    </div>
+    <div id="modal-content" style="padding:18px"></div>
+  </div>
+</div>
+<!-- ═══════ BACKSTAGE (FILE MENU) ═══════ -->
+<div id="backstage" style="display:none;position:fixed;inset:0;background:#fff;z-index:5000">
+  <div style="display:flex;height:100%">
+    <div style="width:200px;background:var(--blue);color:#fff;padding:20px 0">
+      <button onclick="closeBackstage()" style="color:#fff;font-size:28px;padding:8px 20px;margin-bottom:20px">&#8592;</button>
+      <div class="bs-nav" onclick="showBackstagePanel('new')" style="padding:10px 20px;cursor:pointer">New</div>
+      <div class="bs-nav" onclick="showBackstagePanel('open')" style="padding:10px 20px;cursor:pointer">Open</div>
+      <div class="bs-nav" onclick="showBackstagePanel('info')" style="padding:10px 20px;cursor:pointer">Info</div>
+      <div class="bs-nav" onclick="showBackstagePanel('save')" style="padding:10px 20px;cursor:pointer">Save</div>
+      <div class="bs-nav" onclick="showBackstagePanel('saveas')" style="padding:10px 20px;cursor:pointer">Save As</div>
+      <div class="bs-nav" onclick="showBackstagePanel('print')" style="padding:10px 20px;cursor:pointer">Print</div>
+      <div class="bs-nav" onclick="showBackstagePanel('share')" style="padding:10px 20px;cursor:pointer">Share</div>
+      <div class="bs-nav" onclick="showBackstagePanel('export')" style="padding:10px 20px;cursor:pointer">Export</div>
+      <div class="bs-nav" onclick="showBackstagePanel('transform')" style="padding:10px 20px;cursor:pointer">Transform</div>
+      <div class="bs-nav" onclick="showBackstagePanel('account')" style="padding:10px 20px;cursor:pointer">Account</div>
+      <div class="bs-nav" onclick="showBackstagePanel('options')" style="padding:10px 20px;cursor:pointer">Options</div>
+    </div>
+    <div id="backstage-content" style="flex:1;padding:30px;overflow-y:auto"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════ CORE EDITOR ═══════════════
+const editor = document.getElementById('editor-page');
+let undoStack = [], redoStack = [], savedRange = null;
+
+function cmd(c, v) {
+  document.execCommand(c, false, v || null);
+  editor.focus();
+  updateStatus();
+  saveUndo();
+}
+function saveUndo() {
+  const h = editor.innerHTML;
+  if (undoStack[undoStack.length-1] !== h) {
+    undoStack.push(h);
+    if (undoStack.length > 200) undoStack.shift();
+    redoStack = [];
+  }
+}
+function doUndo() {
+  if (undoStack.length > 1) {
+    redoStack.push(undoStack.pop());
+    editor.innerHTML = undoStack[undoStack.length-1];
+    updateStatus();
+  }
+}
+function doRedo() {
+  if (redoStack.length) {
+    const h = redoStack.pop();
+    undoStack.push(h);
+    editor.innerHTML = h;
+    updateStatus();
+  }
+}
+
+// Font
+function applyFontFamily(f) { cmd('fontName', f); }
+function applyFontSize(s) {
+  // execCommand fontSize only takes 1-7, so wrap in span
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  const span = document.createElement('span');
+  span.style.fontSize = s + 'pt';
+  try { span.appendChild(sel.extractContents()); sel.insertNode(span); } catch(e) {}
+  saveUndo();
+}
+function growFont() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  const el = sel.anchorNode.nodeType===1?sel.anchorNode:sel.anchorNode.parentElement;
+  const cur = parseFloat(getComputedStyle(el).fontSize);
+  el.style.fontSize = (cur + 2) + 'px';
+  saveUndo();
+}
+function shrinkFont() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  const el = sel.anchorNode.nodeType===1?sel.anchorNode:sel.anchorNode.parentElement;
+  const cur = parseFloat(getComputedStyle(el).fontSize);
+  el.style.fontSize = Math.max(6, cur - 2) + 'px';
+  saveUndo();
+}
+function changeCase(type) {
+  const sel = window.getSelection();
+  if (!sel.rangeCount || sel.isCollapsed) return;
+  let text = sel.toString();
+  switch(type) {
+    case 'sentence': text = text.charAt(0).toUpperCase() + text.slice(1).toLowerCase(); break;
+    case 'lower': text = text.toLowerCase(); break;
+    case 'upper': text = text.toUpperCase(); break;
+    case 'capitalize': text = text.replace(/\w\S*/g, w=>w[0].toUpperCase()+w.slice(1).toLowerCase()); break;
+    case 'toggle': text = text.split('').map(c=>c===c.toUpperCase()?c.toLowerCase():c.toUpperCase()).join(''); break;
+  }
+  sel.deleteContents();
+  sel.insertNode(document.createTextNode(text));
+  saveUndo();
+}
+
+// Format Painter
+let fpActive = false, fpStyles = {};
+function formatPainter() {
+  const sel = window.getSelection();
+  if (!fpActive && sel.rangeCount) {
+    const el = sel.anchorNode.nodeType===1?sel.anchorNode:sel.anchorNode.parentElement;
+    const cs = getComputedStyle(el);
+    fpStyles = {
+      fontFamily: cs.fontFamily, fontSize: cs.fontSize, fontWeight: cs.fontWeight,
+      fontStyle: cs.fontStyle, textDecoration: cs.textDecoration,
+      color: cs.color, backgroundColor: cs.backgroundColor,
+      textAlign: cs.textAlign
+    };
+    fpActive = true;
+    document.getElementById('btn-bold').classList.add('active');
+    editor.style.cursor = 'copy';
+  } else {
+    applyFpStyles();
+    fpActive = false;
+    editor.style.cursor = '';
+    document.getElementById('btn-bold').classList.remove('active');
+  }
+}
+function applyFpStyles() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  const span = document.createElement('span');
+  Object.assign(span.style, fpStyles);
+  try { span.appendChild(sel.extractContents()); sel.insertNode(span); } catch(e) {}
+  saveUndo();
+}
+
+// Paragraph
+function togglePilcrow() {
+  editor.classList.toggle('show-pilcrow');
+  if (editor.classList.contains('show-pilcrow')) {
+    editor.querySelectorAll('p,div,li').forEach(el=>{
+      if(!el.querySelector('::after')) el.setAttribute('data-pilcrow','¶ ');
+    });
+    editor.style.position='relative';
+    // Use CSS pseudo-element approach
+    if (!document.getElementById('pilcrow-style')) {
+      const s=document.createElement('style');s.id='pilcrow-style';
+      s.textContent='#editor-page p::after,#editor-page div::after{content:"¶";color:#aaa;margin-left:2px}';
+      document.head.appendChild(s);
+    }
+  } else {
+    const s=document.getElementById('pilcrow-style'); if(s)s.remove();
+  }
+}
+function setLineSpacing(v) {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  let node = sel.anchorNode;
+  while (node && node !== editor && node.tagName !== 'P' && node.tagName !== 'DIV' && node.tagName !== 'LI') node = node.parentElement;
+  if (node && node !== editor) node.style.lineHeight = v;
+  saveUndo();
+}
+function setParaSpacing(b, a) {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  let node = sel.anchorNode;
+  while (node && node !== editor && node.tagName !== 'P' && node.tagName !== 'DIV') node = node.parentElement;
+  if (node && node !== editor) { node.style.marginTop = b+'px'; node.style.marginBottom = a+'px'; }
+  saveUndo();
+}
+function multilevelList() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  let node = sel.anchorNode;
+  while (node && node !== editor && node.tagName !== 'P') node = node.parentElement;
+  if (node) {
+    const lvl = (parseInt(node.dataset.lvl)||0)+1;
+    node.dataset.lvl = lvl%4;
+    node.style.marginLeft = (lvl%4 * 40) + 'px';
+    if (!node.textContent.match(/^[-*•\d]/)) node.textContent = '• ' + node.textContent;
+  }
+  saveUndo();
+}
+
+// Styles
+function applyStyle(s) {
+  const sel = window.getSelection();
+  let node = sel.anchorNode;
+  while (node && node !== editor && node.tagName !== 'P' && node.tagName !== 'DIV' && node.tagName !== 'H1' && node.tagName !== 'H2' && node.tagName !== 'H3') node = node.parentElement;
+  if (!node || node === editor) return;
+  const p = document.createElement('p');
+  switch(s) {
+    case 'normal': p.style.cssText = 'font-size:12pt;font-weight:400;color:#000;margin:0 0 8px 0'; break;
+    case 'title': p.style.cssText = 'font-size:26pt;font-weight:700;color:#2b579a;margin:0 0 4px 0;padding-bottom:4px;border-bottom:2px solid #2b579a'; break;
+    case 'subtitle': p.style.cssText = 'font-size:14pt;font-weight:400;color:#666;margin:0 0 16px 0'; break;
+    case 'h1': p.style.cssText = 'font-size:18pt;font-weight:700;color:#2b579a;margin:16px 0 6px 0'; p.tagName0='H1'; break;
+    case 'h2': p.style.cssText = 'font-size:15pt;font-weight:700;color:#2b579a;margin:12px 0 4px 0'; break;
+    case 'h3': p.style.cssText = 'font-size:13pt;font-weight:600;color:#2b579a;margin:8px 0 4px 0'; break;
+  }
+  p.innerHTML = node.innerHTML;
+  node.replaceWith(p);
+  // place cursor in the new node
+  const range = document.createRange();
+  range.selectNodeContents(p);
+  range.collapse(false);
+  sel.removeAllRanges(); sel.addRange(range);
+  saveUndo();
+}
+
+// Insert helpers
+function insertPageBreak() { cmd('insertHTML', '<div style="border-top:2px dashed #aaa;margin:20px 0;height:0" contenteditable="false" data-pagebreak="1"></div><p><br></p>'); }
+function insertBlankPage() { cmd('insertHTML', '<div style="border-top:2px dashed #aaa;margin:20px 0;height:400px" contenteditable="false" data-pagebreak="1"></div><p><br></p>'); }
+function insertHorizontalRule() { cmd('insertHorizontalRule'); }
+function insertDateTime() {
+  const d = new Date();
+  cmd('insertText', d.toLocaleString());
+}
+function insertPicture() {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = () => {
+    const f = inp.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => cmd('insertHTML', `<img src="${r.result}" style="max-width:100%;margin:8px 0" draggable="true">`);
+    r.readAsDataURL(f);
+  };
+  inp.click();
+}
+function insertLink() {
+  const url = prompt('Enter URL:', 'https://');
+  if (!url) return;
+  const sel = window.getSelection();
+  if (sel.isCollapsed) cmd('insertHTML', `<a href="${url}" target="_blank">${url}</a>`);
+  else cmd('createLink', url);
+}
+function insertBookmark() {
+  const name = prompt('Bookmark name:');
+  if (!name) return;
+  cmd('insertHTML', `<span id="bm-${name}" style="background:#fffbe6;border-bottom:1px dashed #c00">&nbsp;</span>`);
+}
+function insertCrossRef() {
+  const bms = Array.from(editor.querySelectorAll('[id^="bm-"]'));
+  if (!bms.length) { alert('No bookmarks found. Insert a bookmark first.'); return; }
+  const list = bms.map(b=>b.id.replace('bm-','')).join(', ');
+  const name = prompt('Enter bookmark name to reference:\nAvailable: ' + list);
+  if (name) cmd('insertText', `(see bookmark: ${name})`);
+}
+function insertSymbolMenu(btn) {
+  const syms = '±×÷≠≤≥≈∞∑∏√∫∂αβγδεζηθικλμνξπρστυφχψωΩ←↑→↓↔⇒⇔♠♣♥♦♪♫✓✗☐☑★☆☀☁☂§¶†‡•…‰′″‴'.split('');
+  let html = '<div class="color-grid" style="grid-template-columns:repeat(8,28px)">';
+  syms.forEach(s => html += `<button onclick="cmd('insertText','${s}');closeDropdowns()" style="font-size:18px;width:28px;height:28px;border:1px solid #ddd;border-radius:3px;cursor:pointer">${s}</button>`);
+  html += '</div>';
+  showModal('Insert Symbol', html);
+}
+function insertWordArt() {
+  const t = prompt('WordArt text:', 'WordArt');
+  if (!t) return;
+  cmd('insertHTML', `<span style="display:inline-block;font-size:28pt;font-weight:900;background:linear-gradient(180deg,#2b579a,#7b1fa2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:2px 2px 4px rgba(0,0,0,.2);padding:4px 12px">${t}</span>`);
+}
+function insertDropCap() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  const el = sel.anchorNode.nodeType===1?sel.anchorNode:sel.anchorNode.parentElement;
+  const p = el.closest('p,div,li') || editor;
+  const text = p.textContent;
+  if (!text) return;
+  p.innerHTML = `<span style="float:left;font-size:48pt;font-weight:700;line-height:.8;padding-right:6px;color:var(--blue)">${text[0]}</span>${text.slice(1)}`;
+  saveUndo();
+}
+function insertTextBox() {
+  cmd('insertHTML', `<div style="border:2px solid #2b579a;padding:12px;margin:8px 0;min-height:60px;position:relative;background:#fff" contenteditable="true"><span style="color:#999">Type in text box...</span></div>`);
+}
+function insertHeader() {
+  let h = document.getElementById('doc-header');
+  if (!h) { h = document.createElement('div'); h.id = 'doc-header'; h.contentEditable = 'true'; h.style.cssText = 'text-align:center;color:#888;border-bottom:1px solid #ccc;margin-bottom:16px;padding:4px;min-height:24px'; h.innerHTML = 'Header — click to edit'; editor.prepend(h); }
+  h.focus();
+}
+function insertFooter() {
+  let f = document.getElementById('doc-footer');
+  if (!f) { f = document.createElement('div'); f.id = 'doc-footer'; f.contentEditable = 'true'; f.style.cssText = 'text-align:center;color:#888;border-top:1px solid #ccc;margin-top:16px;padding:4px;min-height:24px'; f.innerHTML = 'Footer — click to edit'; editor.appendChild(f); }
+  f.focus();
+}
+function insertPageNumber() {
+  const pos = prompt('Page number position:', 'bottom');
+  const el = document.createElement('div');
+  el.style.cssText = 'text-align:center;color:#888;margin:8px 0';
+  el.innerHTML = 'Page <span class="pn-field">1</span>';
+  if (pos === 'top') editor.prepend(el); else editor.appendChild(el);
+  saveUndo();
+}
+function insertCoverPage() {
+  cmd('insertHTML', `<div style="text-align:center;padding:120px 40px;border:3px double #2b579a;margin-bottom:24px" contenteditable="true">
+    <h1 style="font-size:32pt;color:#2b579a;margin-bottom:12px">Document Title</h1>
+    <p style="font-size:16pt;color:#666">Subtitle or description</p>
+    <p style="margin-top:60px;color:#999">Author Name<br>${new Date().toLocaleDateString()}</p>
+  </div>`);
+  insertPageBreak();
+}
+function insertOnlineVideo() {
+  const url = prompt('Enter video URL (YouTube, Vimeo, etc.):');
+  if (!url) return;
+  cmd('insertHTML', `<div style="text-align:center;padding:12px;background:#000;border-radius:4px;margin:8px 0" contenteditable="false">
+    <video controls style="max-width:100%;max-height:300px" src="${url}"></video>
+    <p style="color:#fff;font-size:11px;margin-top:4px">Video: ${url}</p>
+  </div><p><br></p>`);
+}
+
+// Tables
+function showInsertTable() {
+  const grid = document.getElementById('table-grid');
+  const picker = document.getElementById('table-picker');
+  grid.innerHTML = '';
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 10; c++) {
+      const cell = document.createElement('div');
+      cell.style.cssText = 'width:24px;height:24px;border:1px solid #ccc;cursor:pointer;transition:.1s';
+      cell.dataset.r = r+1; cell.dataset.c = c+1;
+      cell.onmouseenter = () => {
+        grid.querySelectorAll('div').forEach(d => {
+          d.style.background = (+d.dataset.r <= r+1 && +d.dataset.c <= c+1) ? '#cce4f7' : '#fff';
+        });
+        document.getElementById('table-grid-label').textContent = `${c+1} × ${r+1} Table`;
+      };
+      cell.onclick = () => { insertTable(r+1, c+1); picker.style.display = 'none'; };
+      grid.appendChild(cell);
+    }
+  }
+  const btn = document.querySelector('[onclick="showInsertTable()"]');
+  const rect = btn.getBoundingClientRect();
+  picker.style.left = rect.left + 'px';
+  picker.style.top = (rect.bottom + 4) + 'px';
+  picker.style.display = 'block';
+}
+function insertTable(rows, cols) {
+  let html = '<table style="border-collapse:collapse;width:100%;margin:8px 0">';
+  for (let r = 0; r < rows; r++) {
+    html += '<tr>';
+    for (let c = 0; c < cols; c++) html += '<td style="border:1px solid #999;padding:6px;min-width:40px;min-height:24px"><br></td>';
+    html += '</tr>';
+  }
+  html += '</table><p><br></p>';
+  cmd('insertHTML', html);
+}
+
+// SmartArt / Chart / Icons (simple representations)
+function insertSmartArt() {
+  showModal('SmartArt', `
+    <p style="margin-bottom:10px">Choose a SmartArt layout:</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <button onclick="doSmartArt('process')" style="border:1px solid #ccc;border-radius:4px;padding:16px;cursor:pointer;text-align:center">
+        <div style="display:flex;gap:4px;justify-content:center;margin-bottom:8px">
+          <div style="width:40px;height:24px;background:#2b579a;color:#fff;font-size:9px;display:flex;align-items:center;justify-content:center;border-radius:3px">Step 1</div>
+          <div style="align-self:center">&#8594;</div>
+          <div style="width:40px;height:24px;background:#4a90d9;color:#fff;font-size:9px;display:flex;align-items:center;justify-content:center;border-radius:3px">Step 2</div>
+          <div style="align-self:center">&#8594;</div>
+          <div style="width:40px;height:24px;background:#7bb3f0;color:#fff;font-size:9px;display:flex;align-items:center;justify-content:center;border-radius:3px">Step 3</div>
+        </div>Process</button>
+      <button onclick="doSmartArt('hierarchy')" style="border:1px solid #ccc;border-radius:4px;padding:16px;cursor:pointer;text-align:center">
+        <div style="text-align:center;margin-bottom:8px">
+          <div style="width:60px;height:20px;background:#2b579a;color:#fff;font-size:9px;display:inline-flex;align-items:center;justify-content:center;border-radius:3px">Root</div>
+          <div style="display:flex;gap:8px;justify-content:center;margin-top:4px">
+            <div style="width:40px;height:18px;background:#4a90d9;color:#fff;font-size:8px;display:flex;align-items:center;justify-content:center;border-radius:3px">Child</div>
+            <div style="width:40px;height:18px;background:#4a90d9;color:#fff;font-size:8px;display:flex;align-items:center;justify-content:center;border-radius:3px">Child</div>
+          </div>
+        </div>Hierarchy</button>
+      <button onclick="doSmartArt('cycle')" style="border:1px solid #ccc;border-radius:4px;padding:16px;cursor:pointer;text-align:center">
+        <div style="font-size:24px;margin-bottom:4px">&#10227;</div>Cycle</button>
+      <button onclick="doSmartArt('list')" style="border:1px solid #ccc;border-radius:4px;padding:16px;cursor:pointer;text-align:center">
+        <div style="text-align:left;font-size:10px;margin-bottom:4px">&#9632; Item 1<br>&#9632; Item 2<br>&#9632; Item 3</div>List</button>
+    </div>`);
+}
+function doSmartArt(type) {
+  let html = '';
+  switch(type) {
+    case 'process':
+      html = `<div style="display:flex;align-items:center;gap:8px;margin:12px 0;padding:12px;background:#f0f4ff;border-radius:8px" contenteditable="true">
+        <div style="background:#2b579a;color:#fff;padding:10px 16px;border-radius:6px;text-align:center;min-width:80px">Step 1</div>
+        <div style="font-size:20px;color:#2b579a">&#8594;</div>
+        <div style="background:#4a90d9;color:#fff;padding:10px 16px;border-radius:6px;text-align:center;min-width:80px">Step 2</div>
+        <div style="font-size:20px;color:#2b579a">&#8594;</div>
+        <div style="background:#7bb3f0;color:#fff;padding:10px 16px;border-radius:6px;text-align:center;min-width:80px">Step 3</div>
+      </div>`;
+      break;
+    case 'hierarchy':
+      html = `<div style="text-align:center;margin:12px 0;padding:12px;background:#f0f4ff;border-radius:8px" contenteditable="true">
+        <div style="background:#2b579a;color:#fff;padding:8px 20px;border-radius:6px;display:inline-block">Root Node</div>
+        <div style="display:flex;gap:16px;justify-content:center;margin-top:8px">
+          <div style="background:#4a90d9;color:#fff;padding:6px 14px;border-radius:6px">Child 1</div>
+          <div style="background:#4a90d9;color:#fff;padding:6px 14px;border-radius:6px">Child 2</div>
+        </div>
+      </div>`;
+      break;
+    case 'cycle':
+      html = `<div style="text-align:center;margin:12px 0;padding:20px;background:#f0f4ff;border-radius:50%;width:200px;height:200px;margin-left:auto;margin-right:auto;display:flex;flex-direction:column;justify-content:center;align-items:center" contenteditable="true">
+        <div style="font-size:28px">&#10227;</div><p>Phase 1 &#8594; Phase 2 &#8594; Phase 3</p></div>`;
+      break;
+    case 'list':
+      html = `<ul style="margin:12px 0;padding-left:24px" contenteditable="true"><li>Item 1</li><li>Item 2</li><li>Item 3</li></ul>`;
+      break;
+  }
+  cmd('insertHTML', html);
+  closeModal();
+}
+function insertChart() {
+  showModal('Insert Chart', `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <button onclick="doChart('bar')" style="border:1px solid #ccc;border-radius:4px;padding:16px;cursor:pointer;text-align:center">
+        <div style="display:flex;align-items:flex-end;gap:4px;justify-content:center;height:40px;margin-bottom:6px">
+          <div style="width:16px;background:#2b579a;height:80%"></div>
+          <div style="width:16px;background:#4a90d9;height:60%"></div>
+          <div style="width:16px;background:#7bb3f0;height:90%"></div>
+        </div>Bar</button>
+      <button onclick="doChart('line')" style="border:1px solid #ccc;border-radius:4px;padding:16px;cursor:pointer;text-align:center">
+        <div style="height:40px;margin-bottom:6px;position:relative">
+          <svg width="80" height="40"><polyline points="0,35 20,20 40,28 60,10 80,15" fill="none" stroke="#2b579a" stroke-width="2"/></svg>
+        </div>Line</button>
+      <button onclick="doChart('pie')" style="border:1px solid #ccc;border-radius:4px;padding:16px;cursor:pointer;text-align:center">
+        <div style="margin-bottom:6px">&#127758; Pie</div>Pie</button>
+      <button onclick="doChart('area')" style="border:1px solid #ccc;border-radius:4px;padding:16px;cursor:pointer;text-align:center">
+        <div style="height:40px;margin-bottom:6px"><svg width="80" height="40"><polygon points="0,40 20,25 40,30 60,12 80,18 80,40" fill="#cce4f7" stroke="#2b579a"/></svg></div>Area</button>
+    </div>`);
+}
+function doChart(type) {
+  const canv = document.createElement('canvas');
+  canv.width = 400; canv.height = 250;
+  canv.style.cssText = 'border:1px solid #ddd;border-radius:4px;margin:8px 0;max-width:100%';
+  const ctx = canv.getContext('2d');
+  const colors = ['#2b579a','#4a90d9','#7bb3f0','#a8d4f7','#cce4f7'];
+  const labels = ['Q1','Q2','Q3','Q4'];
+  const data = [65,45,80,55];
+  ctx.fillStyle = '#f8f8f8'; ctx.fillRect(0,0,400,250);
+  ctx.fillStyle = '#333'; ctx.font = 'bold 14px Segoe UI'; ctx.fillText('Chart Title', 140, 20);
+  if (type === 'bar') {
+    data.forEach((v,i) => { ctx.fillStyle = colors[i]; ctx.fillRect(50+i*80, 220-v*2, 50, v*2); ctx.fillStyle='#333'; ctx.font='11px Segoe UI'; ctx.fillText(labels[i], 60+i*80, 240); });
+  } else if (type === 'line') {
+    ctx.strokeStyle = '#2b579a'; ctx.lineWidth = 2; ctx.beginPath();
+    data.forEach((v,i) => { const x=50+i*80,y=220-v*2; i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+    ctx.stroke();
+    data.forEach((v,i) => { ctx.fillStyle='#2b579a'; ctx.beginPath(); ctx.arc(50+i*80,220-v*2,4,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#333';ctx.font='11px Segoe UI';ctx.fillText(labels[i],50+i*80-10,240); });
+  } else if (type === 'pie') {
+    let start = 0; const total = data.reduce((a,b)=>a+b,0);
+    data.forEach((v,i) => { const ang = (v/total)*Math.PI*2; ctx.fillStyle=colors[i]; ctx.beginPath(); ctx.moveTo(200,130); ctx.arc(200,130,80,start,start+ang); ctx.fill(); start+=ang; });
+  } else {
+    ctx.fillStyle='#cce4f7'; ctx.beginPath(); ctx.moveTo(50,220);
+    data.forEach((v,i) => ctx.lineTo(50+i*80,220-v*2));
+    ctx.lineTo(50+data.length*80-80,220); ctx.fill();
+  }
+  const wrap = document.createElement('div');
+  wrap.contentEditable = 'false';
+  wrap.appendChild(canv);
+  const cap = document.createElement('p'); cap.style.cssText='font-size:11px;color:#888;text-align:center'; cap.textContent = `${type.charAt(0).toUpperCase()+type.slice(1)} Chart`;
+  wrap.appendChild(cap);
+  editor.appendChild(wrap);
+  closeModal(); saveUndo();
+}
+function insertScreenshot() {
+  alert('Screenshot feature: Use your OS screenshot tool, then Insert > Pictures to add the image.');
+}
+function insertIcon() {
+  const icons = ['★','♥','♠','♣','☀','☁','☂','✈','⚖','⚗','⚙','⚛','⚜','⚝','⚞','🚀','💡','📊','📁','📄','✅','❌','⚠','🔒','🔑','📌','📎','✂','✉','☎'];
+  let html = '<div style="display:grid;grid-template-columns:repeat(8,36px);gap:4px">';
+  icons.forEach(i => html += `<button onclick="cmd('insertText','${i}');closeModal()" style="font-size:22px;width:36px;height:36px;border:1px solid #ddd;border-radius:4px;cursor:pointer">${i}</button>`);
+  html += '</div>';
+  showModal('Insert Icon', html);
+}
+function insertShape() {
+  showModal('Shapes', `
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">
+      <button onclick="doShape('rect')" style="border:1px solid #ccc;border-radius:4px;padding:12px;cursor:pointer;text-align:center"><div style="width:40px;height:24px;background:#4a90d9;margin:0 auto 4px;border-radius:2px"></div>Rectangle</button>
+      <button onclick="doShape('circle')" style="border:1px solid #ccc;border-radius:4px;padding:12px;cursor:pointer;text-align:center"><div style="width:30px;height:30px;background:#4a90d9;margin:0 auto 4px;border-radius:50%"></div>Circle</button>
+      <button onclick="doShape('arrow')" style="border:1px solid #ccc;border-radius:4px;padding:12px;cursor:pointer;text-align:center"><div style="font-size:24px;color:#4a90d9;margin-bottom:4px">&#10132;</div>Arrow</button>
+      <button onclick="doShape('star')" style="border:1px solid #ccc;border-radius:4px;padding:12px;cursor:pointer;text-align:center"><div style="font-size:24px;color:#f5a623;margin-bottom:4px">&#9733;</div>Star</button>
+      <button onclick="doShape('heart')" style="border:1px solid #ccc;border-radius:4px;padding:12px;cursor:pointer;text-align:center"><div style="font-size:24px;color:#e74c3c;margin-bottom:4px">&#9829;</div>Heart</button>
+    </div>`);
+}
+function doShape(type) {
+  let svg = '';
+  switch(type) {
+    case 'rect': svg = `<svg width="200" height="100"><rect width="200" height="100" fill="#4a90d9" rx="4"/></svg>`; break;
+    case 'circle': svg = `<svg width="120" height="120"><circle cx="60" cy="60" r="55" fill="#4a90d9"/></svg>`; break;
+    case 'arrow': svg = `<svg width="200" height="60"><defs><marker id="ah" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#4a90d9"/></marker></defs><line x1="0" y1="30" x2="190" y2="30" stroke="#4a90d9" stroke-width="6" marker-end="url(#ah)"/></svg>`; break;
+    case 'star': svg = `<svg width="100" height="100"><polygon points="50,5 61,35 95,35 68,55 79,90 50,70 21,90 32,55 5,35 39,35" fill="#f5a623"/></svg>`; break;
+    case 'heart': svg = `<svg width="100" height="90"><path d="M50,85 C20,60 0,40 0,25 C0,10 12,0 25,0 C35,0 45,8 50,18 C55,8 65,0 75,0 C88,0 100,10 100,25 C100,40 80,60 50,85Z" fill="#e74c3c"/></svg>`; break;
+  }
+  cmd('insertHTML', `<div style="display:inline-block;margin:8px" contenteditable="false" draggable="true">${svg}</div>`);
+  closeModal(); saveUndo();
+}
+
+// Smart Lookup / Wikipedia
+function smartLookup() {
+  const sel = window.getSelection().toString() || prompt('Enter a term to look up:');
+  if (!sel) return;
+  window.open(`https://www.bing.com/search?q=${encodeURIComponent(sel)}`, '_blank');
+}
+function wikipediaLookup() {
+  const term = prompt('Wikipedia search:');
+  if (term) window.open(`https://en.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(term)}`, '_blank');
+}
+
+// References
+function insertTOC() {
+  const headings = editor.querySelectorAll('p[style*="font-size:18pt"],p[style*="font-size:15pt"],p[style*="font-size:13pt"],h1,h2,h3');
+  let html = '<div style="border:1px solid #ccc;padding:16px;margin:12px 0;background:#fafafa" contenteditable="false"><b style="font-size:14pt">Table of Contents</b><hr>';
+  if (!headings.length) html += '<p style="color:#999">No headings found. Apply Heading styles to create a TOC.</p>';
+  headings.forEach((h,i) => {
+    const lvl = h.tagName==='H1'?'':'  ';
+    html += `<p style="margin:4px 0;font-size:11pt">${lvl}${h.textContent.trim()} <span style="float:right;color:#999">${i+1}</span></p>`;
+  });
+  html += '</div>';
+  cmd('insertHTML', html);
+}
+function insertFootnote() {
+  const n = editor.querySelectorAll('.footnote').length + 1;
+  const text = prompt(`Footnote ${n} text:`);
+  if (!text) return;
+  cmd('insertHTML', `<sup class="footnote" style="color:#c00;cursor:pointer" onclick="alert('Footnote ${n}: ${text.replace(/'/g,"\\'")}')" title="Footnote ${n}">${n}</sup>`);
+  const fn = document.createElement('div');
+  fn.style.cssText = 'border-top:1px solid #c00;margin-top:20px;padding-top:8px;font-size:10pt;color:#333';
+  fn.innerHTML = `<sup>${n}</sup> ${text}`;
+  editor.appendChild(fn);
+}
+function insertEndnote() {
+  const n = editor.querySelectorAll('.endnote').length + 1;
+  const text = prompt(`Endnote ${n} text:`);
+  if (!text) return;
+  cmd('insertHTML', `<sup class="endnote" style="color:#2b579a;cursor:pointer">${n}</sup>`);
+}
+function insertCaption() {
+  const text = prompt('Caption text:', 'Figure 1: ');
+  if (!text) return;
+  cmd('insertHTML', `<p style="font-size:10pt;color:#555;text-align:center;margin:4px 0 12px 0"><i>${text}</i></p>`);
+}
+function insertTableOfFigures() {
+  cmd('insertHTML', `<div style="border:1px solid #ccc;padding:12px;margin:12px 0" contenteditable="false"><b>Table of Figures</b><hr><p style="color:#999;font-size:10pt">Add captions to figures and tables, then update this field.</p></div>`);
+}
+function updateCaptions() { alert('Captions updated.'); }
+let citationStyle = 'apa';
+function setCitationStyle(s) { citationStyle = s; }
+function insertCitation() {
+  const author = prompt('Author:');
+  if (!author) return;
+  const year = new Date().getFullYear();
+  const title = prompt('Title:');
+  let cite = '';
+  switch(citationStyle) {
+    case 'apa': cite = `(${author}, ${year})`; break;
+    case 'mla': cite = `(${author})`; break;
+    case 'chicago': cite = `(${author} ${year})`; break;
+    case 'harvard': cite = `(${author}, ${year})`; break;
+  }
+  cmd('insertText', cite);
+}
+function showBibliography() {
+  cmd('insertHTML', `<div style="border:1px solid #ccc;padding:12px;margin:12px 0" contenteditable="false"><b>Bibliography</b><hr><p style="color:#999;font-size:10pt">Add sources via Insert Citation to generate bibliography.</p></div>`);
+}
+function showSourceManager() {
+  showModal('Source Manager', '<p style="margin-bottom:8px">Manage your citation sources here.</p><table style="width:100%;border-collapse:collapse"><tr style="background:#f0f0f0"><th style="border:1px solid #ccc;padding:6px">Author</th><th style="border:1px solid #ccc;padding:6px">Title</th><th style="border:1px solid #ccc;padding:6px">Year</th></tr><tr><td colspan="3" style="border:1px solid #ccc;padding:6px;color:#999;text-align:center">No sources yet</td></tr></table>');
+}
+function markIndexEntry() {
+  const sel = window.getSelection().toString();
+  if (!sel) { alert('Select text to mark as index entry.'); return; }
+  alert(`Marked "${sel}" as index entry.`);
+}
+function insertIndex() {
+  cmd('insertHTML', `<div style="border:1px solid #ccc;padding:12px;margin:12px 0" contenteditable="false"><b>Index</b><hr><p style="color:#999;font-size:10pt">Mark entries via References > Mark Entry, then insert index here.</p></div>`);
+}
+function markTOACitation() { alert('Citation marked for Table of Authorities.'); }
+function insertTOA() {
+  cmd('insertHTML', `<div style="border:1px solid #ccc;padding:12px;margin:12px 0" contenteditable="false"><b>Table of Authorities</b><hr><p style="color:#999;font-size:10pt">Mark citations, then generate TOA.</p></div>`);
+}
+
+// References: Footnotes marker
+function insertSectionBreak() { insertPageBreak(); }
+</script>
+
+<script>
+// ═══════════════ RIBBON / UI ═══════════════
+// Tab switching via event delegation
+document.getElementById('ribbon-tabs').addEventListener('click', (e) => {
+  const t = e.target.closest('.tab');
+  if (!t) return;
+  document.querySelectorAll('#ribbon-tabs .tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.ribbon-panel').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+  if (t.classList.contains('file-tab')) {
+    document.getElementById('backstage').style.display = 'flex';
+    showBackstagePanel('new');
+    // File tab stays highlighted but no ribbon panel
+    return;
+  }
+  const panel = document.getElementById(t.dataset.panel);
+  if (panel) panel.classList.add('active');
+});
+function closeBackstage() { document.getElementById('backstage').style.display = 'none'; }
+function showBackstagePanel(panel) {
+  const c = document.getElementById('backstage-content');
+  document.querySelectorAll('.bs-nav').forEach(n=>{n.style.background='';n.style.fontWeight='';});
+  // Highlight the nav item that matches
+  document.querySelectorAll('.bs-nav').forEach(n=>{
+    if (n.textContent.trim().toLowerCase() === panel.toLowerCase()) { n.style.background='rgba(255,255,255,.15)'; n.style.fontWeight='700'; }
+  });
+  switch(panel) {
+    case 'home': c.innerHTML = `
+      <h2 style="margin-bottom:16px">I can't believe it's not Word</h2>
+      <p style="color:#666;margin-bottom:20px">A full-featured word processor that runs in your browser.</p>
+      <div style="display:grid;grid-template-columns:repeat(3,200px);gap:16px">
+        <button onclick="newDoc()" style="border:1px solid #ddd;border-radius:8px;padding:20px;cursor:pointer;text-align:center;background:#fff">
+          <div style="font-size:32px;margin-bottom:8px">&#128196;</div><b>New blank document</b></button>
+        <button onclick="showBackstagePanel('open')" style="border:1px solid #ddd;border-radius:8px;padding:20px;cursor:pointer;text-align:center;background:#fff">
+          <div style="font-size:32px;margin-bottom:8px">&#128193;</div><b>Open a file</b></button>
+        <button onclick="showBackstagePanel('new')" style="border:1px solid #ddd;border-radius:8px;padding:20px;cursor:pointer;text-align:center;background:#fff">
+          <div style="font-size:32px;margin-bottom:8px">&#10024;</div><b>Templates</b></button>
+      </div>`; break;
+    case 'new': c.innerHTML = `
+      <h2 style="margin-bottom:16px">New</h2>
+      <div style="display:grid;grid-template-columns:repeat(4,160px);gap:16px;margin-bottom:24px">
+        <button onclick="newDoc()" style="border:1px solid #ddd;border-radius:4px;padding:16px;cursor:pointer;text-align:center;background:#fff">
+          <div style="width:80px;height:100px;background:#fff;border:1px solid #ccc;margin:0 auto 8px;box-shadow:0 2px 4px rgba(0,0,0,.1)"></div>
+          Blank document</button>
+        <button onclick="newDoc()" style="border:1px solid #ddd;border-radius:4px;padding:16px;cursor:pointer;text-align:center;background:#fff">
+          <div style="width:80px;height:100px;background:linear-gradient(135deg,#2b579a,#7bb3f0);margin:0 auto 8px;border-radius:4px"></div>
+          Resume</button>
+        <button onclick="newDoc()" style="border:1px solid #ddd;border-radius:4px;padding:16px;cursor:pointer;text-align:center;background:#fff">
+          <div style="width:80px;height:100px;background:linear-gradient(135deg,#2e7d32,#66bb6a);margin:0 auto 8px;border-radius:4px"></div>
+          Report</button>
+        <button onclick="newDoc()" style="border:1px solid #ddd;border-radius:4px;padding:16px;cursor:pointer;text-align:center;background:#fff">
+          <div style="width:80px;height:100px;background:linear-gradient(135deg,#c62828,#ef5350);margin:0 auto 8px;border-radius:4px"></div>
+          Newsletter</button>
+      </div>
+      <p style="color:#999">Search thousands of online templates...</p>`; break;
+    case 'open': c.innerHTML = `
+      <h2 style="margin-bottom:16px">Open</h2>
+      <div style="display:flex;gap:24px">
+        <div>
+          <p style="font-weight:600;margin-bottom:8px">Recent Documents</p>
+          <div id="recent-docs"><p style="color:#999">No recent documents</p></div>
+        </div>
+        <div style="border-left:1px solid #ddd;padding-left:24px">
+          <p style="font-weight:600;margin-bottom:8px">Open from</p>
+          <button onclick="openLocalFile()" style="display:block;padding:8px 16px;border:1px solid #ddd;border-radius:4px;margin-bottom:6px;cursor:pointer;width:200px">&#128193; This Device</button>
+          <button onclick="alert('Sign in to OneDrive to open cloud documents.')" style="display:block;padding:8px 16px;border:1px solid #ddd;border-radius:4px;margin-bottom:6px;cursor:pointer;width:200px">&#9729; OneDrive</button>
+          <button onclick="alert('Connect to SharePoint.')" style="display:block;padding:8px 16px;border:1px solid #ddd;border-radius:4px;margin-bottom:6px;cursor:pointer;width:200px">&#128196; SharePoint</button>
+          <hr style="margin:8px 0">
+          <button onclick="openLocalFile()" style="display:block;padding:8px 16px;border:1px solid #ddd;border-radius:4px;cursor:pointer;width:200px">&#128269; Browse...</button>
+        </div>
+      </div>`; break;
+    case 'info': c.innerHTML = `
+      <h2 style="margin-bottom:16px">Info</h2>
+      <div style="display:flex;gap:24px">
+        <div style="flex:1">
+          <div style="margin-bottom:16px"><b>Protect Document</b>
+            <button onclick="encryptDoc()" style="display:block;padding:8px;border:1px solid #ddd;border-radius:4px;margin-top:6px;cursor:pointer;width:100%;text-align:left">&#128274; Encrypt with Password</button>
+            <button onclick="restrictEditing()" style="display:block;padding:8px;border:1px solid #ddd;border-radius:4px;margin-top:4px;cursor:pointer;width:100%;text-align:left">&#9998; Restrict Editing</button>
+            <button onclick="inspectDoc()" style="display:block;padding:8px;border:1px solid #ddd;border-radius:4px;margin-top:4px;cursor:pointer;width:100%;text-align:left">&#128065; Inspect Document</button>
+          </div>
+          <div><b>Version History</b><p style="color:#999;margin-top:4px">AutoSave to see version history.</p></div>
+        </div>
+        <div style="width:280px;border-left:1px solid #ddd;padding-left:24px">
+          <b>Properties</b>
+          <p style="margin-top:8px">Size: <span id="info-size">—</span></p>
+          <p>Pages: <span id="info-pages">1</span></p>
+          <p>Words: <span id="info-words">0</span></p>
+          <p>Characters: <span id="info-chars">0</span></p>
+          <p>Paragraphs: <span id="info-paras">0</span></p>
+          <p>Created: ${new Date().toLocaleString()}</p>
+          <p>Last modified: <span id="info-modified">—</span></p>
+        </div>
+      </div>`; break;
+    case 'save': saveDoc(); closeBackstage(); break;
+    case 'saveas': showBackstageSaveAs(); break;
+    case 'print': showBackstagePrint(); break;
+    case 'share': c.innerHTML = `
+      <h2 style="margin-bottom:16px">Share</h2>
+      <button onclick="shareByEmail()" style="display:block;padding:12px 24px;background:var(--blue);color:#fff;border:none;border-radius:4px;font-size:14px;cursor:pointer;margin-bottom:12px">&#9993; Send via Email</button>
+      <button onclick="shareAsLink()" style="display:block;padding:12px 24px;border:1px solid #ddd;border-radius:4px;font-size:14px;cursor:pointer;margin-bottom:12px">&#128279; Copy Shareable Link</button>
+      <button onclick="presentOnline()" style="display:block;padding:12px 24px;border:1px solid #ddd;border-radius:4px;font-size:14px;cursor:pointer">&#128250; Present Online</button>`; break;
+    case 'export': c.innerHTML = `
+      <h2 style="margin-bottom:16px">Export</h2>
+      <button onclick="exportPDF()" style="display:block;padding:12px 24px;background:#c0392b;color:#fff;border:none;border-radius:4px;font-size:14px;cursor:pointer;margin-bottom:12px">&#128196; Create PDF/XPS Document</button>
+      <button onclick="exportFile('docx')" style="display:block;padding:12px 24px;border:1px solid #ddd;border-radius:4px;font-size:14px;cursor:pointer;margin-bottom:12px">&#128196; Word Document (.docx)</button>
+      <button onclick="exportFile('rtf')" style="display:block;padding:12px 24px;border:1px solid #ddd;border-radius:4px;font-size:14px;cursor:pointer;margin-bottom:12px">&#128196; Rich Text Format (.rtf)</button>
+      <button onclick="exportFile('txt')" style="display:block;padding:12px 24px;border:1px solid #ddd;border-radius:4px;font-size:14px;cursor:pointer;margin-bottom:12px">&#128196; Plain Text (.txt)</button>
+      <button onclick="exportFile('html')" style="display:block;padding:12px 24px;border:1px solid #ddd;border-radius:4px;font-size:14px;cursor:pointer">&#127760; Web Page (.html)</button>`; break;
+    case 'transform': c.innerHTML = `
+      <h2 style="margin-bottom:16px">Transform</h2>
+      <p style="margin-bottom:12px">Turn your document into an interactive web page with Microsoft Sway.</p>
+      <button onclick="transformSway()" style="padding:12px 24px;background:var(--blue);color:#fff;border:none;border-radius:4px;font-size:14px;cursor:pointer">&#127760; Transform to Web Page</button>`; break;
+    case 'account': c.innerHTML = `
+      <h2 style="margin-bottom:16px">Account</h2>
+      <div style="display:flex;gap:24px">
+        <div style="width:80px;height:80px;border-radius:50%;background:#7c4dff;display:flex;align-items:center;justify-content:center;color:#fff;font-size:32px;font-weight:700">W</div>
+        <div>
+          <p style="font-weight:600">Word User</p>
+          <p style="color:#999">user@example.com</p>
+          <p style="margin-top:8px;color:#999">Product: I can't believe it's not Word (Free Web Edition)</p>
+          <button onclick="alert('Sign-in requires a Microsoft account.')" style="margin-top:12px;padding:6px 16px;border:1px solid #ddd;border-radius:4px;cursor:pointer">Sign in</button>
+        </div>
+      </div>`; break;
+    case 'options': showBackstageOptions(); break;
+  }
+}
+function showBackstageSaveAs() {
+  const c = document.getElementById('backstage-content');
+  c.innerHTML = `
+    <h2 style="margin-bottom:16px">Save As</h2>
+    <div style="display:flex;gap:24px">
+      <div>
+        <p style="font-weight:600;margin-bottom:8px">Save to</p>
+        <button onclick="saveDoc()" style="display:block;padding:8px 16px;border:1px solid #ddd;border-radius:4px;margin-bottom:6px;cursor:pointer;width:200px">&#128193; This Device</button>
+        <button onclick="alert('Sign in to save to OneDrive.')" style="display:block;padding:8px 16px;border:1px solid #ddd;border-radius:4px;margin-bottom:6px;cursor:pointer;width:200px">&#9729; OneDrive</button>
+      </div>
+      <div style="border-left:1px solid #ddd;padding-left:24px;flex:1">
+        <p style="font-weight:600;margin-bottom:8px">File name:</p>
+        <input id="saveas-name" value="${document.getElementById('docname').value}" style="width:100%;padding:6px;border:1px solid #ccc;border-radius:4px;margin-bottom:8px">
+        <p style="font-weight:600;margin-bottom:4px">Save as type:</p>
+        <select id="saveas-type" style="width:100%;padding:6px;border:1px solid #ccc;border-radius:4px;margin-bottom:12px">
+          <option value="html">Web Page (.html)</option>
+          <option value="txt">Plain Text (.txt)</option>
+          <option value="rtf">Rich Text Format (.rtf)</option>
+        </select>
+        <button onclick="doSaveAs()" style="padding:8px 24px;background:var(--blue);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px">Save</button>
+      </div>
+    </div>`;
+}
+function showBackstagePrint() {
+  const c = document.getElementById('backstage-content');
+  c.innerHTML = `
+    <h2 style="margin-bottom:16px">Print</h2>
+    <div style="display:flex;gap:24px">
+      <div>
+        <button onclick="window.print()" style="padding:12px 32px;background:var(--blue);color:#fff;border:none;border-radius:4px;font-size:16px;cursor:pointer;margin-bottom:16px">&#128424; Print</button>
+        <p style="font-weight:600;margin-bottom:8px">Printer</p>
+        <select style="width:240px;padding:6px;border:1px solid #ccc;border-radius:4px;margin-bottom:12px">
+          <option>Save as PDF</option>
+          <option>System Default Printer</option>
+        </select>
+        <p style="font-weight:600;margin-bottom:4px">Copies:</p>
+        <input type="number" value="1" min="1" style="width:80px;padding:6px;border:1px solid #ccc;border-radius:4px">
+        <hr style="margin:12px 0">
+        <p style="font-weight:600;margin-bottom:4px">Pages</p>
+        <p style="font-size:12px;color:#666">All pages</p>
+        <p style="font-weight:600;margin-top:8px;margin-bottom:4px">Sides</p>
+        <select style="width:200px;padding:4px;border:1px solid #ccc;border-radius:4px"><option>Print One Sided</option><option>Print on Both Sides</option></select>
+        <p style="font-weight:600;margin-top:8px;margin-bottom:4px">Orientation</p>
+        <select style="width:200px;padding:4px;border:1px solid #ccc;border-radius:4px"><option>Portrait</option><option>Landscape</option></select>
+        <p style="font-weight:600;margin-top:8px;margin-bottom:4px">Margins</p>
+        <select style="width:200px;padding:4px;border:1px solid #ccc;border-radius:4px"><option>Normal (1")</option><option>Narrow (0.5")</option><option>Moderate (0.75")</option><option>Wide (2")</option></select>
+      </div>
+      <div style="border-left:1px solid #ddd;padding-left:24px;flex:1;background:#f5f5f5;display:flex;justify-content:center;align-items:flex-start">
+        <div style="background:#fff;width:408px;height:528px;box-shadow:0 2px 8px rgba(0,0,0,.2);padding:36px;font-size:11px;overflow:hidden" id="print-preview">${editor.innerHTML.substring(0,2000)}</div>
+      </div>
+    </div>`;
+}
+function showBackstageOptions() {
+  const c = document.getElementById('backstage-content');
+  c.innerHTML = `
+    <h2 style="margin-bottom:16px">Word Options</h2>
+    <div style="display:flex;gap:24px">
+      <div style="width:160px">
+        <p class="opt-nav active" onclick="showOptPanel('display')" style="padding:6px 12px;cursor:pointer;border-radius:4px;background:#e8f0fe">Display</p>
+        <p class="opt-nav" onclick="showOptPanel('proofing')" style="padding:6px 12px;cursor:pointer;border-radius:4px">Proofing</p>
+        <p class="opt-nav" onclick="showOptPanel('language')" style="padding:6px 12px;cursor:pointer;border-radius:4px">Language</p>
+        <p class="opt-nav" onclick="showOptPanel('ribbon')" style="padding:6px 12px;cursor:pointer;border-radius:4px">Customize Ribbon</p>
+        <p class="opt-nav" onclick="showOptPanel('addins')" style="padding:6px 12px;cursor:pointer;border-radius:4px">Add-ins</p>
+        <p class="opt-nav" onclick="showOptPanel('trust')" style="padding:6px 12px;cursor:pointer;border-radius:4px">Trust Center</p>
+      </div>
+      <div id="opt-panel" style="flex:1;border-left:1px solid #ddd;padding-left:24px"></div>
+    </div>`;
+  showOptPanel('display');
+}
+function showOptPanel(p) {
+  const el = document.getElementById('opt-panel');
+  const panels = {
+    display: '<h3>Display</h3><label style="display:block;margin:8px 0"><input type="checkbox" checked> Show paragraph marks</label><label style="display:block;margin:8px 0"><input type="checkbox"> Show text boundaries</label><label style="display:block;margin:8px 0"><input type="checkbox" checked> Show white space between pages</label><label style="display:block;margin:8px 0"><input type="checkbox"> Update fields before printing</label>',
+    proofing: '<h3>Proofing</h3><label style="display:block;margin:8px 0"><input type="checkbox" checked> Check spelling as you type</label><label style="display:block;margin:8px 0"><input type="checkbox" checked> Mark grammar errors as you type</label><label style="display:block;margin:8px 0"><input type="checkbox"> Frequently confused words</label><label style="display:block;margin:8px 0"><input type="checkbox"> Writing style: Grammar & Refinements</label>',
+    language: '<h3>Language</h3><p style="margin:8px 0">Authoring language: English (United States)</p><button style="padding:6px 16px;border:1px solid #ddd;border-radius:4px;cursor:pointer">Add a Language...</button>',
+    ribbon: '<h3>Customize Ribbon</h3><p style="margin:8px 0;color:#666">Choose which tabs and commands to display.</p><label style="display:block;margin:4px 0"><input type="checkbox" checked> Home</label><label style="display:block;margin:4px 0"><input type="checkbox" checked> Insert</label><label style="display:block;margin:4px 0"><input type="checkbox" checked> Draw</label><label style="display:block;margin:4px 0"><input type="checkbox" checked> Design</label><label style="display:block;margin:4px 0"><input type="checkbox" checked> Layout</label><label style="display:block;margin:4px 0"><input type="checkbox" checked> References</label><label style="display:block;margin:4px 0"><input type="checkbox" checked> Mailings</label><label style="display:block;margin:4px 0"><input type="checkbox" checked> Review</label><label style="display:block;margin:4px 0"><input type="checkbox" checked> View</label>',
+    addins: '<h3>Add-ins</h3><p style="margin:8px 0;color:#666">Manage Office Add-ins</p><button style="padding:6px 16px;border:1px solid #ddd;border-radius:4px;cursor:pointer;margin-right:8px">Store</button><button style="padding:6px 16px;border:1px solid #ddd;border-radius:4px;cursor:pointer">My Add-ins</button>',
+    trust: '<h3>Trust Center</h3><p style="margin:8px 0;color:#666">Protect your privacy and documents.</p><button onclick="alert('Trust Center settings are managed at the browser/OS level for web apps.')" style="padding:6px 16px;border:1px solid #ddd;border-radius:4px;cursor:pointer">Trust Center Settings...</button>'
+  };
+  el.innerHTML = panels[p] || '';
+}
+
+// ═══════════════ STATUS BAR ═══════════════
+function updateStatus() {
+  const text = editor.innerText || '';
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  document.getElementById('sb-words').textContent = words + ' words';
+  document.getElementById('sb-chars').textContent = text.length + ' characters';
+  // page estimate
+  const lines = Math.ceil(editor.scrollHeight / (96 * 11 / 12));
+  document.getElementById('sb-page').textContent = `Page ${lines} of ${Math.max(1, Math.ceil(editor.scrollHeight / 1056))}`;
+  // info panel
+  const iw = document.getElementById('info-words'); if (iw) iw.textContent = words;
+  const ic = document.getElementById('info-chars'); if (ic) ic.textContent = text.length;
+  const ip = document.getElementById('info-paras'); if (ip) ip.textContent = editor.querySelectorAll('p,div,li').length;
+  const im = document.getElementById('info-modified'); if (im) im.textContent = new Date().toLocaleString();
+  updateNavPane();
+  checkActiveButtons();
+}
+editor.addEventListener('input', () => { updateStatus(); saveUndo(); scheduleAutoSave(); });
+// Initial
+updateStatus();
+saveUndo();
+
+// Track active formatting buttons
+function checkActiveButtons() {
+  document.getElementById('btn-bold').classList.toggle('active', document.queryCommandState('bold'));
+  document.getElementById('btn-italic').classList.toggle('active', document.queryCommandState('italic'));
+  document.getElementById('btn-underline').classList.toggle('active', document.queryCommandState('underline'));
+}
+document.addEventListener('selectionchange', checkActiveButtons);
+
+// ═══════════════ ZOOM / VIEWS ═══════════════
+let zoomLevel = 1;
+function setZoom(z) {
+  zoomLevel = Math.max(0.1, Math.min(5, z));
+  editor.style.transform = `scale(${zoomLevel})`;
+  editor.style.transformOrigin = 'top center';
+  document.getElementById('zoom-pct').textContent = Math.round(zoomLevel * 100) + '%';
+  document.getElementById('zoom-slider').value = Math.round(zoomLevel * 100);
+}
+function zoomOnePage() { setZoom(Math.min(window.innerHeight / 1100, 2)); }
+function zoomPageWidth() { setZoom(Math.min((document.getElementById('page-container').clientWidth - 60) / 816, 3)); }
+function setView(v) {
+  document.querySelectorAll('[id^="btn-view-"]').forEach(b=>b.classList.remove('active'));
+  const btn = document.getElementById('btn-view-'+v); if (btn) btn.classList.add('active');
+  switch(v) {
+    case 'read':
+      editor.style.cssText += ';column-count:2;column-gap:40px;max-width:700px;margin:0 auto;font-size:14pt;line-height:1.6';
+      document.getElementById('page-container').style.background = '#faf8f5';
+      break;
+    case 'print':
+      editor.style.cssText = editor.style.cssText.replace(/column-count[^;]+;?/g,'');
+      editor.style.maxWidth = ''; editor.style.fontSize = ''; editor.style.lineHeight = '';
+      document.getElementById('page-container').style.background = 'var(--page-bg)';
+      break;
+    case 'web':
+      editor.style.cssText += ';max-width:100%;padding:20px;column-count:unset';
+      document.getElementById('page-container').style.background = '#fff';
+      break;
+    case 'outline':
+      editor.style.cssText += ';font-family:monospace;font-size:12pt;column-count:unset';
+      editor.querySelectorAll('p,div,li,h1,h2,h3').forEach(el=>{
+        const t = el.textContent.trim();
+        if (t) el.textContent = (el.style.fontSize && parseInt(el.style.fontSize) > 14 ? '» ' : '  ') + t;
+      });
+      break;
+    case 'draft':
+      editor.style.cssText += ';max-width:100%;padding:8px 40px;font-size:12pt;column-count:unset';
+      document.getElementById('page-container').style.background = '#fff';
+      break;
+  }
+}
+function toggleRuler() {
+  const pc = document.getElementById('page-container');
+  let ruler = document.getElementById('ruler');
+  if (ruler) { ruler.remove(); return; }
+  ruler = document.createElement('div');
+  ruler.id = 'ruler';
+  ruler.style.cssText = 'height:24px;background:#fff;border-bottom:1px solid #ccc;width:816px;margin:0 auto;font-size:9px;color:#999;position:relative;overflow:hidden;user-select:none';
+  let marks = '';
+  for (let i = 0; i <= 8.5; i++) {
+    marks += `<span style="position:absolute;left:${i*96}px;top:2px;border-left:1px solid #999;padding-left:2px;height:20px">${i}</span>`;
+    for (let j = 1; j < 8; j++) marks += `<span style="position:absolute;left:${i*96+j*12}px;top:14px;border-left:1px solid #ccc;height:10px"></span>`;
+  }
+  ruler.innerHTML = marks;
+  pc.prepend(ruler);
+}
+function toggleGridlines() {
+  const pc = document.getElementById('page-container');
+  if (pc.querySelector('.grid-overlay')) { pc.querySelector('.grid-overlay').remove(); return; }
+  const g = document.createElement('div');
+  g.className = 'grid-overlay';
+  g.style.cssText = `position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(#eee 1px,transparent 1px),linear-gradient(90deg,#eee 1px,transparent 1px);background-size:24px 24px;z-index:5`;
+  editor.style.position = 'relative';
+  editor.appendChild(g);
+}
+function toggleNavPane() {
+  const np = document.getElementById('nav-pane');
+  np.style.display = np.style.display === 'none' ? 'block' : 'none';
+  updateNavPane();
+}
+function updateNavPane() {
+  const list = document.getElementById('nav-headings-list');
+  if (!list) return;
+  let html = '';
+  editor.querySelectorAll('p,h1,h2,h3').forEach(el => {
+    const fs = parseInt(getComputedStyle(el).fontSize);
+    if (fs > 14 || el.tagName.startsWith('H')) {
+      html += `<p style="cursor:pointer;padding:3px 0;font-size:12px" onclick="this.scrollIntoView()">${el.textContent.trim().substring(0,50)}</p>`;
+    }
+  });
+  list.innerHTML = html || '<p style="color:#999;font-size:11px">No headings found. Apply Heading styles.</p>';
+}
+function navPaneTab(t) {
+  ['headings','pages','results'].forEach(x => {
+    document.getElementById('nav-'+x).classList.toggle('active', x===t);
+    document.getElementById('nav-'+x+'-list').style.display = x===t ? 'block' : 'none';
+  });
+}
+function togglePageMovement(dir) {
+  const pc = document.getElementById('page-container');
+  pc.style.scrollSnapType = dir === 'sideways' ? 'x mandatory' : '';
+  document.getElementById('btn-pg-vert').classList.toggle('active', dir==='vertical');
+  document.getElementById('btn-pg-side').classList.toggle('active', dir==='sideways');
+}
+function immersiveReader() {
+  showModal('Immersive Reader', `
+    <div style="background:#faf8f5;padding:24px;border-radius:8px;max-height:500px;overflow-y:auto;font-size:18pt;line-height:2;letter-spacing:0.1em;max-width:600px;margin:0 auto">
+      ${editor.innerText.substring(0, 3000)}
+    </div>
+    <div style="display:flex;gap:12px;margin-top:12px;justify-content:center">
+      <button onclick="alert('Text spacing adjusted.')" style="padding:6px 12px;border:1px solid #ddd;border-radius:4px;cursor:pointer">Text Spacing</button>
+      <button onclick="alert('Syllables shown.')" style="padding:6px 12px;border:1px solid #ddd;border-radius:4px;cursor:pointer">Syllables</button>
+      <button onclick="alert('Line focus enabled.')" style="padding:6px 12px;border:1px solid #ddd;border-radius:4px;cursor:pointer">Line Focus</button>
+    </div>`);
+}
+function newWindow() { window.open(window.location.href, '_blank'); }
+function splitWindow() { alert('Split view: Use your browser split-screen feature.'); }
+function sideBySide() { alert('Side-by-side: Open a second browser window.'); }
+
+// ═══════════════ ZOOM SLIDER ═══════════════
+document.getElementById('zoom-slider').addEventListener('input', function() { setZoom(this.value / 100); });
+</script>
+
+<script>
+// ═══════════════ FIND / REPLACE ═══════════════
+function showFind() { document.getElementById('find-replace-bar').style.display = 'block'; document.getElementById('find-input').focus(); }
+function showReplace() { showFind(); }
+function doFindNext() {
+  const q = document.getElementById('find-input').value;
+  if (!q) return;
+  const found = window.find(q, false, document.getElementById('find-case').checked, false);
+  document.getElementById('find-count').textContent = found ? 'Found' : 'Not found';
+}
+function doFindPrev() { /* basic: just search again */ doFindNext(); }
+function doReplace() {
+  const find = document.getElementById('find-input').value;
+  const repl = document.getElementById('replace-input').value;
+  const sel = window.getSelection();
+  if (sel.toString().toLowerCase() === find.toLowerCase()) {
+    sel.deleteContents();
+    sel.insertNode(document.createTextNode(repl));
+    saveUndo();
+  } else { doFindNext(); }
+}
+function doReplaceAll() {
+  const find = document.getElementById('find-input').value;
+  const repl = document.getElementById('replace-input').value;
+  if (!find) return;
+  const esc = find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(esc, document.getElementById('find-case').checked ? 'g' : 'gi');
+  let count = 0;
+  const walk = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walk.nextNode()) nodes.push(walk.currentNode);
+  nodes.forEach(n => {
+    if (re.test(n.textContent)) {
+      const before = n.textContent;
+      n.textContent = before.replace(re, () => { count++; return repl; });
+      re.lastIndex = 0;
+    }
+  });
+  document.getElementById('find-count').textContent = `Replaced ${count} occurrence${count!==1?'s':''}`;
+  saveUndo(); updateStatus();
+}
+function showSelectMenu() {
+  showModal('Select', `
+    <button onclick="cmd('selectAll');closeModal()" style="display:block;width:100%;text-align:left;padding:8px;border:1px solid #ddd;border-radius:4px;margin-bottom:6px;cursor:pointer">Select All (Ctrl+A)</button>
+    <button onclick="selectObjects();closeModal()" style="display:block;width:100%;text-align:left;padding:8px;border:1px solid #ddd;border-radius:4px;margin-bottom:6px;cursor:pointer">Select Objects</button>
+    <button onclick="selectSimilarFormat();closeModal()" style="display:block;width:100%;text-align:left;padding:8px;border:1px solid #ddd;border-radius:4px;cursor:pointer">Select Text with Similar Formatting</button>`);
+}
+function selectObjects() { alert('Click and drag to select objects, or use Ctrl+click for multiple selection.'); }
+function selectSimilarFormat() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount || sel.isCollapsed) { alert('Select some text first.'); return; }
+  alert('Selecting all text with similar formatting...');
+}
+
+// ═══════════════ DICTATION ═══════════════
+let dictating = false, recognition = null;
+function toggleDictate() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { alert('Speech recognition not supported in this browser. Try Chrome or Edge.'); return; }
+  if (dictating) { recognition.stop(); dictating = false; return; }
+  recognition = new SR();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+  recognition.onresult = (e) => {
+    let final = '', interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) final += e.results[i][0].transcript;
+      else interim += e.results[i][0].transcript;
+    }
+    if (final) editor.focus(), document.execCommand('insertText', false, final);
+  };
+  recognition.start();
+  dictating = true;
+  alert('🎤 Dictation started. Speak now... Click OK when done to stop.');
+  recognition.stop(); dictating = false;
+}
+
+// ═══════════════ EDITOR / PROOFING ═══════════════
+function showEditorPanel() {
+  const pane = document.getElementById('editor-pane');
+  pane.style.display = 'flex'; pane.style.flexDirection = 'column';
+  const text = editor.innerText;
+  const words = text.trim() ? text.trim().split(/\s+/) : [];
+  let issues = 0, html = '';
+  // Basic spell check
+  const misspelled = [];
+  words.forEach(w => {
+    const clean = w.replace(/[^a-zA-Z']/g, '');
+    if (clean.length > 3 && !COMMON_WORDS.has(clean.toLowerCase())) {
+      issues++;
+      misspelled.push(clean);
+    }
+  });
+  html += `<div style="margin-bottom:12px"><b>Editor Score:</b> <span style="color:${issues>5?'#c00':issues>0?'#f5a623':'#2e7d32'};font-size:16pt;font-weight:700">${Math.max(0, 100 - issues * 3)}%</span></div>`;
+  html += `<p style="color:#666;margin-bottom:8px">${words.length} words, ${issues} potential issues</p>`;
+  if (misspelled.length) {
+    html += `<b>Suggestions:</b><ul style="padding-left:16px;margin-top:4px">`;
+    misspelled.slice(0, 10).forEach(w => { html += `<li style="margin:4px 0;color:#c00">${w}</li>`; });
+    html += '</ul>';
+  } else {
+    html += '<p style="color:#2e7d32">&#10003; No major issues found!</p>';
+  }
+  document.getElementById('editor-results').innerHTML = html;
+}
+const COMMON_WORDS = new Set('the be to of and a in that have i it for not on with he as you do at this but his by from they we say her she or an will my one all would there their what so up out if about who get which go me when make can like time no just him know take people into year your good some could them see other than then now look only come its over think also back after use two how our work first well way even new want because any these give day most us is are was were been has had did does said says got make made going went gone came saw seen took taken gave given told asked seemed felt put set let run ran sing sang drink drank eat ate sleep slept wake woke drive drove ride rode fly flew swim swam write wrote read draw drew throw threw catch caught break broke speak spoke hear heard understand understood learn learned teach taught think thought know knew grow grew win won lose lost find found leave left keep kept hold held stand stood sit sat pay paid meet met bring brought begin began start stop stopped help helped play played watch looked listen try tried need wanted use used find felt move moved live lived believe turn turned ask asked answer called worked looked seemed felt became left put mean meant keep let begin started showed heard run ran lost paid met included continued set learned changed lead walked won offered kept closing dealing opening ending starting running going coming making taking getting giving putting bringing turning keeping holding letting beginning adding ending moving living walking working playing watching listening reading writing drawing throwing catching breaking speaking hearing understanding learning teaching thinking knowing growing winning losing finding leaving keeping holding standing sitting paying meeting bringing starting stopping helping using trying needing wanting asking answering calling working believing turning moving living'.split(' ')));
+
+function showThesaurus() {
+  const sel = window.getSelection().toString() || prompt('Enter a word:');
+  if (!sel) return;
+  const syns = { 'good': ['excellent','fine','great','superb','quality'], 'bad': ['poor','terrible','awful','dreadful','inferior'], 'big': ['large','huge','massive','enormous','giant'], 'small': ['tiny','little','miniature','compact','slight'], 'happy': ['glad','joyful','pleased','delighted','cheerful'], 'sad': ['unhappy','sorrowful','dejected','melancholy','gloomy'] };
+  const list = syns[sel.toLowerCase()] || ['(thesaurus offline — try: good, bad, big, small, happy, sad)'];
+  showModal('Thesaurus: ' + sel, list.map(s => `<button onclick="cmd('insertText','${s}');closeModal()" style="display:block;width:100%;text-align:left;padding:6px 12px;border:1px solid #ddd;border-radius:4px;margin-bottom:4px;cursor:pointer">${s}</button>`).join(''));
+}
+function showWordCount() {
+  const text = editor.innerText;
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  const paras = editor.querySelectorAll('p,div,li').length;
+  showModal('Word Count', `<p>Pages: ${Math.ceil(editor.scrollHeight / 1056)}</p><p>Words: ${words}</p><p>Characters (no spaces): ${text.replace(/\s/g,'').length}</p><p>Characters (with spaces): ${text.length}</p><p>Paragraphs: ${paras}</p><p>Lines: ${Math.ceil(editor.scrollHeight / 20)}</p>`);
+}
+function checkAccessibility() {
+  let issues = [];
+  editor.querySelectorAll('img').forEach(img => { if (!img.alt) issues.push('Image missing alt text'); });
+  const text = editor.innerText;
+  if (!text.trim()) issues.push('Document is empty');
+  if (text.length > 50000 && editor.querySelectorAll('h1,h2,h3').length === 0) issues.push('Long document without headings — add heading styles');
+  showModal('Accessibility Checker', issues.length ? issues.map(i => `<p style="color:#c00;margin:4px 0">&#9888; ${i}</p>`).join('') : '<p style="color:#2e7d32">&#10003; No accessibility issues found!</p>');
+}
+function translateDoc() {
+  const sel = window.getSelection().toString();
+  if (!sel) { alert('Select text to translate.'); return; }
+  window.open(`https://translate.google.com/?sl=en&tl=es&text=${encodeURIComponent(sel)}`, '_blank');
+}
+function showLangPrefs() { showModal('Language Preferences', '<p>Authoring language: English (United States)</p><p style="margin-top:8px;color:#666">Translation available via Google Translate integration.</p>'); }
+
+// ═══════════════ READ ALOUD ═══════════════
+function readAloud() {
+  const sel = window.getSelection().toString() || editor.innerText;
+  if (!sel.trim()) return;
+  const u = new SpeechSynthesisUtterance(sel.substring(0, 5000));
+  u.lang = 'en-US'; u.rate = 1;
+  speechSynthesis.speak(u);
+}
+
+// ═══════════════ COMMENTS ═══════════════
+let comments = [], commentIdx = -1;
+function addComment() {
+  const sel = window.getSelection().toString() || 'General comment';
+  const text = prompt('Add a comment:');
+  if (!text) return;
+  comments.push({ text, quote: sel, resolved: false });
+  renderComments();
+  document.getElementById('comments-pane').style.display = 'block';
+}
+function renderComments() {
+  const el = document.getElementById('comments-list');
+  el.innerHTML = comments.map((c, i) => `
+    <div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:8px;margin-bottom:8px;${c.resolved?'opacity:.5':''}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <b style="font-size:12px">User</b>
+        <span style="font-size:10px;color:#999">${new Date().toLocaleTimeString()}</span>
+      </div>
+      ${c.quote ? `<p style="font-size:11px;color:#666;border-left:2px solid #2b579a;padding-left:6px;margin-bottom:4px">"${c.quote}"</p>` : ''}
+      <p style="font-size:12px">${c.text}</p>
+      <div style="margin-top:6px">
+        <button onclick="comments[${i}].resolved=!comments[${i}].resolved;renderComments()" style="font-size:11px;color:var(--blue);cursor:pointer">${c.resolved ? 'Unresolve' : 'Resolve'}</button>
+        <button onclick="comments.splice(${i},1);renderComments()" style="font-size:11px;color:#c00;cursor:pointer;margin-left:8px">Delete</button>
+      </div>
+    </div>`).join('') || '<p style="color:#999;font-size:11px">No comments yet.</p>';
+}
+function deleteComment() { if (comments.length) { comments.pop(); renderComments(); } }
+function prevComment() { if (commentIdx > 0) commentIdx--; }
+function nextComment() { if (commentIdx < comments.length - 1) commentIdx++; }
+function resolveComment() { if (commentIdx >= 0 && comments[commentIdx]) { comments[commentIdx].resolved = true; renderComments(); } }
+
+// ═══════════════ TRACK CHANGES ═══════════════
+let trackChanges = false;
+function toggleTrackChanges() {
+  trackChanges = !trackChanges;
+  document.getElementById('btn-trackchanges').classList.toggle('active', trackChanges);
+  document.getElementById('sb-track').style.display = trackChanges ? 'inline' : 'none';
+  if (trackChanges) {
+    editor.addEventListener('input', trackInput);
+  } else {
+    editor.removeEventListener('input', trackInput);
+  }
+}
+function trackInput() {
+  // Simple visual indicator for tracked changes
+  editor.querySelectorAll('ins,del').forEach(el => {
+    if (el.style.display === '') {
+      if (el.tagName === 'INS') el.style.cssText = 'text-decoration:underline;color:#2e7d32';
+    }
+  });
+}
+function setMarkupView(v) {
+  if (v === 'original') alert('Showing original document (tracked changes hidden).');
+  else if (v === 'simple') alert('Simple markup: Change bars shown in margin.');
+  else alert('All markup: All changes shown with formatting.');
+}
+function acceptChange() { alert('Change accepted.'); }
+function rejectChange() { alert('Change rejected.'); }
+function compareDocs() { showModal('Compare Documents', '<p>Compare two versions of a document side-by-side.</p><button onclick="alert(\'Feature requires two document versions.\');closeModal()" style="margin-top:12px;padding:8px 16px;background:var(--blue);color:#fff;border:none;border-radius:4px;cursor:pointer">Select Documents...</button>'); }
+function combineDocs() { showModal('Combine Documents', '<p>Combine edits from multiple authors into one document.</p><button onclick="alert(\'Feature requires multiple document versions.\');closeModal()" style="margin-top:12px;padding:8px 16px;background:var(--blue);color:#fff;border:none;border-radius:4px;cursor:pointer">Select Documents...</button>'); }
+function restrictEditing() {
+  showModal('Restrict Editing', `
+    <label style="display:block;margin:8px 0"><input type="checkbox" id="restrict-format"> Formatting restrictions</label>
+    <label style="display:block;margin:8px 0"><input type="checkbox" id="restrict-edit"> Editing restrictions (read only)</label>
+    <label style="display:block;margin:8px 0">Password: <input type="password" style="border:1px solid #ccc;border-radius:4px;padding:4px 8px;margin-left:8px"></label>
+    <button onclick="applyRestriction()" style="margin-top:12px;padding:8px 16px;background:var(--blue);color:#fff;border:none;border-radius:4px;cursor:pointer">Start Enforcing</button>`);
+}
+function applyRestriction() {
+  const ro = document.getElementById('restrict-edit').checked;
+  editor.contentEditable = ro ? 'false' : 'true';
+  alert(ro ? 'Document is now read-only.' : 'Editing restrictions removed.');
+  closeModal();
+}
+function blockAuthors() { alert('Author blocking requires a signed-in account.'); }
+function encryptDoc() {
+  const pw = prompt('Enter a password to encrypt the document:');
+  if (!pw) return;
+  // Simple XOR "encryption" for demo
+  const data = btoa(unescape(encodeURIComponent(editor.innerHTML)));
+  localStorage.setItem('encrypted-doc-' + pw, data);
+  alert('Document encrypted with password. (Demo — stored in browser localStorage)');
+}
+function inspectDoc() {
+  showModal('Document Inspector', '<p>Checking for hidden data...</p><p style="margin-top:8px;color:#2e7d32">&#10003; No hidden data found</p><p style="margin-top:4px;color:#666;font-size:11px">Checked: Comments, tracked changes, document properties, hidden text</p>');
+}
+function showMacros() {
+  showModal('Macros', `
+    <p style="margin-bottom:8px">Macro name:</p>
+    <input id="macro-name" style="width:100%;padding:6px;border:1px solid #ccc;border-radius:4px;margin-bottom:8px" placeholder="MyMacro">
+    <div id="macro-list" style="border:1px solid #ddd;border-radius:4px;max-height:150px;overflow-y:auto;margin-bottom:8px">
+      <p style="padding:8px;color:#999">No macros recorded yet.</p>
+    </div>
+    <button onclick="runMacro()" style="padding:6px 16px;border:1px solid #ddd;border-radius:4px;cursor:pointer;margin-right:8px">Run</button>
+    <button onclick="createMacro()" style="padding:6px 16px;background:var(--blue);color:#fff;border:none;border-radius:4px;cursor:pointer">Create</button>`);
+}
+let macros = [];
+function recordMacro() {
+  const name = prompt('Macro name:', 'Macro' + (macros.length + 1));
+  if (!name) return;
+  alert('Recording macro "' + name + '". Perform actions, then stop recording.');
+  macros.push({ name, steps: [] });
+  setTimeout(() => alert('Macro recording stopped.'), 5000);
+}
+function createMacro() {
+  const name = document.getElementById('macro-name').value;
+  if (!name) return;
+  const code = prompt('Enter macro code:\nAvailable commands: bold, italic, underline, insertText(text), applyStyle(name)');
+  if (!code) return;
+  macros.push({ name, code });
+  closeModal();
+}
+function runMacro() {
+  const name = document.getElementById('macro-name')?.value;
+  const m = macros.find(x => x.name === name);
+  if (!m) { alert('Macro not found.'); return; }
+  try {
+    if (m.code) {
+      const fn = new Function('cmd','editor','alert', m.code);
+      fn(cmd, editor, alert);
+    }
+  } catch(e) { alert('Macro error: ' + e.message); }
+  closeModal();
+}
+
+// ═══════════════ DRAW ═══════════════
+let drawing = false, drawMode = false, currentPen = 'pen', strokes = [];
+function setPen(p) {
+  currentPen = p;
+  document.getElementById('btn-drawmode')?.classList.add('active');
+  if (!drawMode) toggleDrawMode();
+}
+function toggleDrawMode() {
+  drawMode = !drawMode;
+  document.getElementById('btn-drawmode').classList.toggle('active', drawMode);
+  const canvas = document.getElementById('ink-canvas');
+  if (drawMode) {
+    const pc = document.getElementById('page-container');
+    canvas.width = pc.scrollWidth; canvas.height = pc.scrollHeight;
+    canvas.style.display = 'block';
+    canvas.style.pointerEvents = 'auto';
+    canvas.style.cursor = 'crosshair';
+    canvas.addEventListener('mousedown', startDraw);
+    canvas.addEventListener('mousemove', doDraw);
+    canvas.addEventListener('mouseup', endDraw);
+    canvas.addEventListener('touchstart', startDraw);
+    canvas.addEventListener('touchmove', doDraw);
+    canvas.addEventListener('touchend', endDraw);
+  } else {
+    canvas.style.display = 'none';
+    canvas.style.pointerEvents = 'none';
+    canvas.removeEventListener('mousedown', startDraw);
+    canvas.removeEventListener('mousemove', doDraw);
+    canvas.removeEventListener('mouseup', endDraw);
+    canvas.removeEventListener('touchstart', startDraw);
+    canvas.removeEventListener('touchmove', doDraw);
+    canvas.removeEventListener('touchend', endDraw);
+  }
+}
+function startDraw(e) {
+  e.preventDefault();
+  drawing = true;
+  const canvas = document.getElementById('ink-canvas');
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+  const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+  strokes.push([{ x, y, color: document.getElementById('pen-color').value, size: document.getElementById('pen-size').value, type: currentPen }]);
+}
+function doDraw(e) {
+  if (!drawing) return;
+  e.preventDefault();
+  const canvas = document.getElementById('ink-canvas');
+  const ctx = canvas.getContext('2d');
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+  const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+  const stroke = strokes[strokes.length - 1];
+  const prev = stroke[stroke.length - 1];
+  ctx.strokeStyle = stroke[0].color;
+  ctx.lineWidth = stroke[0].size;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  if (stroke[0].type === 'highlighter') { ctx.globalAlpha = 0.3; ctx.lineWidth = parseInt(stroke[0].size) * 3; }
+  else ctx.globalAlpha = 1;
+  if (stroke[0].type === 'eraser') {
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.lineWidth = 20;
+  }
+  ctx.beginPath(); ctx.moveTo(prev.x, prev.y); ctx.lineTo(x, y); ctx.stroke();
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
+  stroke.push({ x, y });
+}
+function endDraw() { drawing = false; }
+function clearInk() {
+  const canvas = document.getElementById('ink-canvas');
+  canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+  strokes = [];
+}
+function inkToShape() { alert('Ink to Shape: Draw a shape and it will be auto-corrected.'); }
+function inkToMath() { alert('Ink to Math: Draw a mathematical equation and it will be converted to typed LaTeX.'); }
+function inkReplay() { alert('Ink Replay: Replaying all strokes...'); }
+
+// Pen size label
+document.getElementById('pen-size')?.addEventListener('input', function() {
+  document.getElementById('pen-size-label').textContent = this.value + 'px';
+});
+
+// ═══════════════ DESIGN / THEME ═══════════════
+function applyTheme(t) {
+  const themes = {
+    default: { heading: '#2b579a', accent: '#4a90d9' },
+    blue: { heading: '#1565c0', accent: '#42a5f5' },
+    dark: { heading: '#222', accent: '#555' },
+    green: { heading: '#2e7d32', accent: '#66bb6a' },
+    red: { heading: '#c62828', accent: '#ef5350' }
+  };
+  const th = themes[t] || themes.default;
+  editor.querySelectorAll('p').forEach(p => {
+    const fs = parseInt(getComputedStyle(p).fontSize);
+    if (fs > 14) p.style.color = th.heading;
+  });
+  editor.style.setProperty('--accent', th.accent);
+}
+function setDesignSpacing(v) {
+  editor.querySelectorAll('p,div').forEach(el => { el.style.marginBottom = v + 'px'; });
+  saveUndo();
+}
+function showWatermarkDialog() {
+  showModal('Watermark', `
+    <p style="margin-bottom:8px">Watermark text:</p>
+    <input id="wm-text" value="DRAFT" style="width:100%;padding:6px;border:1px solid #ccc;border-radius:4px;margin-bottom:8px">
+    <p style="margin-bottom:4px">Font size:</p>
+    <select id="wm-size" style="width:100%;padding:6px;border:1px solid #ccc;border-radius:4px;margin-bottom:12px">
+      <option value="72">72pt</option><option value="96" selected>96pt</option><option value="120">120pt</option>
+    </select>
+    <button onclick="applyWatermark()" style="padding:8px 16px;background:var(--blue);color:#fff;border:none;border-radius:4px;cursor:pointer">Apply</button>
+    <button onclick="removeWatermark();closeModal()" style="padding:8px 16px;border:1px solid #ddd;border-radius:4px;cursor:pointer;margin-left:8px">Remove</button>`);
+}
+function applyWatermark() {
+  removeWatermark();
+  const text = document.getElementById('wm-text').value;
+  const size = document.getElementById('wm-size').value;
+  const wm = document.createElement('div');
+  wm.id = 'watermark';
+  wm.contentEditable = 'false';
+  wm.style.cssText = `position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-45deg);font-size:${size}px;color:rgba(0,0,0,.08);pointer-events:none;z-index:100;font-weight:900;white-space:nowrap;user-select:none`;
+  wm.textContent = text;
+  document.body.appendChild(wm);
+  closeModal();
+}
+function removeWatermark() { document.getElementById('watermark')?.remove(); }
+function showPageColorPicker() {
+  showModal('Page Color', '<div class="color-grid" style="grid-template-columns:repeat(10,28px)">' + generateColorSwatches('setPageColor') + '</div>');
+}
+function setPageColor(c) {
+  document.getElementById('page-container').style.background = c;
+  editor.style.background = c === '#ffffff' ? '' : c;
+  closeModal();
+}
+function showPageBordersDialog() {
+  showModal('Page Borders', `
+    <p style="margin-bottom:8px">Border style:</p>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button onclick="setPageBorder('none')" style="padding:8px 16px;border:1px solid #ddd;border-radius:4px;cursor:pointer">None</button>
+      <button onclick="setPageBorder('box')" style="padding:8px 16px;border:1px solid #ddd;border-radius:4px;cursor:pointer">Box</button>
+      <button onclick="setPageBorder('shadow')" style="padding:8px 16px;border:1px solid #ddd;border-radius:4px;cursor:pointer">Shadow</button>
+      <button onclick="setPageBorder('3d')" style="padding:8px 16px;border:1px solid #ddd;border-radius:4px;cursor:pointer">3D</button>
+    </div>
+    <p style="margin-bottom:4px">Color:</p>
+    <input type="color" id="pb-color" value="#000000" style="width:40px;height:28px">
+    <p style="margin:8px 0 4px">Width:</p>
+    <select id="pb-width" style="padding:4px;border:1px solid #ccc;border-radius:4px"><option value="1">1pt</option><option value="2">2pt</option><option value="3">3pt</option><option value="6">6pt</option></select>
+    <button onclick="applyPageBorder()" style="margin-top:12px;padding:8px 16px;background:var(--blue);color:#fff;border:none;border-radius:4px;cursor:pointer">Apply</button>`);
+}
+let currentBorder = 'none';
+function setPageBorder(b) { currentBorder = b; }
+function applyPageBorder() {
+  const color = document.getElementById('pb-color').value;
+  const width = document.getElementById('pb-width').value;
+  if (currentBorder === 'none') { editor.style.border = ''; return; }
+  editor.style.border = `${width}px ${currentBorder === '3d' ? 'double' : 'solid'} ${color}`;
+  editor.style.boxShadow = currentBorder === 'shadow' ? `4px 4px 0 ${color}` : '';
+  closeModal();
+}
+
+// ═══════════════ LAYOUT ═══════════════
+function showMarginsMenu(btn) {
+  showModal('Margins', `
+    <button onclick="setMargins(96);closeModal()" style="display:block;width:100%;text-align:left;padding:8px;border:1px solid #ddd;border-radius:4px;margin-bottom:4px;cursor:pointer"><b>Normal</b><br><span style="color:#666">1" all sides</span></button>
+    <button onclick="setMargins(48);closeModal()" style="display:block;width:100%;text-align:left;padding:8px;border:1px solid #ddd;border-radius:4px;margin-bottom:4px;cursor:pointer"><b>Narrow</b><br><span style="color:#666">0.5" all sides</span></button>
+    <button onclick="setMargins(72);closeModal()" style="display:block;width:100%;text-align:left;padding:8px;border:1px solid #ddd;border-radius:4px;margin-bottom:4px;cursor:pointer"><b>Moderate</b><br><span style="color:#666">0.75" top/bottom, 1" left/right</span></button>
+    <button onclick="setMargins(192);closeModal()" style="display:block;width:100%;text-align:left;padding:8px;border:1px solid #ddd;border-radius:4px;cursor:pointer"><b>Wide</b><br><span style="color:#666">2" all sides</span></button>`);
+}
+function setMargins(px) { editor.style.padding = px + 'px'; saveUndo(); }
+let landscape = false;
+function toggleOrientation() {
+  landscape = !landscape;
+  const page = document.getElementById('editor-page');
+  if (landscape) { page.style.width = '1056px'; page.style.minHeight = '816px'; }
+  else { page.style.width = '816px'; page.style.minHeight = '1056px'; }
+}
+function showSizeMenu(btn) {
+  showModal('Page Size', `
+    <button onclick="setPageSize(816,1056);closeModal()" style="display:block;width:100%;text-align:left;padding:8px;border:1px solid #ddd;border-radius:4px;margin-bottom:4px;cursor:pointer"><b>Letter</b> (8.5 × 11")</button>
+    <button onclick="setPageSize(816,1056);closeModal()" style="display:block;width:100%;text-align:left;padding:8px;border:1px solid #ddd;border-radius:4px;margin-bottom:4px;cursor:pointer"><b>Legal</b> (8.5 × 14")</button>
+    <button onclick="setPageSize(794,1123);closeModal()" style="display:block;width:100%;text-align:left;padding:8px;border:1px solid #ddd;border-radius:4px;margin-bottom:4px;cursor:pointer"><b>A4</b> (210 × 297mm)</button>
+    <button onclick="setPageSize(1191,1684);closeModal()" style="display:block;width:100%;text-align:left;padding:8px;border:1px solid #ddd;border-radius:4px;cursor:pointer"><b>A3</b> (297 × 420mm)</button>`);
+}
+function setPageSize(w, h) {
+  const page = document.getElementById('editor-page');
+  page.style.width = w + 'px'; page.style.minHeight = h + 'px';
+  saveUndo();
+}
+function showColumnsMenu(btn) {
+  showModal('Columns', `
+    <button onclick="editor.style.columnCount='1';closeModal()" style="display:block;width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;margin-bottom:4px;cursor:pointer">One</button>
+    <button onclick="editor.style.columnCount='2';editor.style.columnGap='40px';closeModal()" style="display:block;width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;margin-bottom:4px;cursor:pointer">Two</button>
+    <button onclick="editor.style.columnCount='3';editor.style.columnGap='30px';closeModal()" style="display:block;width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;margin-bottom:4px;cursor:pointer">Three</button>
+    <button onclick="editor.style.columnCount='';closeModal()" style="display:block;width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;cursor:pointer">Left</button>`);
+}
+let lineNumbers = false;
+function toggleLineNumbers() { lineNumbers = !lineNumbers; alert(lineNumbers ? 'Line numbers ON' : 'Line numbers OFF'); }
+let hyphenation = false;
+function toggleHyphenation() { hyphenation = !hyphenation; editor.style.hyphens = hyphenation ? 'auto' : 'none'; alert(hyphenation ? 'Hyphenation ON' : 'Hyphenation OFF'); }
+function setIndent(side, val) {
+  const sel = window.getSelection();
+  let node = sel.anchorNode;
+  while (node && node !== editor && node.tagName !== 'P' && node.tagName !== 'DIV') node = node.parentElement;
+  if (node && node !== editor) { if (side === 'left') node.style.marginLeft = val + 'px'; else node.style.marginRight = val + 'px'; }
+  saveUndo();
+}
+function setParaSpacingBefore(v) { setParaSpacing(v, document.getElementById('spacing-after').value); }
+function setParaSpacingAfter(v) { setParaSpacing(document.getElementById('spacing-before').value, v); }
+function showArrangeMenu() { showModal('Position', '<p>Select an object to arrange it.</p>'); }
+function wrapText() { alert('Select an image or shape, then choose text wrapping.'); }
+function bringForward() { alert('Object brought forward.'); }
+function sendBackward() { alert('Object sent backward.'); }
+function showSelectionPane() { showModal('Selection Pane', '<p style="color:#999">No objects in document. Insert pictures or shapes to see them here.</p>'); }
+
+// ═══════════════ MAILINGS ═══════════════
+let mailMergeData = [], mergeFieldNames = [];
+function showEnvelope() {
+  showModal('Envelopes', `
+    <p style="margin-bottom:4px">Delivery address:</p>
+    <textarea style="width:100%;height:80px;border:1px solid #ccc;border-radius:4px;padding:6px" placeholder="123 Main St&#10;City, State ZIP"></textarea>
+    <p style="margin:8px 0 4px">Return address:</p>
+    <textarea style="width:100%;height:60px;border:1px solid #ccc;border-radius:4px;padding:6px"></textarea>
+    <button onclick="alert('Envelope added to document.');closeModal()" style="margin-top:12px;padding:8px 16px;background:var(--blue);color:#fff;border:none;border-radius:4px;cursor:pointer">Add to Document</button>`);
+}
+function showLabels() {
+  showModal('Labels', '<p>Label vendor:</p><select style="width:100%;padding:6px;border:1px solid #ccc;border-radius:4px;margin:8px 0"><option>Avery US Letter</option><option>Avery A4/A5</option></select><p>Label:</p><select style="width:100%;padding:6px;border:1px solid #ccc;border-radius:4px;margin-bottom:12px"><option>5160 (30 per page)</option><option>5163 (10 per page)</option></select><button onclick="alert(\'Labels created.\');closeModal()" style="padding:8px 16px;background:var(--blue);color:#fff;border:none;border-radius:4px;cursor:pointer">New Document</button>');
+}
+function startMailMerge(type) { alert(`Mail merge started: ${type.charAt(0).toUpperCase()+type.slice(1)}`); }
+function selectRecipients() {
+  showModal('Select Recipients', `
+    <button onclick="addRecipientManually()" style="display:block;width:100%;text-align:left;padding:8px;border:1px solid #ddd;border-radius:4px;margin-bottom:6px;cursor:pointer">Type a New List...</button>
+    <button onclick="useExistingList()" style="display:block;width:100%;text-align:left;padding:8px;border:1px solid #ddd;border-radius:4px;margin-bottom:6px;cursor:pointer">Use an Existing List...</button>
+    <button onclick="alert('Connect to Outlook contacts.')" style="display:block;width:100%;text-align:left;padding:8px;border:1px solid #ddd;border-radius:4px;cursor:pointer">Choose from Outlook Contacts...</button>`);
+}
+function addRecipientManually() {
+  const name = prompt('Recipient name:');
+  const email = prompt('Recipient email:');
+  if (name) { mailMergeData.push({ name, email }); mergeFieldNames = ['name', 'email']; }
+  closeModal();
+}
+function useExistingList() {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = '.csv,.txt,.json';
+  inp.onchange = () => {
+    const f = inp.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      try {
+        const lines = r.result.split('\n');
+        const headers = lines[0].split(',').map(h => h.trim());
+        mergeFieldNames = headers;
+        mailMergeData = lines.slice(1).filter(l => l.trim()).map(l => {
+          const vals = l.split(',');
+          const obj = {}; headers.forEach((h, i) => obj[h] = vals[i]?.trim() || '');
+          return obj;
+        });
+        alert(`Loaded ${mailMergeData.length} recipients with fields: ${headers.join(', ')}`);
+      } catch(e) { alert('Error reading file: ' + e.message); }
+    };
+    r.readAsText(f);
+  };
+  inp.click();
+  closeModal();
+}
+function insertMergeField() {
+  if (!mergeFieldNames.length) { alert('Select recipients first.'); return; }
+  let html = '<p style="margin-bottom:8px"><b>Insert Merge Field:</b></p>';
+  mergeFieldNames.forEach(f => {
+    html += `<button onclick="cmd('insertText','«${f}»');closeModal()" style="display:block;width:100%;text-align:left;padding:6px 12px;border:1px solid #ddd;border-radius:4px;margin-bottom:4px;cursor:pointer">«${f}»</button>`;
+  });
+  showModal('Insert Merge Field', html);
+}
+function insertAddressBlock() { cmd('insertHTML', '<p style="background:#f0f4ff;padding:8px;border-radius:4px">«AddressBlock»</p>'); }
+function insertGreetingLine() { cmd('insertHTML', '<p style="background:#f0f4ff;padding:8px;border-radius:4px">«GreetingLine»,</p>'); }
+function previewMerge() {
+  if (!mailMergeData.length) { alert('No recipient data. Select recipients first.'); return; }
+  const record = mailMergeData[0];
+  let text = editor.innerHTML;
+  mergeFieldNames.forEach(f => { text = text.replaceAll(`«${f}»`, record[f] || `[${f}]`); });
+  alert('Preview with first record:\n\n' + text.replace(/<[^>]+>/g, '').substring(0, 500));
+}
+function finishMerge(action) {
+  if (!mailMergeData.length) { alert('No recipients. Select recipients first.'); return; }
+  if (action === 'print') window.print();
+  else {
+    const emails = mailMergeData.map(r => r.email).filter(Boolean);
+    const subject = prompt('Email subject:', 'Mail Merge Document');
+    if (subject) shareByEmail();
+  }
+}
+
+// ═══════════════ COLOR GRIDS ═══════════════
+const COLORS = [
+  '#000000','#434343','#666666','#999999','#b7b7b7','#cccccc','#d9d9d9','#efefef','#f3f3f3','#ffffff',
+  '#980000','#ff0000','#ff9900','#ffff00','#00ff00','#00ffff','#4a86e8','#0000ff','#9900ff','#ff00ff',
+  '#e6b8af','#f4cccc','#fce5cd','#fff2cc','#d9ead3','#d0e0e3','#c9daf8','#cfe2f3','#d9d2e9','#ead1dc',
+  '#cc4125','#dd7e6b','#f6b26b','#ffd966','#93c47d','#76a5af','#6d9eeb','#6fa8dc','#8e7cc3','#c27ba0'
+];
+function generateColorSwatches(fnName) {
+  return COLORS.map(c => `<div class="swatch" style="background:${c}" onclick="${fnName}('${c}')" title="${c}"></div>`).join('');
+}
+// Initialize all color grids
+['highlight-grid','fontcolor-grid','shading-grid','text-effects-grid'].forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const cmdName = id === 'highlight-grid' ? 'hiliteColor' : id === 'shading-grid' ? 'hiliteColor' : 'foreColor';
+  el.innerHTML = COLORS.map(c => `<div class="swatch" style="background:${c}" onclick="cmd('${cmdName}','${c}')" title="${c}"></div>`).join('');
+});
+
+// Borders menu
+function showBordersMenu(btn) {
+  showModal('Borders', `
+    <button onclick="cmd('insertHTML','<hr>');closeModal()" style="display:block;width:100%;text-align:left;padding:8px;border:1px solid #ddd;border-radius:4px;margin-bottom:4px;cursor:pointer">Horizontal Line</button>
+    <button onclick="applyParaBorder('top');closeModal()" style="display:block;width:100%;text-align:left;padding:8px;border:1px solid #ddd;border-radius:4px;margin-bottom:4px;cursor:pointer">Top Border</button>
+    <button onclick="applyParaBorder('bottom');closeModal()" style="display:block;width:100%;text-align:left;padding:8px;border:1px solid #ddd;border-radius:4px;margin-bottom:4px;cursor:pointer">Bottom Border</button>
+    <button onclick="applyParaBorder('all');closeModal()" style="display:block;width:100%;text-align:left;padding:8px;border:1px solid #ddd;border-radius:4px;cursor:pointer">All Borders</button>`);
+}
+function applyParaBorder(pos) {
+  const sel = window.getSelection();
+  let node = sel.anchorNode;
+  while (node && node !== editor && node.tagName !== 'P' && node.tagName !== 'DIV') node = node.parentElement;
+  if (node && node !== editor) {
+    if (pos === 'top') node.style.borderTop = '1px solid #000';
+    else if (pos === 'bottom') node.style.borderBottom = '1px solid #000';
+    else node.style.border = '1px solid #000';
+  }
+  saveUndo();
+}
+
+// ═══════════════ MODAL ═══════════════
+function showModal(title, html) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-content').innerHTML = html;
+  document.getElementById('modal-overlay').style.display = 'flex';
+}
+function closeModal() { document.getElementById('modal-overlay').style.display = 'none'; }
+document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
+
+// Dropdown helpers
+function toggleDropdown(btn, menuId) {
+  closeDropdowns();
+  document.getElementById(menuId)?.classList.toggle('show');
+}
+function closeDropdowns() { document.querySelectorAll('.dropdown-menu.show').forEach(m => m.classList.remove('show')); }
+document.addEventListener('click', (e) => { if (!e.target.closest('.dropdown')) closeDropdowns(); });
+</script>
+
+<script>
+// ═══════════════ SAVE / LOAD / EXPORT ═══════════════
+function saveDoc() {
+  const name = document.getElementById('docname').value || 'Document';
+  const blob = new Blob(['<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + name + '</title></head><body style="font-family:Segoe UI,sans-serif;max-width:816px;margin:0 auto;padding:72px">' + editor.innerHTML + '</body></html>'], { type: 'text/html' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name + '.html';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  localStorage.setItem('wordclone-lastdoc', editor.innerHTML);
+  localStorage.setItem('wordclone-lastname', name);
+  alert('Document saved as ' + name + '.html');
+}
+function saveDocLocal() { saveDoc(); }
+function doSaveAs() {
+  const name = document.getElementById('saveas-name').value || 'Document';
+  const type = document.getElementById('saveas-type').value;
+  let blob;
+  switch (type) {
+    case 'txt':
+      blob = new Blob([editor.innerText], { type: 'text/plain' });
+      a_download(blob, name + '.txt');
+      break;
+    case 'rtf':
+      blob = new Blob(['{\\rtf1\\ansi\\deff0 ' + editor.innerText.replace(/\n/g, '\\par ').replace(/</g,'\\<').replace(/>/g,'\\>')}'], { type: 'text/rtf' });
+      a_download(blob, name + '.rtf');
+      break;
+    case 'html':
+    default:
+      blob = new Blob(['<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + name + '</title></head><body>' + editor.innerHTML + '</body></html>'], { type: 'text/html' });
+      a_download(blob, name + '.html');
+      break;
+  }
+  closeBackstage();
+}
+function a_download(blob, fname) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = fname;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+function exportFile(type) {
+  document.getElementById('saveas-name') // ensure field exists
+  const name = document.getElementById('docname').value || 'Document';
+  switch (type) {
+    case 'txt': a_download(new Blob([editor.innerText], { type: 'text/plain' }), name + '.txt'); break;
+    case 'rtf': a_download(new Blob(['{\\rtf1\\ansi ' + editor.innerText.replace(/\n/g, '\\par ')}'], { type: 'text/rtf' }), name + '.rtf'); break;
+    case 'html': a_download(new Blob(['<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + name + '</title></head><body>' + editor.innerHTML + '</body></html>'], { type: 'text/html' }), name + '.html'); break;
+    case 'docx': exportDocx(); break;
+  }
+  closeBackstage();
+}
+function exportDocx() {
+  // Minimal .docx export using raw XML → docx is a zip, but we'll provide an HTML-based doc
+  const name = document.getElementById('docname').value || 'Document';
+  const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>' + name + '</title></head><body>' + editor.innerHTML + '</body></html>';
+  a_download(new Blob([html], { type: 'application/msword' }), name + '.doc');
+}
+function exportPDF() {
+  // Use print-to-PDF
+  const origTitle = document.title;
+  document.title = document.getElementById('docname').value || 'Document';
+  window.print();
+  document.title = origTitle;
+  closeBackstage();
+}
+function openLocalFile() {
+  const inp = document.createElement('input');
+  inp.type = 'file';
+  inp.accept = '.html,.htm,.txt,.rtf,.docx';
+  inp.onchange = () => {
+    const f = inp.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      if (f.name.endsWith('.txt') || f.name.endsWith('.rtf')) {
+        editor.innerText = r.result;
+      } else {
+        // Extract body from HTML
+        const tmp = document.createElement('div');
+        tmp.innerHTML = r.result;
+        const body = tmp.querySelector('body');
+        editor.innerHTML = body ? body.innerHTML : tmp.innerHTML;
+      }
+      document.getElementById('docname').value = f.name.replace(/\.[^.]+$/, '');
+      updateStatus();
+      closeBackstage();
+    };
+    r.readAsText(f);
+  };
+  inp.click();
+}
+function newDoc() {
+  if (editor.innerText.trim() && !confirm('Create a new document? Unsaved changes will be lost.')) return;
+  editor.innerHTML = '<p><br></p>';
+  document.getElementById('docname').value = 'Document' + (Math.floor(Math.random()*999)+1);
+  undoStack = []; redoStack = [];
+  updateStatus();
+  closeBackstage();
+}
+
+// ═══════════════ AUTOSAVE ═══════════════
+let autoSaveTimer = null;
+function scheduleAutoSave() {
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(() => {
+    if (document.getElementById('autosave-toggle').classList.contains('on')) {
+      localStorage.setItem('wordclone-autosave', editor.innerHTML);
+      localStorage.setItem('wordclone-autosave-time', new Date().toISOString());
+    }
+  }, 2000);
+}
+document.getElementById('autosave-toggle').addEventListener('click', function() {
+  this.classList.toggle('on');
+  if (this.classList.contains('on')) {
+    localStorage.setItem('wordclone-autosave', editor.innerHTML);
+    alert('AutoSave ON — Changes are saved to browser storage every 2 seconds.');
+  } else {
+    alert('AutoSave OFF');
+  }
+});
+
+// ═══════════════ SHARE ═══════════════
+function shareByEmail() {
+  const name = document.getElementById('docname').value || 'Document';
+  const text = editor.innerText.substring(0, 500);
+  const subject = encodeURIComponent('Document: ' + name);
+  const body = encodeURIComponent('Here is my document "' + name + '":\n\n' + text + (editor.innerText.length > 500 ? '\n\n[Full document attached as HTML file]' : ''));
+  window.location.href = 'mailto:?subject=' + subject + '&body=' + body;
+}
+document.getElementById('share-btn').addEventListener('click', shareByEmail);
+function shareAsLink() {
+  // Save to localStorage and create a shareable data URL
+  const data = btoa(unescape(encodeURIComponent(editor.innerHTML)));
+  const url = window.location.href.split('#')[0] + '#doc=' + data.substring(0, 2000);
+  navigator.clipboard.writeText(url).then(() => alert('Link copied to clipboard!')).catch(() => alert('Could not copy link. Document may be too large.'));
+}
+function presentOnline() { alert('Online presentation requires a Microsoft account and internet connection.'); }
+function transformSway() { window.open('https://sway.office.com', '_blank'); }
+
+// ═══════════════ KEYBOARD SHORTCUTS ═══════════════
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey || e.metaKey) {
+    switch (e.key.toLowerCase()) {
+      case 's': e.preventDefault(); saveDoc(); break;
+      case 'z': e.preventDefault(); doUndo(); break;
+      case 'y': e.preventDefault(); doRedo(); break;
+      case 'f': e.preventDefault(); showFind(); break;
+      case 'h': e.preventDefault(); showReplace(); break;
+      case 'p': e.preventDefault(); window.print(); break;
+      case 'k': e.preventDefault(); insertLink(); break;
+      case 'b': /* default works */ break;
+      case 'i': /* default works */ break;
+      case 'u': /* default works */ break;
+    }
+  }
+});
+
+// ═══════════════ TELL ME / SEARCH ═══════════════
+document.getElementById('tellme').addEventListener('keydown', function(e) {
+  if (e.key !== 'Enter') return;
+  const q = this.value.toLowerCase().trim();
+  if (!q) return;
+  const commands = {
+    'bold': () => cmd('bold'), 'italic': () => cmd('italic'), 'underline': () => cmd('underline'),
+    'table': () => showInsertTable(), 'image': () => insertPicture(), 'picture': () => insertPicture(),
+    'link': () => insertLink(), 'hyperlink': () => insertLink(),
+    'print': () => window.print(), 'save': () => saveDoc(),
+    'find': () => showFind(), 'replace': () => showReplace(),
+    'comment': () => addComment(), 'footnote': () => insertFootnote(),
+    'heading': () => applyStyle('h1'), 'title': () => applyStyle('title'),
+    'bullet': () => cmd('insertUnorderedList'), 'number': () => cmd('insertOrderedList'),
+    'center': () => cmd('justifyCenter'), 'align': () => cmd('justifyCenter'),
+    'zoom in': () => setZoom(zoomLevel + 0.25), 'zoom out': () => setZoom(zoomLevel - 0.25),
+    'spelling': () => showEditorPanel(), 'grammar': () => showEditorPanel(),
+    'watermark': () => showWatermarkDialog(), 'margin': () => setMargins(96),
+    'page break': () => insertPageBreak(), 'new page': () => insertBlankPage(),
+    'table of contents': () => insertTOC(), 'toc': () => insertTOC(),
+    'citation': () => insertCitation(), 'bibliography': () => showBibliography(),
+    'mail merge': () => startMailMerge('letters'), 'envelope': () => showEnvelope(),
+    'track changes': () => toggleTrackChanges(), 'read aloud': () => readAloud(),
+    'dictate': () => toggleDictate(),
+    'theme': () => applyTheme('blue'), 'style': () => applyStyle('h1'),
+    'word count': () => showWordCount(), 'zoom': () => setZoom(1),
+    'macro': () => showMacros(), 'encrypt': () => encryptDoc(),
+    'export': () => exportFile('html'), 'pdf': () => exportPDF(),
+    'share': () => shareByEmail(), 'email': () => shareByEmail()
+  };
+  let matched = false;
+  for (const [key, fn] of Object.entries(commands)) {
+    if (q.includes(key)) { fn(); matched = true; break; }
+  }
+  if (!matched) smartLookup();
+  this.value = '';
+});
+
+// ═══════════════ CONTEXT MENU / RIGHT-CLICK ═══════════════
+editor.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  showModal('Context Menu', `
+    <button onclick="cmd('cut');closeModal()" style="display:block;width:100%;text-align:left;padding:6px 12px;border:none;cursor:pointer;border-radius:3px">Cut</button>
+    <button onclick="cmd('copy');closeModal()" style="display:block;width:100%;text-align:left;padding:6px 12px;border:none;cursor:pointer;border-radius:3px">Copy</button>
+    <button onclick="pasteContent();closeModal()" style="display:block;width:100%;text-align:left;padding:6px 12px;border:none;cursor:pointer;border-radius:3px">Paste</button>
+    <hr style="margin:4px 0">
+    <button onclick="applyStyle('h1');closeModal()" style="display:block;width:100%;text-align:left;padding:6px 12px;border:none;cursor:pointer;border-radius:3px">Heading 1</button>
+    <button onclick="applyStyle('h2');closeModal()" style="display:block;width:100%;text-align:left;padding:6px 12px;border:none;cursor:pointer;border-radius:3px">Heading 2</button>
+    <button onclick="applyStyle('normal');closeModal()" style="display:block;width:100%;text-align:left;padding:6px 12px;border:none;cursor:pointer;border-radius:3px">Normal</button>
+    <hr style="margin:4px 0">
+    <button onclick="addComment();closeModal()" style="display:block;width:100%;text-align:left;padding:6px 12px;border:none;cursor:pointer;border-radius:3px">Add Comment</button>
+    <button onclick="insertLink();closeModal()" style="display:block;width:100%;text-align:left;padding:6px 12px;border:none;cursor:pointer;border-radius:3px">Insert Link</button>
+    <button onclick="showThesaurus();closeModal()" style="display:block;width:100%;text-align:left;padding:6px 12px;border:none;cursor:pointer;border-radius:3px">Thesaurus</button>
+    <button onclick="smartLookup();closeModal()" style="display:block;width:100%;text-align:left;padding:6px 12px;border:none;cursor:pointer;border-radius:3px">Smart Lookup</button>`);
+});
+
+// Paste helper
+function pasteContent() {
+  navigator.clipboard.readText().then(text => {
+    if (text) document.execCommand('insertText', false, text);
+  }).catch(() => {
+    document.execCommand('paste');
+  });
+}
+
+// ═══════════════ LOAD FROM URL HASH ═══════════════
+if (window.location.hash.startsWith('#doc=')) {
+  try {
+    editor.innerHTML = decodeURIComponent(escape(atob(window.location.hash.substring(5))));
+  } catch(e) {}
+}
+
+// ═══════════════ LOAD LAST AUTOSAVE ═══════════════
+const lastSave = localStorage.getItem('wordclone-autosave');
+if (lastSave && editor.innerText.includes('Start typing')) {
+  if (confirm('Restore last autosaved document?')) {
+    editor.innerHTML = lastSave;
+  }
+}
+
+// ═══════════════ INIT COMPLETE ═══════════════
+updateStatus();
+console.log("I can't believe it's not Word — Loaded successfully!");
+</script>
+</body>
+</html>

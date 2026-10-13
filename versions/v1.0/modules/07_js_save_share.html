@@ -1,0 +1,245 @@
+<script>
+// ═══════════════ SAVE / LOAD / EXPORT ═══════════════
+function saveDoc() {
+  const name = document.getElementById('docname').value || 'Document';
+  const blob = new Blob(['<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + name + '</title></head><body style="font-family:Segoe UI,sans-serif;max-width:816px;margin:0 auto;padding:72px">' + editor.innerHTML + '</body></html>'], { type: 'text/html' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name + '.html';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  localStorage.setItem('wordclone-lastdoc', editor.innerHTML);
+  localStorage.setItem('wordclone-lastname', name);
+  alert('Document saved as ' + name + '.html');
+}
+function saveDocLocal() { saveDoc(); }
+function doSaveAs() {
+  const name = document.getElementById('saveas-name').value || 'Document';
+  const type = document.getElementById('saveas-type').value;
+  let blob;
+  switch (type) {
+    case 'txt':
+      blob = new Blob([editor.innerText], { type: 'text/plain' });
+      a_download(blob, name + '.txt');
+      break;
+    case 'rtf':
+      blob = new Blob(['{\\rtf1\\ansi\\deff0 ' + editor.innerText.replace(/\n/g, '\\par ').replace(/</g,'\\<').replace(/>/g,'\\>')}'], { type: 'text/rtf' });
+      a_download(blob, name + '.rtf');
+      break;
+    case 'html':
+    default:
+      blob = new Blob(['<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + name + '</title></head><body>' + editor.innerHTML + '</body></html>'], { type: 'text/html' });
+      a_download(blob, name + '.html');
+      break;
+  }
+  closeBackstage();
+}
+function a_download(blob, fname) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = fname;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+function exportFile(type) {
+  document.getElementById('saveas-name') // ensure field exists
+  const name = document.getElementById('docname').value || 'Document';
+  switch (type) {
+    case 'txt': a_download(new Blob([editor.innerText], { type: 'text/plain' }), name + '.txt'); break;
+    case 'rtf': a_download(new Blob(['{\\rtf1\\ansi ' + editor.innerText.replace(/\n/g, '\\par ')}'], { type: 'text/rtf' }), name + '.rtf'); break;
+    case 'html': a_download(new Blob(['<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + name + '</title></head><body>' + editor.innerHTML + '</body></html>'], { type: 'text/html' }), name + '.html'); break;
+    case 'docx': exportDocx(); break;
+  }
+  closeBackstage();
+}
+function exportDocx() {
+  // Minimal .docx export using raw XML → docx is a zip, but we'll provide an HTML-based doc
+  const name = document.getElementById('docname').value || 'Document';
+  const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>' + name + '</title></head><body>' + editor.innerHTML + '</body></html>';
+  a_download(new Blob([html], { type: 'application/msword' }), name + '.doc');
+}
+function exportPDF() {
+  // Use print-to-PDF
+  const origTitle = document.title;
+  document.title = document.getElementById('docname').value || 'Document';
+  window.print();
+  document.title = origTitle;
+  closeBackstage();
+}
+function openLocalFile() {
+  const inp = document.createElement('input');
+  inp.type = 'file';
+  inp.accept = '.html,.htm,.txt,.rtf,.docx';
+  inp.onchange = () => {
+    const f = inp.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      if (f.name.endsWith('.txt') || f.name.endsWith('.rtf')) {
+        editor.innerText = r.result;
+      } else {
+        // Extract body from HTML
+        const tmp = document.createElement('div');
+        tmp.innerHTML = r.result;
+        const body = tmp.querySelector('body');
+        editor.innerHTML = body ? body.innerHTML : tmp.innerHTML;
+      }
+      document.getElementById('docname').value = f.name.replace(/\.[^.]+$/, '');
+      updateStatus();
+      closeBackstage();
+    };
+    r.readAsText(f);
+  };
+  inp.click();
+}
+function newDoc() {
+  if (editor.innerText.trim() && !confirm('Create a new document? Unsaved changes will be lost.')) return;
+  editor.innerHTML = '<p><br></p>';
+  document.getElementById('docname').value = 'Document' + (Math.floor(Math.random()*999)+1);
+  undoStack = []; redoStack = [];
+  updateStatus();
+  closeBackstage();
+}
+
+// ═══════════════ AUTOSAVE ═══════════════
+let autoSaveTimer = null;
+function scheduleAutoSave() {
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(() => {
+    if (document.getElementById('autosave-toggle').classList.contains('on')) {
+      localStorage.setItem('wordclone-autosave', editor.innerHTML);
+      localStorage.setItem('wordclone-autosave-time', new Date().toISOString());
+    }
+  }, 2000);
+}
+document.getElementById('autosave-toggle').addEventListener('click', function() {
+  this.classList.toggle('on');
+  if (this.classList.contains('on')) {
+    localStorage.setItem('wordclone-autosave', editor.innerHTML);
+    alert('AutoSave ON — Changes are saved to browser storage every 2 seconds.');
+  } else {
+    alert('AutoSave OFF');
+  }
+});
+
+// ═══════════════ SHARE ═══════════════
+function shareByEmail() {
+  const name = document.getElementById('docname').value || 'Document';
+  const text = editor.innerText.substring(0, 500);
+  const subject = encodeURIComponent('Document: ' + name);
+  const body = encodeURIComponent('Here is my document "' + name + '":\n\n' + text + (editor.innerText.length > 500 ? '\n\n[Full document attached as HTML file]' : ''));
+  window.location.href = 'mailto:?subject=' + subject + '&body=' + body;
+}
+document.getElementById('share-btn').addEventListener('click', shareByEmail);
+function shareAsLink() {
+  // Save to localStorage and create a shareable data URL
+  const data = btoa(unescape(encodeURIComponent(editor.innerHTML)));
+  const url = window.location.href.split('#')[0] + '#doc=' + data.substring(0, 2000);
+  navigator.clipboard.writeText(url).then(() => alert('Link copied to clipboard!')).catch(() => alert('Could not copy link. Document may be too large.'));
+}
+function presentOnline() { alert('Online presentation requires a Microsoft account and internet connection.'); }
+function transformSway() { window.open('https://sway.office.com', '_blank'); }
+
+// ═══════════════ KEYBOARD SHORTCUTS ═══════════════
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey || e.metaKey) {
+    switch (e.key.toLowerCase()) {
+      case 's': e.preventDefault(); saveDoc(); break;
+      case 'z': e.preventDefault(); doUndo(); break;
+      case 'y': e.preventDefault(); doRedo(); break;
+      case 'f': e.preventDefault(); showFind(); break;
+      case 'h': e.preventDefault(); showReplace(); break;
+      case 'p': e.preventDefault(); window.print(); break;
+      case 'k': e.preventDefault(); insertLink(); break;
+      case 'b': /* default works */ break;
+      case 'i': /* default works */ break;
+      case 'u': /* default works */ break;
+    }
+  }
+});
+
+// ═══════════════ TELL ME / SEARCH ═══════════════
+document.getElementById('tellme').addEventListener('keydown', function(e) {
+  if (e.key !== 'Enter') return;
+  const q = this.value.toLowerCase().trim();
+  if (!q) return;
+  const commands = {
+    'bold': () => cmd('bold'), 'italic': () => cmd('italic'), 'underline': () => cmd('underline'),
+    'table': () => showInsertTable(), 'image': () => insertPicture(), 'picture': () => insertPicture(),
+    'link': () => insertLink(), 'hyperlink': () => insertLink(),
+    'print': () => window.print(), 'save': () => saveDoc(),
+    'find': () => showFind(), 'replace': () => showReplace(),
+    'comment': () => addComment(), 'footnote': () => insertFootnote(),
+    'heading': () => applyStyle('h1'), 'title': () => applyStyle('title'),
+    'bullet': () => cmd('insertUnorderedList'), 'number': () => cmd('insertOrderedList'),
+    'center': () => cmd('justifyCenter'), 'align': () => cmd('justifyCenter'),
+    'zoom in': () => setZoom(zoomLevel + 0.25), 'zoom out': () => setZoom(zoomLevel - 0.25),
+    'spelling': () => showEditorPanel(), 'grammar': () => showEditorPanel(),
+    'watermark': () => showWatermarkDialog(), 'margin': () => setMargins(96),
+    'page break': () => insertPageBreak(), 'new page': () => insertBlankPage(),
+    'table of contents': () => insertTOC(), 'toc': () => insertTOC(),
+    'citation': () => insertCitation(), 'bibliography': () => showBibliography(),
+    'mail merge': () => startMailMerge('letters'), 'envelope': () => showEnvelope(),
+    'track changes': () => toggleTrackChanges(), 'read aloud': () => readAloud(),
+    'dictate': () => toggleDictate(),
+    'theme': () => applyTheme('blue'), 'style': () => applyStyle('h1'),
+    'word count': () => showWordCount(), 'zoom': () => setZoom(1),
+    'macro': () => showMacros(), 'encrypt': () => encryptDoc(),
+    'export': () => exportFile('html'), 'pdf': () => exportPDF(),
+    'share': () => shareByEmail(), 'email': () => shareByEmail()
+  };
+  let matched = false;
+  for (const [key, fn] of Object.entries(commands)) {
+    if (q.includes(key)) { fn(); matched = true; break; }
+  }
+  if (!matched) smartLookup();
+  this.value = '';
+});
+
+// ═══════════════ CONTEXT MENU / RIGHT-CLICK ═══════════════
+editor.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  showModal('Context Menu', `
+    <button onclick="cmd('cut');closeModal()" style="display:block;width:100%;text-align:left;padding:6px 12px;border:none;cursor:pointer;border-radius:3px">Cut</button>
+    <button onclick="cmd('copy');closeModal()" style="display:block;width:100%;text-align:left;padding:6px 12px;border:none;cursor:pointer;border-radius:3px">Copy</button>
+    <button onclick="pasteContent();closeModal()" style="display:block;width:100%;text-align:left;padding:6px 12px;border:none;cursor:pointer;border-radius:3px">Paste</button>
+    <hr style="margin:4px 0">
+    <button onclick="applyStyle('h1');closeModal()" style="display:block;width:100%;text-align:left;padding:6px 12px;border:none;cursor:pointer;border-radius:3px">Heading 1</button>
+    <button onclick="applyStyle('h2');closeModal()" style="display:block;width:100%;text-align:left;padding:6px 12px;border:none;cursor:pointer;border-radius:3px">Heading 2</button>
+    <button onclick="applyStyle('normal');closeModal()" style="display:block;width:100%;text-align:left;padding:6px 12px;border:none;cursor:pointer;border-radius:3px">Normal</button>
+    <hr style="margin:4px 0">
+    <button onclick="addComment();closeModal()" style="display:block;width:100%;text-align:left;padding:6px 12px;border:none;cursor:pointer;border-radius:3px">Add Comment</button>
+    <button onclick="insertLink();closeModal()" style="display:block;width:100%;text-align:left;padding:6px 12px;border:none;cursor:pointer;border-radius:3px">Insert Link</button>
+    <button onclick="showThesaurus();closeModal()" style="display:block;width:100%;text-align:left;padding:6px 12px;border:none;cursor:pointer;border-radius:3px">Thesaurus</button>
+    <button onclick="smartLookup();closeModal()" style="display:block;width:100%;text-align:left;padding:6px 12px;border:none;cursor:pointer;border-radius:3px">Smart Lookup</button>`);
+});
+
+// Paste helper
+function pasteContent() {
+  navigator.clipboard.readText().then(text => {
+    if (text) document.execCommand('insertText', false, text);
+  }).catch(() => {
+    document.execCommand('paste');
+  });
+}
+
+// ═══════════════ LOAD FROM URL HASH ═══════════════
+if (window.location.hash.startsWith('#doc=')) {
+  try {
+    editor.innerHTML = decodeURIComponent(escape(atob(window.location.hash.substring(5))));
+  } catch(e) {}
+}
+
+// ═══════════════ LOAD LAST AUTOSAVE ═══════════════
+const lastSave = localStorage.getItem('wordclone-autosave');
+if (lastSave && editor.innerText.includes('Start typing')) {
+  if (confirm('Restore last autosaved document?')) {
+    editor.innerHTML = lastSave;
+  }
+}
+
+// ═══════════════ INIT COMPLETE ═══════════════
+updateStatus();
+console.log("I can't believe it's not Word — Loaded successfully!");
+</script>
+</body>
+</html>

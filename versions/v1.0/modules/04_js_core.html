@@ -1,0 +1,548 @@
+<script>
+// ═══════════════ CORE EDITOR ═══════════════
+const editor = document.getElementById('editor-page');
+let undoStack = [], redoStack = [], savedRange = null;
+
+function cmd(c, v) {
+  document.execCommand(c, false, v || null);
+  editor.focus();
+  updateStatus();
+  saveUndo();
+}
+function saveUndo() {
+  const h = editor.innerHTML;
+  if (undoStack[undoStack.length-1] !== h) {
+    undoStack.push(h);
+    if (undoStack.length > 200) undoStack.shift();
+    redoStack = [];
+  }
+}
+function doUndo() {
+  if (undoStack.length > 1) {
+    redoStack.push(undoStack.pop());
+    editor.innerHTML = undoStack[undoStack.length-1];
+    updateStatus();
+  }
+}
+function doRedo() {
+  if (redoStack.length) {
+    const h = redoStack.pop();
+    undoStack.push(h);
+    editor.innerHTML = h;
+    updateStatus();
+  }
+}
+
+// Font
+function applyFontFamily(f) { cmd('fontName', f); }
+function applyFontSize(s) {
+  // execCommand fontSize only takes 1-7, so wrap in span
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  const span = document.createElement('span');
+  span.style.fontSize = s + 'pt';
+  try { span.appendChild(sel.extractContents()); sel.insertNode(span); } catch(e) {}
+  saveUndo();
+}
+function growFont() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  const el = sel.anchorNode.nodeType===1?sel.anchorNode:sel.anchorNode.parentElement;
+  const cur = parseFloat(getComputedStyle(el).fontSize);
+  el.style.fontSize = (cur + 2) + 'px';
+  saveUndo();
+}
+function shrinkFont() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  const el = sel.anchorNode.nodeType===1?sel.anchorNode:sel.anchorNode.parentElement;
+  const cur = parseFloat(getComputedStyle(el).fontSize);
+  el.style.fontSize = Math.max(6, cur - 2) + 'px';
+  saveUndo();
+}
+function changeCase(type) {
+  const sel = window.getSelection();
+  if (!sel.rangeCount || sel.isCollapsed) return;
+  let text = sel.toString();
+  switch(type) {
+    case 'sentence': text = text.charAt(0).toUpperCase() + text.slice(1).toLowerCase(); break;
+    case 'lower': text = text.toLowerCase(); break;
+    case 'upper': text = text.toUpperCase(); break;
+    case 'capitalize': text = text.replace(/\w\S*/g, w=>w[0].toUpperCase()+w.slice(1).toLowerCase()); break;
+    case 'toggle': text = text.split('').map(c=>c===c.toUpperCase()?c.toLowerCase():c.toUpperCase()).join(''); break;
+  }
+  sel.deleteContents();
+  sel.insertNode(document.createTextNode(text));
+  saveUndo();
+}
+
+// Format Painter
+let fpActive = false, fpStyles = {};
+function formatPainter() {
+  const sel = window.getSelection();
+  if (!fpActive && sel.rangeCount) {
+    const el = sel.anchorNode.nodeType===1?sel.anchorNode:sel.anchorNode.parentElement;
+    const cs = getComputedStyle(el);
+    fpStyles = {
+      fontFamily: cs.fontFamily, fontSize: cs.fontSize, fontWeight: cs.fontWeight,
+      fontStyle: cs.fontStyle, textDecoration: cs.textDecoration,
+      color: cs.color, backgroundColor: cs.backgroundColor,
+      textAlign: cs.textAlign
+    };
+    fpActive = true;
+    document.getElementById('btn-bold').classList.add('active');
+    editor.style.cursor = 'copy';
+  } else {
+    applyFpStyles();
+    fpActive = false;
+    editor.style.cursor = '';
+    document.getElementById('btn-bold').classList.remove('active');
+  }
+}
+function applyFpStyles() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  const span = document.createElement('span');
+  Object.assign(span.style, fpStyles);
+  try { span.appendChild(sel.extractContents()); sel.insertNode(span); } catch(e) {}
+  saveUndo();
+}
+
+// Paragraph
+function togglePilcrow() {
+  editor.classList.toggle('show-pilcrow');
+  if (editor.classList.contains('show-pilcrow')) {
+    editor.querySelectorAll('p,div,li').forEach(el=>{
+      if(!el.querySelector('::after')) el.setAttribute('data-pilcrow','¶ ');
+    });
+    editor.style.position='relative';
+    // Use CSS pseudo-element approach
+    if (!document.getElementById('pilcrow-style')) {
+      const s=document.createElement('style');s.id='pilcrow-style';
+      s.textContent='#editor-page p::after,#editor-page div::after{content:"¶";color:#aaa;margin-left:2px}';
+      document.head.appendChild(s);
+    }
+  } else {
+    const s=document.getElementById('pilcrow-style'); if(s)s.remove();
+  }
+}
+function setLineSpacing(v) {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  let node = sel.anchorNode;
+  while (node && node !== editor && node.tagName !== 'P' && node.tagName !== 'DIV' && node.tagName !== 'LI') node = node.parentElement;
+  if (node && node !== editor) node.style.lineHeight = v;
+  saveUndo();
+}
+function setParaSpacing(b, a) {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  let node = sel.anchorNode;
+  while (node && node !== editor && node.tagName !== 'P' && node.tagName !== 'DIV') node = node.parentElement;
+  if (node && node !== editor) { node.style.marginTop = b+'px'; node.style.marginBottom = a+'px'; }
+  saveUndo();
+}
+function multilevelList() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  let node = sel.anchorNode;
+  while (node && node !== editor && node.tagName !== 'P') node = node.parentElement;
+  if (node) {
+    const lvl = (parseInt(node.dataset.lvl)||0)+1;
+    node.dataset.lvl = lvl%4;
+    node.style.marginLeft = (lvl%4 * 40) + 'px';
+    if (!node.textContent.match(/^[-*•\d]/)) node.textContent = '• ' + node.textContent;
+  }
+  saveUndo();
+}
+
+// Styles
+function applyStyle(s) {
+  const sel = window.getSelection();
+  let node = sel.anchorNode;
+  while (node && node !== editor && node.tagName !== 'P' && node.tagName !== 'DIV' && node.tagName !== 'H1' && node.tagName !== 'H2' && node.tagName !== 'H3') node = node.parentElement;
+  if (!node || node === editor) return;
+  const p = document.createElement('p');
+  switch(s) {
+    case 'normal': p.style.cssText = 'font-size:12pt;font-weight:400;color:#000;margin:0 0 8px 0'; break;
+    case 'title': p.style.cssText = 'font-size:26pt;font-weight:700;color:#2b579a;margin:0 0 4px 0;padding-bottom:4px;border-bottom:2px solid #2b579a'; break;
+    case 'subtitle': p.style.cssText = 'font-size:14pt;font-weight:400;color:#666;margin:0 0 16px 0'; break;
+    case 'h1': p.style.cssText = 'font-size:18pt;font-weight:700;color:#2b579a;margin:16px 0 6px 0'; p.tagName0='H1'; break;
+    case 'h2': p.style.cssText = 'font-size:15pt;font-weight:700;color:#2b579a;margin:12px 0 4px 0'; break;
+    case 'h3': p.style.cssText = 'font-size:13pt;font-weight:600;color:#2b579a;margin:8px 0 4px 0'; break;
+  }
+  p.innerHTML = node.innerHTML;
+  node.replaceWith(p);
+  // place cursor in the new node
+  const range = document.createRange();
+  range.selectNodeContents(p);
+  range.collapse(false);
+  sel.removeAllRanges(); sel.addRange(range);
+  saveUndo();
+}
+
+// Insert helpers
+function insertPageBreak() { cmd('insertHTML', '<div style="border-top:2px dashed #aaa;margin:20px 0;height:0" contenteditable="false" data-pagebreak="1"></div><p><br></p>'); }
+function insertBlankPage() { cmd('insertHTML', '<div style="border-top:2px dashed #aaa;margin:20px 0;height:400px" contenteditable="false" data-pagebreak="1"></div><p><br></p>'); }
+function insertHorizontalRule() { cmd('insertHorizontalRule'); }
+function insertDateTime() {
+  const d = new Date();
+  cmd('insertText', d.toLocaleString());
+}
+function insertPicture() {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = () => {
+    const f = inp.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => cmd('insertHTML', `<img src="${r.result}" style="max-width:100%;margin:8px 0" draggable="true">`);
+    r.readAsDataURL(f);
+  };
+  inp.click();
+}
+function insertLink() {
+  const url = prompt('Enter URL:', 'https://');
+  if (!url) return;
+  const sel = window.getSelection();
+  if (sel.isCollapsed) cmd('insertHTML', `<a href="${url}" target="_blank">${url}</a>`);
+  else cmd('createLink', url);
+}
+function insertBookmark() {
+  const name = prompt('Bookmark name:');
+  if (!name) return;
+  cmd('insertHTML', `<span id="bm-${name}" style="background:#fffbe6;border-bottom:1px dashed #c00">&nbsp;</span>`);
+}
+function insertCrossRef() {
+  const bms = Array.from(editor.querySelectorAll('[id^="bm-"]'));
+  if (!bms.length) { alert('No bookmarks found. Insert a bookmark first.'); return; }
+  const list = bms.map(b=>b.id.replace('bm-','')).join(', ');
+  const name = prompt('Enter bookmark name to reference:\nAvailable: ' + list);
+  if (name) cmd('insertText', `(see bookmark: ${name})`);
+}
+function insertSymbolMenu(btn) {
+  const syms = '±×÷≠≤≥≈∞∑∏√∫∂αβγδεζηθικλμνξπρστυφχψωΩ←↑→↓↔⇒⇔♠♣♥♦♪♫✓✗☐☑★☆☀☁☂§¶†‡•…‰′″‴'.split('');
+  let html = '<div class="color-grid" style="grid-template-columns:repeat(8,28px)">';
+  syms.forEach(s => html += `<button onclick="cmd('insertText','${s}');closeDropdowns()" style="font-size:18px;width:28px;height:28px;border:1px solid #ddd;border-radius:3px;cursor:pointer">${s}</button>`);
+  html += '</div>';
+  showModal('Insert Symbol', html);
+}
+function insertWordArt() {
+  const t = prompt('WordArt text:', 'WordArt');
+  if (!t) return;
+  cmd('insertHTML', `<span style="display:inline-block;font-size:28pt;font-weight:900;background:linear-gradient(180deg,#2b579a,#7b1fa2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:2px 2px 4px rgba(0,0,0,.2);padding:4px 12px">${t}</span>`);
+}
+function insertDropCap() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  const el = sel.anchorNode.nodeType===1?sel.anchorNode:sel.anchorNode.parentElement;
+  const p = el.closest('p,div,li') || editor;
+  const text = p.textContent;
+  if (!text) return;
+  p.innerHTML = `<span style="float:left;font-size:48pt;font-weight:700;line-height:.8;padding-right:6px;color:var(--blue)">${text[0]}</span>${text.slice(1)}`;
+  saveUndo();
+}
+function insertTextBox() {
+  cmd('insertHTML', `<div style="border:2px solid #2b579a;padding:12px;margin:8px 0;min-height:60px;position:relative;background:#fff" contenteditable="true"><span style="color:#999">Type in text box...</span></div>`);
+}
+function insertHeader() {
+  let h = document.getElementById('doc-header');
+  if (!h) { h = document.createElement('div'); h.id = 'doc-header'; h.contentEditable = 'true'; h.style.cssText = 'text-align:center;color:#888;border-bottom:1px solid #ccc;margin-bottom:16px;padding:4px;min-height:24px'; h.innerHTML = 'Header — click to edit'; editor.prepend(h); }
+  h.focus();
+}
+function insertFooter() {
+  let f = document.getElementById('doc-footer');
+  if (!f) { f = document.createElement('div'); f.id = 'doc-footer'; f.contentEditable = 'true'; f.style.cssText = 'text-align:center;color:#888;border-top:1px solid #ccc;margin-top:16px;padding:4px;min-height:24px'; f.innerHTML = 'Footer — click to edit'; editor.appendChild(f); }
+  f.focus();
+}
+function insertPageNumber() {
+  const pos = prompt('Page number position:', 'bottom');
+  const el = document.createElement('div');
+  el.style.cssText = 'text-align:center;color:#888;margin:8px 0';
+  el.innerHTML = 'Page <span class="pn-field">1</span>';
+  if (pos === 'top') editor.prepend(el); else editor.appendChild(el);
+  saveUndo();
+}
+function insertCoverPage() {
+  cmd('insertHTML', `<div style="text-align:center;padding:120px 40px;border:3px double #2b579a;margin-bottom:24px" contenteditable="true">
+    <h1 style="font-size:32pt;color:#2b579a;margin-bottom:12px">Document Title</h1>
+    <p style="font-size:16pt;color:#666">Subtitle or description</p>
+    <p style="margin-top:60px;color:#999">Author Name<br>${new Date().toLocaleDateString()}</p>
+  </div>`);
+  insertPageBreak();
+}
+function insertOnlineVideo() {
+  const url = prompt('Enter video URL (YouTube, Vimeo, etc.):');
+  if (!url) return;
+  cmd('insertHTML', `<div style="text-align:center;padding:12px;background:#000;border-radius:4px;margin:8px 0" contenteditable="false">
+    <video controls style="max-width:100%;max-height:300px" src="${url}"></video>
+    <p style="color:#fff;font-size:11px;margin-top:4px">Video: ${url}</p>
+  </div><p><br></p>`);
+}
+
+// Tables
+function showInsertTable() {
+  const grid = document.getElementById('table-grid');
+  const picker = document.getElementById('table-picker');
+  grid.innerHTML = '';
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 10; c++) {
+      const cell = document.createElement('div');
+      cell.style.cssText = 'width:24px;height:24px;border:1px solid #ccc;cursor:pointer;transition:.1s';
+      cell.dataset.r = r+1; cell.dataset.c = c+1;
+      cell.onmouseenter = () => {
+        grid.querySelectorAll('div').forEach(d => {
+          d.style.background = (+d.dataset.r <= r+1 && +d.dataset.c <= c+1) ? '#cce4f7' : '#fff';
+        });
+        document.getElementById('table-grid-label').textContent = `${c+1} × ${r+1} Table`;
+      };
+      cell.onclick = () => { insertTable(r+1, c+1); picker.style.display = 'none'; };
+      grid.appendChild(cell);
+    }
+  }
+  const btn = document.querySelector('[onclick="showInsertTable()"]');
+  const rect = btn.getBoundingClientRect();
+  picker.style.left = rect.left + 'px';
+  picker.style.top = (rect.bottom + 4) + 'px';
+  picker.style.display = 'block';
+}
+function insertTable(rows, cols) {
+  let html = '<table style="border-collapse:collapse;width:100%;margin:8px 0">';
+  for (let r = 0; r < rows; r++) {
+    html += '<tr>';
+    for (let c = 0; c < cols; c++) html += '<td style="border:1px solid #999;padding:6px;min-width:40px;min-height:24px"><br></td>';
+    html += '</tr>';
+  }
+  html += '</table><p><br></p>';
+  cmd('insertHTML', html);
+}
+
+// SmartArt / Chart / Icons (simple representations)
+function insertSmartArt() {
+  showModal('SmartArt', `
+    <p style="margin-bottom:10px">Choose a SmartArt layout:</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <button onclick="doSmartArt('process')" style="border:1px solid #ccc;border-radius:4px;padding:16px;cursor:pointer;text-align:center">
+        <div style="display:flex;gap:4px;justify-content:center;margin-bottom:8px">
+          <div style="width:40px;height:24px;background:#2b579a;color:#fff;font-size:9px;display:flex;align-items:center;justify-content:center;border-radius:3px">Step 1</div>
+          <div style="align-self:center">&#8594;</div>
+          <div style="width:40px;height:24px;background:#4a90d9;color:#fff;font-size:9px;display:flex;align-items:center;justify-content:center;border-radius:3px">Step 2</div>
+          <div style="align-self:center">&#8594;</div>
+          <div style="width:40px;height:24px;background:#7bb3f0;color:#fff;font-size:9px;display:flex;align-items:center;justify-content:center;border-radius:3px">Step 3</div>
+        </div>Process</button>
+      <button onclick="doSmartArt('hierarchy')" style="border:1px solid #ccc;border-radius:4px;padding:16px;cursor:pointer;text-align:center">
+        <div style="text-align:center;margin-bottom:8px">
+          <div style="width:60px;height:20px;background:#2b579a;color:#fff;font-size:9px;display:inline-flex;align-items:center;justify-content:center;border-radius:3px">Root</div>
+          <div style="display:flex;gap:8px;justify-content:center;margin-top:4px">
+            <div style="width:40px;height:18px;background:#4a90d9;color:#fff;font-size:8px;display:flex;align-items:center;justify-content:center;border-radius:3px">Child</div>
+            <div style="width:40px;height:18px;background:#4a90d9;color:#fff;font-size:8px;display:flex;align-items:center;justify-content:center;border-radius:3px">Child</div>
+          </div>
+        </div>Hierarchy</button>
+      <button onclick="doSmartArt('cycle')" style="border:1px solid #ccc;border-radius:4px;padding:16px;cursor:pointer;text-align:center">
+        <div style="font-size:24px;margin-bottom:4px">&#10227;</div>Cycle</button>
+      <button onclick="doSmartArt('list')" style="border:1px solid #ccc;border-radius:4px;padding:16px;cursor:pointer;text-align:center">
+        <div style="text-align:left;font-size:10px;margin-bottom:4px">&#9632; Item 1<br>&#9632; Item 2<br>&#9632; Item 3</div>List</button>
+    </div>`);
+}
+function doSmartArt(type) {
+  let html = '';
+  switch(type) {
+    case 'process':
+      html = `<div style="display:flex;align-items:center;gap:8px;margin:12px 0;padding:12px;background:#f0f4ff;border-radius:8px" contenteditable="true">
+        <div style="background:#2b579a;color:#fff;padding:10px 16px;border-radius:6px;text-align:center;min-width:80px">Step 1</div>
+        <div style="font-size:20px;color:#2b579a">&#8594;</div>
+        <div style="background:#4a90d9;color:#fff;padding:10px 16px;border-radius:6px;text-align:center;min-width:80px">Step 2</div>
+        <div style="font-size:20px;color:#2b579a">&#8594;</div>
+        <div style="background:#7bb3f0;color:#fff;padding:10px 16px;border-radius:6px;text-align:center;min-width:80px">Step 3</div>
+      </div>`;
+      break;
+    case 'hierarchy':
+      html = `<div style="text-align:center;margin:12px 0;padding:12px;background:#f0f4ff;border-radius:8px" contenteditable="true">
+        <div style="background:#2b579a;color:#fff;padding:8px 20px;border-radius:6px;display:inline-block">Root Node</div>
+        <div style="display:flex;gap:16px;justify-content:center;margin-top:8px">
+          <div style="background:#4a90d9;color:#fff;padding:6px 14px;border-radius:6px">Child 1</div>
+          <div style="background:#4a90d9;color:#fff;padding:6px 14px;border-radius:6px">Child 2</div>
+        </div>
+      </div>`;
+      break;
+    case 'cycle':
+      html = `<div style="text-align:center;margin:12px 0;padding:20px;background:#f0f4ff;border-radius:50%;width:200px;height:200px;margin-left:auto;margin-right:auto;display:flex;flex-direction:column;justify-content:center;align-items:center" contenteditable="true">
+        <div style="font-size:28px">&#10227;</div><p>Phase 1 &#8594; Phase 2 &#8594; Phase 3</p></div>`;
+      break;
+    case 'list':
+      html = `<ul style="margin:12px 0;padding-left:24px" contenteditable="true"><li>Item 1</li><li>Item 2</li><li>Item 3</li></ul>`;
+      break;
+  }
+  cmd('insertHTML', html);
+  closeModal();
+}
+function insertChart() {
+  showModal('Insert Chart', `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <button onclick="doChart('bar')" style="border:1px solid #ccc;border-radius:4px;padding:16px;cursor:pointer;text-align:center">
+        <div style="display:flex;align-items:flex-end;gap:4px;justify-content:center;height:40px;margin-bottom:6px">
+          <div style="width:16px;background:#2b579a;height:80%"></div>
+          <div style="width:16px;background:#4a90d9;height:60%"></div>
+          <div style="width:16px;background:#7bb3f0;height:90%"></div>
+        </div>Bar</button>
+      <button onclick="doChart('line')" style="border:1px solid #ccc;border-radius:4px;padding:16px;cursor:pointer;text-align:center">
+        <div style="height:40px;margin-bottom:6px;position:relative">
+          <svg width="80" height="40"><polyline points="0,35 20,20 40,28 60,10 80,15" fill="none" stroke="#2b579a" stroke-width="2"/></svg>
+        </div>Line</button>
+      <button onclick="doChart('pie')" style="border:1px solid #ccc;border-radius:4px;padding:16px;cursor:pointer;text-align:center">
+        <div style="margin-bottom:6px">&#127758; Pie</div>Pie</button>
+      <button onclick="doChart('area')" style="border:1px solid #ccc;border-radius:4px;padding:16px;cursor:pointer;text-align:center">
+        <div style="height:40px;margin-bottom:6px"><svg width="80" height="40"><polygon points="0,40 20,25 40,30 60,12 80,18 80,40" fill="#cce4f7" stroke="#2b579a"/></svg></div>Area</button>
+    </div>`);
+}
+function doChart(type) {
+  const canv = document.createElement('canvas');
+  canv.width = 400; canv.height = 250;
+  canv.style.cssText = 'border:1px solid #ddd;border-radius:4px;margin:8px 0;max-width:100%';
+  const ctx = canv.getContext('2d');
+  const colors = ['#2b579a','#4a90d9','#7bb3f0','#a8d4f7','#cce4f7'];
+  const labels = ['Q1','Q2','Q3','Q4'];
+  const data = [65,45,80,55];
+  ctx.fillStyle = '#f8f8f8'; ctx.fillRect(0,0,400,250);
+  ctx.fillStyle = '#333'; ctx.font = 'bold 14px Segoe UI'; ctx.fillText('Chart Title', 140, 20);
+  if (type === 'bar') {
+    data.forEach((v,i) => { ctx.fillStyle = colors[i]; ctx.fillRect(50+i*80, 220-v*2, 50, v*2); ctx.fillStyle='#333'; ctx.font='11px Segoe UI'; ctx.fillText(labels[i], 60+i*80, 240); });
+  } else if (type === 'line') {
+    ctx.strokeStyle = '#2b579a'; ctx.lineWidth = 2; ctx.beginPath();
+    data.forEach((v,i) => { const x=50+i*80,y=220-v*2; i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+    ctx.stroke();
+    data.forEach((v,i) => { ctx.fillStyle='#2b579a'; ctx.beginPath(); ctx.arc(50+i*80,220-v*2,4,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#333';ctx.font='11px Segoe UI';ctx.fillText(labels[i],50+i*80-10,240); });
+  } else if (type === 'pie') {
+    let start = 0; const total = data.reduce((a,b)=>a+b,0);
+    data.forEach((v,i) => { const ang = (v/total)*Math.PI*2; ctx.fillStyle=colors[i]; ctx.beginPath(); ctx.moveTo(200,130); ctx.arc(200,130,80,start,start+ang); ctx.fill(); start+=ang; });
+  } else {
+    ctx.fillStyle='#cce4f7'; ctx.beginPath(); ctx.moveTo(50,220);
+    data.forEach((v,i) => ctx.lineTo(50+i*80,220-v*2));
+    ctx.lineTo(50+data.length*80-80,220); ctx.fill();
+  }
+  const wrap = document.createElement('div');
+  wrap.contentEditable = 'false';
+  wrap.appendChild(canv);
+  const cap = document.createElement('p'); cap.style.cssText='font-size:11px;color:#888;text-align:center'; cap.textContent = `${type.charAt(0).toUpperCase()+type.slice(1)} Chart`;
+  wrap.appendChild(cap);
+  editor.appendChild(wrap);
+  closeModal(); saveUndo();
+}
+function insertScreenshot() {
+  alert('Screenshot feature: Use your OS screenshot tool, then Insert > Pictures to add the image.');
+}
+function insertIcon() {
+  const icons = ['★','♥','♠','♣','☀','☁','☂','✈','⚖','⚗','⚙','⚛','⚜','⚝','⚞','🚀','💡','📊','📁','📄','✅','❌','⚠','🔒','🔑','📌','📎','✂','✉','☎'];
+  let html = '<div style="display:grid;grid-template-columns:repeat(8,36px);gap:4px">';
+  icons.forEach(i => html += `<button onclick="cmd('insertText','${i}');closeModal()" style="font-size:22px;width:36px;height:36px;border:1px solid #ddd;border-radius:4px;cursor:pointer">${i}</button>`);
+  html += '</div>';
+  showModal('Insert Icon', html);
+}
+function insertShape() {
+  showModal('Shapes', `
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">
+      <button onclick="doShape('rect')" style="border:1px solid #ccc;border-radius:4px;padding:12px;cursor:pointer;text-align:center"><div style="width:40px;height:24px;background:#4a90d9;margin:0 auto 4px;border-radius:2px"></div>Rectangle</button>
+      <button onclick="doShape('circle')" style="border:1px solid #ccc;border-radius:4px;padding:12px;cursor:pointer;text-align:center"><div style="width:30px;height:30px;background:#4a90d9;margin:0 auto 4px;border-radius:50%"></div>Circle</button>
+      <button onclick="doShape('arrow')" style="border:1px solid #ccc;border-radius:4px;padding:12px;cursor:pointer;text-align:center"><div style="font-size:24px;color:#4a90d9;margin-bottom:4px">&#10132;</div>Arrow</button>
+      <button onclick="doShape('star')" style="border:1px solid #ccc;border-radius:4px;padding:12px;cursor:pointer;text-align:center"><div style="font-size:24px;color:#f5a623;margin-bottom:4px">&#9733;</div>Star</button>
+      <button onclick="doShape('heart')" style="border:1px solid #ccc;border-radius:4px;padding:12px;cursor:pointer;text-align:center"><div style="font-size:24px;color:#e74c3c;margin-bottom:4px">&#9829;</div>Heart</button>
+    </div>`);
+}
+function doShape(type) {
+  let svg = '';
+  switch(type) {
+    case 'rect': svg = `<svg width="200" height="100"><rect width="200" height="100" fill="#4a90d9" rx="4"/></svg>`; break;
+    case 'circle': svg = `<svg width="120" height="120"><circle cx="60" cy="60" r="55" fill="#4a90d9"/></svg>`; break;
+    case 'arrow': svg = `<svg width="200" height="60"><defs><marker id="ah" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#4a90d9"/></marker></defs><line x1="0" y1="30" x2="190" y2="30" stroke="#4a90d9" stroke-width="6" marker-end="url(#ah)"/></svg>`; break;
+    case 'star': svg = `<svg width="100" height="100"><polygon points="50,5 61,35 95,35 68,55 79,90 50,70 21,90 32,55 5,35 39,35" fill="#f5a623"/></svg>`; break;
+    case 'heart': svg = `<svg width="100" height="90"><path d="M50,85 C20,60 0,40 0,25 C0,10 12,0 25,0 C35,0 45,8 50,18 C55,8 65,0 75,0 C88,0 100,10 100,25 C100,40 80,60 50,85Z" fill="#e74c3c"/></svg>`; break;
+  }
+  cmd('insertHTML', `<div style="display:inline-block;margin:8px" contenteditable="false" draggable="true">${svg}</div>`);
+  closeModal(); saveUndo();
+}
+
+// Smart Lookup / Wikipedia
+function smartLookup() {
+  const sel = window.getSelection().toString() || prompt('Enter a term to look up:');
+  if (!sel) return;
+  window.open(`https://www.bing.com/search?q=${encodeURIComponent(sel)}`, '_blank');
+}
+function wikipediaLookup() {
+  const term = prompt('Wikipedia search:');
+  if (term) window.open(`https://en.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(term)}`, '_blank');
+}
+
+// References
+function insertTOC() {
+  const headings = editor.querySelectorAll('p[style*="font-size:18pt"],p[style*="font-size:15pt"],p[style*="font-size:13pt"],h1,h2,h3');
+  let html = '<div style="border:1px solid #ccc;padding:16px;margin:12px 0;background:#fafafa" contenteditable="false"><b style="font-size:14pt">Table of Contents</b><hr>';
+  if (!headings.length) html += '<p style="color:#999">No headings found. Apply Heading styles to create a TOC.</p>';
+  headings.forEach((h,i) => {
+    const lvl = h.tagName==='H1'?'':'  ';
+    html += `<p style="margin:4px 0;font-size:11pt">${lvl}${h.textContent.trim()} <span style="float:right;color:#999">${i+1}</span></p>`;
+  });
+  html += '</div>';
+  cmd('insertHTML', html);
+}
+function insertFootnote() {
+  const n = editor.querySelectorAll('.footnote').length + 1;
+  const text = prompt(`Footnote ${n} text:`);
+  if (!text) return;
+  cmd('insertHTML', `<sup class="footnote" style="color:#c00;cursor:pointer" onclick="alert('Footnote ${n}: ${text.replace(/'/g,"\\'")}')" title="Footnote ${n}">${n}</sup>`);
+  const fn = document.createElement('div');
+  fn.style.cssText = 'border-top:1px solid #c00;margin-top:20px;padding-top:8px;font-size:10pt;color:#333';
+  fn.innerHTML = `<sup>${n}</sup> ${text}`;
+  editor.appendChild(fn);
+}
+function insertEndnote() {
+  const n = editor.querySelectorAll('.endnote').length + 1;
+  const text = prompt(`Endnote ${n} text:`);
+  if (!text) return;
+  cmd('insertHTML', `<sup class="endnote" style="color:#2b579a;cursor:pointer">${n}</sup>`);
+}
+function insertCaption() {
+  const text = prompt('Caption text:', 'Figure 1: ');
+  if (!text) return;
+  cmd('insertHTML', `<p style="font-size:10pt;color:#555;text-align:center;margin:4px 0 12px 0"><i>${text}</i></p>`);
+}
+function insertTableOfFigures() {
+  cmd('insertHTML', `<div style="border:1px solid #ccc;padding:12px;margin:12px 0" contenteditable="false"><b>Table of Figures</b><hr><p style="color:#999;font-size:10pt">Add captions to figures and tables, then update this field.</p></div>`);
+}
+function updateCaptions() { alert('Captions updated.'); }
+let citationStyle = 'apa';
+function setCitationStyle(s) { citationStyle = s; }
+function insertCitation() {
+  const author = prompt('Author:');
+  if (!author) return;
+  const year = new Date().getFullYear();
+  const title = prompt('Title:');
+  let cite = '';
+  switch(citationStyle) {
+    case 'apa': cite = `(${author}, ${year})`; break;
+    case 'mla': cite = `(${author})`; break;
+    case 'chicago': cite = `(${author} ${year})`; break;
+    case 'harvard': cite = `(${author}, ${year})`; break;
+  }
+  cmd('insertText', cite);
+}
+function showBibliography() {
+  cmd('insertHTML', `<div style="border:1px solid #ccc;padding:12px;margin:12px 0" contenteditable="false"><b>Bibliography</b><hr><p style="color:#999;font-size:10pt">Add sources via Insert Citation to generate bibliography.</p></div>`);
+}
+function showSourceManager() {
+  showModal('Source Manager', '<p style="margin-bottom:8px">Manage your citation sources here.</p><table style="width:100%;border-collapse:collapse"><tr style="background:#f0f0f0"><th style="border:1px solid #ccc;padding:6px">Author</th><th style="border:1px solid #ccc;padding:6px">Title</th><th style="border:1px solid #ccc;padding:6px">Year</th></tr><tr><td colspan="3" style="border:1px solid #ccc;padding:6px;color:#999;text-align:center">No sources yet</td></tr></table>');
+}
+function markIndexEntry() {
+  const sel = window.getSelection().toString();
+  if (!sel) { alert('Select text to mark as index entry.'); return; }
+  alert(`Marked "${sel}" as index entry.`);
+}
+function insertIndex() {
+  cmd('insertHTML', `<div style="border:1px solid #ccc;padding:12px;margin:12px 0" contenteditable="false"><b>Index</b><hr><p style="color:#999;font-size:10pt">Mark entries via References > Mark Entry, then insert index here.</p></div>`);
+}
+function markTOACitation() { alert('Citation marked for Table of Authorities.'); }
+function insertTOA() {
+  cmd('insertHTML', `<div style="border:1px solid #ccc;padding:12px;margin:12px 0" contenteditable="false"><b>Table of Authorities</b><hr><p style="color:#999;font-size:10pt">Mark citations, then generate TOA.</p></div>`);
+}
+
+// References: Footnotes marker
+function insertSectionBreak() { insertPageBreak(); }
+</script>
