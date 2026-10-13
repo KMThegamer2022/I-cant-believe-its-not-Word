@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>I can't believe it's not Word</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+--blue:#2b579a;--blue-dark:#1e3f6f;--blue-light:#3b7dd8;--blue-hover:#e8f0fe;
+--ribbon-bg:#f3f2f1;--ribbon-border:#d1d1d1;--page-bg:#e6e6e6;
+--status-blue:#2b579a;--text:#333;--border:#d1d1d1;
+--font-ui:'Segoe UI',system-ui,-apple-system,sans-serif;
+}
+html,body{height:100%;overflow:hidden;font-family:var(--font-ui);font-size:13px;color:var(--text)}
+body{display:flex;flex-direction:column}
+button{font-family:inherit;border:none;background:none;cursor:pointer;font-size:13px}
+select,input{font-family:inherit;font-size:13px}
+/* ── Title Bar ── */
+#titlebar{height:42px;background:var(--blue);display:flex;align-items:center;color:#fff;user-select:none;padding:0 8px;gap:6px}
+#titlebar .ticon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:4px;cursor:pointer;font-size:16px}
+#titlebar .ticon:hover{background:rgba(255,255,255,.15)}
+#qat{display:flex;align-items:center;gap:2px}
+#qat button{width:28px;height:28px;border-radius:4px;color:#fff;font-size:14px;display:flex;align-items:center;justify-content:center}
+#qat button:hover{background:rgba(255,255,255,.15)}
+#autosave-wrap{display:flex;align-items:center;gap:6px;margin-left:8px;font-size:12px}
+#autosave-toggle{width:36px;height:18px;border-radius:9px;background:#666;position:relative;cursor:pointer;transition:.2s}
+#autosave-toggle.on{background:#4caf50}
+#autosave-toggle::after{content:'';position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:2px;left:2px;transition:.2s}
+#autosave-toggle.on::after{left:20px}
+#doc-title{flex:1;text-align:center;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:400px;margin:0 auto}
+#doc-title input{background:transparent;border:1px solid transparent;color:#fff;text-align:center;width:300px;padding:3px 6px;border-radius:3px;font-size:13px}
+#doc-title input:hover,#doc-title input:focus{border-color:rgba(255,255,255,.4);outline:none}
+#search-bar{display:flex;align-items:center;background:rgba(255,255,255,.15);border-radius:4px;padding:0 8px;height:26px;width:220px;gap:4px}
+#search-bar input{background:transparent;border:none;color:#fff;width:100%;font-size:12px}
+#search-bar input::placeholder{color:rgba(255,255,255,.6)}
+#search-bar input:focus{outline:none}
+#profile-area{display:flex;align-items:center;gap:6px;margin-left:auto}
+#avatar{width:28px;height:28px;border-radius:50%;background:#7c4dff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;cursor:pointer}
+#share-btn{background:#fff;color:var(--blue);border:none;border-radius:14px;padding:4px 14px;font-weight:600;font-size:12px;cursor:pointer;margin-left:6px}
+#share-btn:hover{background:#e8e8e8}
+/* ── Ribbon Tabs ── */
+#ribbon-tabs{display:flex;align-items:flex-end;background:var(--blue);padding:0 8px;height:32px;gap:1px}
+#ribbon-tabs .tab{padding:5px 12px;color:rgba(255,255,255,.8);border-radius:4px 4px 0 0;font-size:12.5px;cursor:pointer;white-space:nowrap;transition:.1s}
+#ribbon-tabs .tab:hover{color:#fff;background:rgba(255,255,255,.1)}
+#ribbon-tabs .tab.active{background:var(--ribbon-bg);color:var(--blue);font-weight:600}
+#ribbon-tabs .file-tab{color:#fff;font-weight:600}
+#ribbon-tabs .file-tab:hover{background:#c0392b}
+/* ── Ribbon Content ── */
+#ribbon{background:var(--ribbon-bg);border-bottom:1px solid var(--border);padding:4px 8px 2px;display:block;overflow-x:auto;min-height:90px}
+#ribbon::-webkit-scrollbar{height:4px}
+#ribbon::-webkit-scrollbar-thumb{background:#bbb;border-radius:2px}
+.ribbon-panel{display:none;width:100%}
+.ribbon-panel.active{display:flex;align-items:flex-start;gap:0;flex-wrap:nowrap;padding-bottom:2px;min-width:max-content}
+.rgroup{display:flex;flex-direction:column;align-items:center;padding:0 6px;border-right:1px solid var(--border);min-width:max-content}
+.rgroup:last-child{border-right:none}
+.rgroup-label{font-size:10px;color:#888;margin-top:2px;text-align:center;white-space:nowrap}
+.rgroup-btns{display:flex;align-items:center;gap:1px;flex-wrap:wrap;justify-content:center}
+.rbtn{display:flex;flex-direction:column;align-items:center;padding:3px 4px;border-radius:3px;font-size:11px;min-width:36px;min-height:36px;justify-content:center;gap:1px}
+.rbtn:hover{background:var(--blue-hover)}
+.rbtn.active{background:#cce4f7}
+.rbtn .icon{font-size:18px;line-height:1}
+.rbtn .lbl{font-size:10px;white-space:nowrap}
+.rbtn.large{min-width:56px;min-height:64px;padding:4px 6px}
+.rbtn.large .icon{font-size:22px}
+.rbtn.small{flex-direction:row;min-width:0;min-height:24px;padding:2px 6px;gap:4px}
+.rbtn.small .icon{font-size:14px}
+.rbtn.small .lbl{font-size:12px}
+.rsep{width:1px;background:var(--border);margin:4px 2px;align-self:stretch}
+.rselect{border:1px solid var(--border);border-radius:3px;padding:2px 4px;background:#fff;font-size:12px;height:24px}
+.rinput{border:1px solid var(--border);border-radius:3px;padding:2px 4px;width:48px;text-align:center;font-size:12px;height:24px}
+.dropdown{position:relative}
+.dropdown-menu{display:none;position:absolute;top:100%;left:0;background:#fff;border:1px solid var(--border);border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:1000;min-width:180px;padding:4px 0;max-height:320px;overflow-y:auto}
+.dropdown-menu.show{display:block}
+.dropdown-menu button{display:block;width:100%;text-align:left;padding:6px 14px;font-size:12px;border:none;background:none;cursor:pointer}
+.dropdown-menu button:hover{background:var(--blue-hover)}
+.dropdown-menu hr{border:none;border-top:1px solid var(--border);margin:4px 8px}
+/* color picker grid */
+.color-grid{display:grid;grid-template-columns:repeat(10,18px);gap:2px;padding:6px}
+.color-grid .swatch{width:18px;height:18px;border:1px solid #ccc;border-radius:2px;cursor:pointer}
+.color-grid .swatch:hover{transform:scale(1.2)}
+/* ── Page Break ── */
+.page-break{border-top:2px dashed #999;margin:8px 0;position:relative;height:0;page-break-after:always;break-after:page}
+.page-break::after{content:'Page Break';position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:var(--ribbon-bg);padding:0 8px;font-size:9px;color:#999}
+#editor-page{min-height:1056px}
+</style>
+</head>
+<body>
+<!-- TITLE BAR -->
+<div id="titlebar">
+  <div class="ticon" id="btn-auto" title="AutoSave">&#128190;</div>
+  <div id="qat">
+    <button id="btn-save" title="Save (Ctrl+S)" onclick="saveDoc()">&#128190;</button>
+    <button id="btn-undo" title="Undo (Ctrl+Z)" onclick="doUndo()">&#8630;</button>
+    <button id="btn-redo" title="Redo (Ctrl+Y)" onclick="doRedo()">&#8631;</button>
+    <button id="btn-print-pv" title="Print Preview" onclick="window.print()">&#128438;</button>
+  </div>
+  <div id="autosave-wrap">
+    <div id="autosave-toggle" title="AutoSave"></div><span>AutoSave</span>
+  </div>
+  <div id="search-bar">&#128269;<input id="tellme" placeholder="Search or tell me what to do..."></div>
+  <div id="doc-title"><input id="docname" value="Document1" spellcheck="false"></div>
+  <div id="profile-area">
+    <div id="share-btn" title="Share via email">&#9993; Share</div>
+    <div id="avatar" title="Account">W</div>
+  </div>
+</div>
+<!-- RIBBON TABS -->
+<div id="ribbon-tabs">
+  <div class="tab file-tab" data-panel="panel-file" onclick="switchTab(this)">File</div>
+  <div class="tab active" data-panel="panel-home" onclick="switchTab(this)">Home</div>
+  <div class="tab" data-panel="panel-insert" onclick="switchTab(this)">Insert</div>
+  <div class="tab" data-panel="panel-draw" onclick="switchTab(this)">Draw</div>
+  <div class="tab" data-panel="panel-design" onclick="switchTab(this)">Design</div>
+  <div class="tab" data-panel="panel-layout" onclick="switchTab(this)">Layout</div>
+  <div class="tab" data-panel="panel-references" onclick="switchTab(this)">References</div>
+  <div class="tab" data-panel="panel-mailings" onclick="switchTab(this)">Mailings</div>
+  <div class="tab" data-panel="panel-review" onclick="switchTab(this)">Review</div>
+  <div class="tab" data-panel="panel-view" onclick="switchTab(this)">View</div>
+</div>

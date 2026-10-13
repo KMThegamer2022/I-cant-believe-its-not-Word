@@ -1,0 +1,367 @@
+<script>
+// ═══════════════ RIBBON / UI ═══════════════
+// Tab switching — inline onclick calls this directly (bulletproof)
+function switchTab(t) {
+  try {
+    document.querySelectorAll('#ribbon-tabs .tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.ribbon-panel').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    if (t.classList.contains('file-tab')) {
+      document.getElementById('backstage').style.display = 'flex';
+      showBackstagePanel('new');
+      return;
+    }
+    const panel = document.getElementById(t.dataset.panel);
+    if (panel) panel.classList.add('active');
+  } catch(e) { console.error('switchTab error:', e); }
+}
+// Backup: event delegation in case inline handlers fail
+try {
+  document.getElementById('ribbon-tabs').addEventListener('click', (e) => {
+    const t = e.target.closest('.tab');
+    if (t) switchTab(t);
+  });
+} catch(e) {}
+function closeBackstage() { document.getElementById('backstage').style.display = 'none'; }
+function showBackstagePanel(panel) {
+  const c = document.getElementById('backstage-content');
+  document.querySelectorAll('.bs-nav').forEach(n=>{n.style.background='';n.style.fontWeight='';});
+  // Highlight the nav item that matches
+  document.querySelectorAll('.bs-nav').forEach(n=>{
+    if (n.textContent.trim().toLowerCase() === panel.toLowerCase()) { n.style.background='rgba(255,255,255,.15)'; n.style.fontWeight='700'; }
+  });
+  switch(panel) {
+    case 'home': c.innerHTML = `
+      <h2 style="margin-bottom:16px">I can't believe it's not Word</h2>
+      <p style="color:#666;margin-bottom:20px">A full-featured word processor that runs in your browser.</p>
+      <div style="display:grid;grid-template-columns:repeat(3,200px);gap:16px">
+        <button onclick="newDoc()" style="border:1px solid #ddd;border-radius:8px;padding:20px;cursor:pointer;text-align:center;background:#fff">
+          <div style="font-size:32px;margin-bottom:8px">&#128196;</div><b>New blank document</b></button>
+        <button onclick="showBackstagePanel('open')" style="border:1px solid #ddd;border-radius:8px;padding:20px;cursor:pointer;text-align:center;background:#fff">
+          <div style="font-size:32px;margin-bottom:8px">&#128193;</div><b>Open a file</b></button>
+        <button onclick="showBackstagePanel('new')" style="border:1px solid #ddd;border-radius:8px;padding:20px;cursor:pointer;text-align:center;background:#fff">
+          <div style="font-size:32px;margin-bottom:8px">&#10024;</div><b>Templates</b></button>
+      </div>`; break;
+    case 'new': c.innerHTML = `
+      <h2 style="margin-bottom:16px">New</h2>
+      <div style="display:grid;grid-template-columns:repeat(4,160px);gap:16px;margin-bottom:24px">
+        <button onclick="newDoc()" style="border:1px solid #ddd;border-radius:4px;padding:16px;cursor:pointer;text-align:center;background:#fff">
+          <div style="width:80px;height:100px;background:#fff;border:1px solid #ccc;margin:0 auto 8px;box-shadow:0 2px 4px rgba(0,0,0,.1)"></div>
+          Blank document</button>
+        <button onclick="newDoc()" style="border:1px solid #ddd;border-radius:4px;padding:16px;cursor:pointer;text-align:center;background:#fff">
+          <div style="width:80px;height:100px;background:linear-gradient(135deg,#2b579a,#7bb3f0);margin:0 auto 8px;border-radius:4px"></div>
+          Resume</button>
+        <button onclick="newDoc()" style="border:1px solid #ddd;border-radius:4px;padding:16px;cursor:pointer;text-align:center;background:#fff">
+          <div style="width:80px;height:100px;background:linear-gradient(135deg,#2e7d32,#66bb6a);margin:0 auto 8px;border-radius:4px"></div>
+          Report</button>
+        <button onclick="newDoc()" style="border:1px solid #ddd;border-radius:4px;padding:16px;cursor:pointer;text-align:center;background:#fff">
+          <div style="width:80px;height:100px;background:linear-gradient(135deg,#c62828,#ef5350);margin:0 auto 8px;border-radius:4px"></div>
+          Newsletter</button>
+      </div>
+      <p style="color:#999">Search thousands of online templates...</p>`; break;
+    case 'open': c.innerHTML = `
+      <h2 style="margin-bottom:16px">Open</h2>
+      <div style="display:flex;gap:24px">
+        <div>
+          <p style="font-weight:600;margin-bottom:8px">Recent Documents</p>
+          <div id="recent-docs"><p style="color:#999">No recent documents</p></div>
+        </div>
+        <div style="border-left:1px solid #ddd;padding-left:24px">
+          <p style="font-weight:600;margin-bottom:8px">Open from</p>
+          <button onclick="openLocalFile()" style="display:block;padding:8px 16px;border:1px solid #ddd;border-radius:4px;margin-bottom:6px;cursor:pointer;width:200px">&#128193; This Device</button>
+          <button onclick="alert('Sign in to OneDrive to open cloud documents.')" style="display:block;padding:8px 16px;border:1px solid #ddd;border-radius:4px;margin-bottom:6px;cursor:pointer;width:200px">&#9729; OneDrive</button>
+          <button onclick="alert('Connect to SharePoint.')" style="display:block;padding:8px 16px;border:1px solid #ddd;border-radius:4px;margin-bottom:6px;cursor:pointer;width:200px">&#128196; SharePoint</button>
+          <hr style="margin:8px 0">
+          <button onclick="openLocalFile()" style="display:block;padding:8px 16px;border:1px solid #ddd;border-radius:4px;cursor:pointer;width:200px">&#128269; Browse...</button>
+        </div>
+      </div>`; break;
+    case 'info': c.innerHTML = `
+      <h2 style="margin-bottom:16px">Info</h2>
+      <div style="display:flex;gap:24px">
+        <div style="flex:1">
+          <div style="margin-bottom:16px"><b>Protect Document</b>
+            <button onclick="encryptDoc()" style="display:block;padding:8px;border:1px solid #ddd;border-radius:4px;margin-top:6px;cursor:pointer;width:100%;text-align:left">&#128274; Encrypt with Password</button>
+            <button onclick="restrictEditing()" style="display:block;padding:8px;border:1px solid #ddd;border-radius:4px;margin-top:4px;cursor:pointer;width:100%;text-align:left">&#9998; Restrict Editing</button>
+            <button onclick="inspectDoc()" style="display:block;padding:8px;border:1px solid #ddd;border-radius:4px;margin-top:4px;cursor:pointer;width:100%;text-align:left">&#128065; Inspect Document</button>
+          </div>
+          <div><b>Version History</b><p style="color:#999;margin-top:4px">AutoSave to see version history.</p></div>
+        </div>
+        <div style="width:280px;border-left:1px solid #ddd;padding-left:24px">
+          <b>Properties</b>
+          <p style="margin-top:8px">Size: <span id="info-size">—</span></p>
+          <p>Pages: <span id="info-pages">1</span></p>
+          <p>Words: <span id="info-words">0</span></p>
+          <p>Characters: <span id="info-chars">0</span></p>
+          <p>Paragraphs: <span id="info-paras">0</span></p>
+          <p>Created: ${new Date().toLocaleString()}</p>
+          <p>Last modified: <span id="info-modified">—</span></p>
+        </div>
+      </div>`; break;
+    case 'save': saveDoc(); closeBackstage(); break;
+    case 'saveas': showBackstageSaveAs(); break;
+    case 'print': showBackstagePrint(); break;
+    case 'share': c.innerHTML = `
+      <h2 style="margin-bottom:16px">Share</h2>
+      <button onclick="shareByEmail()" style="display:block;padding:12px 24px;background:var(--blue);color:#fff;border:none;border-radius:4px;font-size:14px;cursor:pointer;margin-bottom:12px">&#9993; Send via Email</button>
+      <button onclick="shareAsLink()" style="display:block;padding:12px 24px;border:1px solid #ddd;border-radius:4px;font-size:14px;cursor:pointer;margin-bottom:12px">&#128279; Copy Shareable Link</button>
+      <button onclick="presentOnline()" style="display:block;padding:12px 24px;border:1px solid #ddd;border-radius:4px;font-size:14px;cursor:pointer">&#128250; Present Online</button>`; break;
+    case 'export': c.innerHTML = `
+      <h2 style="margin-bottom:16px">Export</h2>
+      <button onclick="exportPDF()" style="display:block;padding:12px 24px;background:#c0392b;color:#fff;border:none;border-radius:4px;font-size:14px;cursor:pointer;margin-bottom:12px">&#128196; Create PDF/XPS Document</button>
+      <button onclick="exportFile('docx')" style="display:block;padding:12px 24px;border:1px solid #ddd;border-radius:4px;font-size:14px;cursor:pointer;margin-bottom:12px">&#128196; Word Document (.docx)</button>
+      <button onclick="exportFile('rtf')" style="display:block;padding:12px 24px;border:1px solid #ddd;border-radius:4px;font-size:14px;cursor:pointer;margin-bottom:12px">&#128196; Rich Text Format (.rtf)</button>
+      <button onclick="exportFile('txt')" style="display:block;padding:12px 24px;border:1px solid #ddd;border-radius:4px;font-size:14px;cursor:pointer;margin-bottom:12px">&#128196; Plain Text (.txt)</button>
+      <button onclick="exportFile('html')" style="display:block;padding:12px 24px;border:1px solid #ddd;border-radius:4px;font-size:14px;cursor:pointer">&#127760; Web Page (.html)</button>`; break;
+    case 'transform': c.innerHTML = `
+      <h2 style="margin-bottom:16px">Transform</h2>
+      <p style="margin-bottom:12px">Turn your document into an interactive web page with Microsoft Sway.</p>
+      <button onclick="transformSway()" style="padding:12px 24px;background:var(--blue);color:#fff;border:none;border-radius:4px;font-size:14px;cursor:pointer">&#127760; Transform to Web Page</button>`; break;
+    case 'account': c.innerHTML = `
+      <h2 style="margin-bottom:16px">Account</h2>
+      <div style="display:flex;gap:24px">
+        <div style="width:80px;height:80px;border-radius:50%;background:#7c4dff;display:flex;align-items:center;justify-content:center;color:#fff;font-size:32px;font-weight:700">W</div>
+        <div>
+          <p style="font-weight:600">Word User</p>
+          <p style="color:#999">user@example.com</p>
+          <p style="margin-top:8px;color:#999">Product: I can't believe it's not Word (Free Web Edition)</p>
+          <button onclick="alert('Sign-in requires a Microsoft account.')" style="margin-top:12px;padding:6px 16px;border:1px solid #ddd;border-radius:4px;cursor:pointer">Sign in</button>
+        </div>
+      </div>`; break;
+    case 'options': showBackstageOptions(); break;
+  }
+}
+function showBackstageSaveAs() {
+  const c = document.getElementById('backstage-content');
+  c.innerHTML = `
+    <h2 style="margin-bottom:16px">Save As</h2>
+    <div style="display:flex;gap:24px">
+      <div>
+        <p style="font-weight:600;margin-bottom:8px">Save to</p>
+        <button onclick="saveDoc()" style="display:block;padding:8px 16px;border:1px solid #ddd;border-radius:4px;margin-bottom:6px;cursor:pointer;width:200px">&#128193; This Device</button>
+        <button onclick="alert('Sign in to save to OneDrive.')" style="display:block;padding:8px 16px;border:1px solid #ddd;border-radius:4px;margin-bottom:6px;cursor:pointer;width:200px">&#9729; OneDrive</button>
+      </div>
+      <div style="border-left:1px solid #ddd;padding-left:24px;flex:1">
+        <p style="font-weight:600;margin-bottom:8px">File name:</p>
+        <input id="saveas-name" value="${document.getElementById('docname').value}" style="width:100%;padding:6px;border:1px solid #ccc;border-radius:4px;margin-bottom:8px">
+        <p style="font-weight:600;margin-bottom:4px">Save as type:</p>
+        <select id="saveas-type" style="width:100%;padding:6px;border:1px solid #ccc;border-radius:4px;margin-bottom:12px">
+          <option value="html">Web Page (.html)</option>
+          <option value="txt">Plain Text (.txt)</option>
+          <option value="rtf">Rich Text Format (.rtf)</option>
+        </select>
+        <button onclick="doSaveAs()" style="padding:8px 24px;background:var(--blue);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px">Save</button>
+      </div>
+    </div>`;
+}
+function showBackstagePrint() {
+  const c = document.getElementById('backstage-content');
+  c.innerHTML = `
+    <h2 style="margin-bottom:16px">Print</h2>
+    <div style="display:flex;gap:24px">
+      <div>
+        <button onclick="window.print()" style="padding:12px 32px;background:var(--blue);color:#fff;border:none;border-radius:4px;font-size:16px;cursor:pointer;margin-bottom:16px">&#128424; Print</button>
+        <p style="font-weight:600;margin-bottom:8px">Printer</p>
+        <select style="width:240px;padding:6px;border:1px solid #ccc;border-radius:4px;margin-bottom:12px">
+          <option>Save as PDF</option>
+          <option>System Default Printer</option>
+        </select>
+        <p style="font-weight:600;margin-bottom:4px">Copies:</p>
+        <input type="number" value="1" min="1" style="width:80px;padding:6px;border:1px solid #ccc;border-radius:4px">
+        <hr style="margin:12px 0">
+        <p style="font-weight:600;margin-bottom:4px">Pages</p>
+        <p style="font-size:12px;color:#666">All pages</p>
+        <p style="font-weight:600;margin-top:8px;margin-bottom:4px">Sides</p>
+        <select style="width:200px;padding:4px;border:1px solid #ccc;border-radius:4px"><option>Print One Sided</option><option>Print on Both Sides</option></select>
+        <p style="font-weight:600;margin-top:8px;margin-bottom:4px">Orientation</p>
+        <select style="width:200px;padding:4px;border:1px solid #ccc;border-radius:4px"><option>Portrait</option><option>Landscape</option></select>
+        <p style="font-weight:600;margin-top:8px;margin-bottom:4px">Margins</p>
+        <select style="width:200px;padding:4px;border:1px solid #ccc;border-radius:4px"><option>Normal (1")</option><option>Narrow (0.5")</option><option>Moderate (0.75")</option><option>Wide (2")</option></select>
+      </div>
+      <div style="border-left:1px solid #ddd;padding-left:24px;flex:1;background:#f5f5f5;display:flex;justify-content:center;align-items:flex-start">
+        <div style="background:#fff;width:408px;height:528px;box-shadow:0 2px 8px rgba(0,0,0,.2);padding:36px;font-size:11px;overflow:hidden" id="print-preview">${editor.innerHTML.substring(0,2000)}</div>
+      </div>
+    </div>`;
+}
+function showBackstageOptions() {
+  const c = document.getElementById('backstage-content');
+  c.innerHTML = `
+    <h2 style="margin-bottom:16px">Word Options</h2>
+    <div style="display:flex;gap:24px">
+      <div style="width:160px">
+        <p class="opt-nav active" onclick="showOptPanel('display')" style="padding:6px 12px;cursor:pointer;border-radius:4px;background:#e8f0fe">Display</p>
+        <p class="opt-nav" onclick="showOptPanel('proofing')" style="padding:6px 12px;cursor:pointer;border-radius:4px">Proofing</p>
+        <p class="opt-nav" onclick="showOptPanel('language')" style="padding:6px 12px;cursor:pointer;border-radius:4px">Language</p>
+        <p class="opt-nav" onclick="showOptPanel('ribbon')" style="padding:6px 12px;cursor:pointer;border-radius:4px">Customize Ribbon</p>
+        <p class="opt-nav" onclick="showOptPanel('addins')" style="padding:6px 12px;cursor:pointer;border-radius:4px">Add-ins</p>
+        <p class="opt-nav" onclick="showOptPanel('trust')" style="padding:6px 12px;cursor:pointer;border-radius:4px">Trust Center</p>
+      </div>
+      <div id="opt-panel" style="flex:1;border-left:1px solid #ddd;padding-left:24px"></div>
+    </div>`;
+  showOptPanel('display');
+}
+function showOptPanel(p) {
+  const el = document.getElementById('opt-panel');
+  const panels = {
+    display: '<h3>Display</h3><label style="display:block;margin:8px 0"><input type="checkbox" checked> Show paragraph marks</label><label style="display:block;margin:8px 0"><input type="checkbox"> Show text boundaries</label><label style="display:block;margin:8px 0"><input type="checkbox" checked> Show white space between pages</label><label style="display:block;margin:8px 0"><input type="checkbox"> Update fields before printing</label>',
+    proofing: '<h3>Proofing</h3><label style="display:block;margin:8px 0"><input type="checkbox" checked> Check spelling as you type</label><label style="display:block;margin:8px 0"><input type="checkbox" checked> Mark grammar errors as you type</label><label style="display:block;margin:8px 0"><input type="checkbox"> Frequently confused words</label><label style="display:block;margin:8px 0"><input type="checkbox"> Writing style: Grammar & Refinements</label>',
+    language: '<h3>Language</h3><p style="margin:8px 0">Authoring language: English (United States)</p><button style="padding:6px 16px;border:1px solid #ddd;border-radius:4px;cursor:pointer">Add a Language...</button>',
+    ribbon: '<h3>Customize Ribbon</h3><p style="margin:8px 0;color:#666">Choose which tabs and commands to display.</p><label style="display:block;margin:4px 0"><input type="checkbox" checked> Home</label><label style="display:block;margin:4px 0"><input type="checkbox" checked> Insert</label><label style="display:block;margin:4px 0"><input type="checkbox" checked> Draw</label><label style="display:block;margin:4px 0"><input type="checkbox" checked> Design</label><label style="display:block;margin:4px 0"><input type="checkbox" checked> Layout</label><label style="display:block;margin:4px 0"><input type="checkbox" checked> References</label><label style="display:block;margin:4px 0"><input type="checkbox" checked> Mailings</label><label style="display:block;margin:4px 0"><input type="checkbox" checked> Review</label><label style="display:block;margin:4px 0"><input type="checkbox" checked> View</label>',
+    addins: '<h3>Add-ins</h3><p style="margin:8px 0;color:#666">Manage Office Add-ins</p><button style="padding:6px 16px;border:1px solid #ddd;border-radius:4px;cursor:pointer;margin-right:8px">Store</button><button style="padding:6px 16px;border:1px solid #ddd;border-radius:4px;cursor:pointer">My Add-ins</button>',
+    trust: '<h3>Trust Center</h3><p style="margin:8px 0;color:#666">Protect your privacy and documents.</p><button onclick="alert('Trust Center settings are managed at the browser/OS level for web apps.')" style="padding:6px 16px;border:1px solid #ddd;border-radius:4px;cursor:pointer">Trust Center Settings...</button>'
+  };
+  el.innerHTML = panels[p] || '';
+}
+
+// ═══════════════ STATUS BAR ═══════════════
+function updateStatus() {
+  const text = editor.innerText || '';
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  document.getElementById('sb-words').textContent = words + ' words';
+  document.getElementById('sb-chars').textContent = text.length + ' characters';
+  // page estimate
+  const pageH = (typeof PAGE_HEIGHT !== 'undefined') ? PAGE_HEIGHT : 1056;
+  const breaks = editor.querySelectorAll('.page-break').length;
+  const totalPages = Math.max(1, Math.ceil(editor.scrollHeight / pageH) + breaks);
+  document.getElementById('sb-page').textContent = `Page ${totalPages} of ${totalPages}`;
+  // info panel
+  const iw = document.getElementById('info-words'); if (iw) iw.textContent = words;
+  const ic = document.getElementById('info-chars'); if (ic) ic.textContent = text.length;
+  const ip = document.getElementById('info-paras'); if (ip) ip.textContent = editor.querySelectorAll('p,div,li').length;
+  const im = document.getElementById('info-modified'); if (im) im.textContent = new Date().toLocaleString();
+  updateNavPane();
+  checkActiveButtons();
+}
+editor.addEventListener('input', () => { updateStatus(); saveUndo(); scheduleAutoSave(); checkAutoPageBreak(); });
+// Initial
+updateStatus();
+saveUndo();
+
+// Track active formatting buttons
+function checkActiveButtons() {
+  document.getElementById('btn-bold').classList.toggle('active', document.queryCommandState('bold'));
+  document.getElementById('btn-italic').classList.toggle('active', document.queryCommandState('italic'));
+  document.getElementById('btn-underline').classList.toggle('active', document.queryCommandState('underline'));
+}
+document.addEventListener('selectionchange', checkActiveButtons);
+
+// ═══════════════ ZOOM / VIEWS ═══════════════
+let zoomLevel = 1;
+function setZoom(z) {
+  zoomLevel = Math.max(0.25, Math.min(5, z));
+  const page = document.getElementById('editor-page');
+  // Use CSS zoom (supported in Chrome, Edge, Safari, Firefox 126+)
+  if (CSS.supports('zoom', '1')) {
+    page.style.zoom = zoomLevel;
+  } else {
+    // Fallback: transform scale + manual container adjustment
+    page.style.transform = `scale(${zoomLevel})`;
+    page.style.transformOrigin = 'top left';
+    page.style.width = (816 / zoomLevel) + 'px';
+    page.style.minHeight = (1056 / zoomLevel) + 'px';
+  }
+  document.getElementById('zoom-pct').textContent = Math.round(zoomLevel * 100) + '%';
+  document.getElementById('zoom-slider').value = Math.round(zoomLevel * 100);
+}
+function zoomOnePage() { setZoom(Math.min(window.innerHeight / 1100, 2)); }
+function zoomPageWidth() { setZoom(Math.min((document.getElementById('page-container').clientWidth - 60) / 816, 3)); }
+function setView(v) {
+  document.querySelectorAll('[id^="btn-view-"]').forEach(b=>b.classList.remove('active'));
+  const btn = document.getElementById('btn-view-'+v); if (btn) btn.classList.add('active');
+  switch(v) {
+    case 'read':
+      editor.style.cssText += ';column-count:2;column-gap:40px;max-width:700px;margin:0 auto;font-size:14pt;line-height:1.6';
+      document.getElementById('page-container').style.background = '#faf8f5';
+      break;
+    case 'print':
+      editor.style.cssText = editor.style.cssText.replace(/column-count[^;]+;?/g,'');
+      editor.style.maxWidth = ''; editor.style.fontSize = ''; editor.style.lineHeight = '';
+      document.getElementById('page-container').style.background = 'var(--page-bg)';
+      break;
+    case 'web':
+      editor.style.cssText += ';max-width:100%;padding:20px;column-count:unset';
+      document.getElementById('page-container').style.background = '#fff';
+      break;
+    case 'outline':
+      editor.style.cssText += ';font-family:monospace;font-size:12pt;column-count:unset';
+      editor.querySelectorAll('p,div,li,h1,h2,h3').forEach(el=>{
+        const t = el.textContent.trim();
+        if (t) el.textContent = (el.style.fontSize && parseInt(el.style.fontSize) > 14 ? '» ' : '  ') + t;
+      });
+      break;
+    case 'draft':
+      editor.style.cssText += ';max-width:100%;padding:8px 40px;font-size:12pt;column-count:unset';
+      document.getElementById('page-container').style.background = '#fff';
+      break;
+  }
+}
+function toggleRuler() {
+  const pc = document.getElementById('page-container');
+  let ruler = document.getElementById('ruler');
+  if (ruler) { ruler.remove(); return; }
+  ruler = document.createElement('div');
+  ruler.id = 'ruler';
+  ruler.style.cssText = 'height:24px;background:#fff;border-bottom:1px solid #ccc;width:816px;margin:0 auto;font-size:9px;color:#999;position:relative;overflow:hidden;user-select:none';
+  let marks = '';
+  for (let i = 0; i <= 8.5; i++) {
+    marks += `<span style="position:absolute;left:${i*96}px;top:2px;border-left:1px solid #999;padding-left:2px;height:20px">${i}</span>`;
+    for (let j = 1; j < 8; j++) marks += `<span style="position:absolute;left:${i*96+j*12}px;top:14px;border-left:1px solid #ccc;height:10px"></span>`;
+  }
+  ruler.innerHTML = marks;
+  pc.prepend(ruler);
+}
+function toggleGridlines() {
+  const pc = document.getElementById('page-container');
+  if (pc.querySelector('.grid-overlay')) { pc.querySelector('.grid-overlay').remove(); return; }
+  const g = document.createElement('div');
+  g.className = 'grid-overlay';
+  g.style.cssText = `position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(#eee 1px,transparent 1px),linear-gradient(90deg,#eee 1px,transparent 1px);background-size:24px 24px;z-index:5`;
+  editor.style.position = 'relative';
+  editor.appendChild(g);
+}
+function toggleNavPane() {
+  const np = document.getElementById('nav-pane');
+  np.style.display = np.style.display === 'none' ? 'block' : 'none';
+  updateNavPane();
+}
+function updateNavPane() {
+  const list = document.getElementById('nav-headings-list');
+  if (!list) return;
+  let html = '';
+  editor.querySelectorAll('p,h1,h2,h3').forEach(el => {
+    const fs = parseInt(getComputedStyle(el).fontSize);
+    if (fs > 14 || el.tagName.startsWith('H')) {
+      html += `<p style="cursor:pointer;padding:3px 0;font-size:12px" onclick="this.scrollIntoView()">${el.textContent.trim().substring(0,50)}</p>`;
+    }
+  });
+  list.innerHTML = html || '<p style="color:#999;font-size:11px">No headings found. Apply Heading styles.</p>';
+}
+function navPaneTab(t) {
+  ['headings','pages','results'].forEach(x => {
+    document.getElementById('nav-'+x).classList.toggle('active', x===t);
+    document.getElementById('nav-'+x+'-list').style.display = x===t ? 'block' : 'none';
+  });
+}
+function togglePageMovement(dir) {
+  const pc = document.getElementById('page-container');
+  pc.style.scrollSnapType = dir === 'sideways' ? 'x mandatory' : '';
+  document.getElementById('btn-pg-vert').classList.toggle('active', dir==='vertical');
+  document.getElementById('btn-pg-side').classList.toggle('active', dir==='sideways');
+}
+function immersiveReader() {
+  showModal('Immersive Reader', `
+    <div style="background:#faf8f5;padding:24px;border-radius:8px;max-height:500px;overflow-y:auto;font-size:18pt;line-height:2;letter-spacing:0.1em;max-width:600px;margin:0 auto">
+      ${editor.innerText.substring(0, 3000)}
+    </div>
+    <div style="display:flex;gap:12px;margin-top:12px;justify-content:center">
+      <button onclick="alert('Text spacing adjusted.')" style="padding:6px 12px;border:1px solid #ddd;border-radius:4px;cursor:pointer">Text Spacing</button>
+      <button onclick="alert('Syllables shown.')" style="padding:6px 12px;border:1px solid #ddd;border-radius:4px;cursor:pointer">Syllables</button>
+      <button onclick="alert('Line focus enabled.')" style="padding:6px 12px;border:1px solid #ddd;border-radius:4px;cursor:pointer">Line Focus</button>
+    </div>`);
+}
+function newWindow() { window.open(window.location.href, '_blank'); }
+function splitWindow() { alert('Split view: Use your browser split-screen feature.'); }
+function sideBySide() { alert('Side-by-side: Open a second browser window.'); }
+
+// ═══════════════ ZOOM SLIDER ═══════════════
+document.getElementById('zoom-slider').addEventListener('input', function() { setZoom(this.value / 100); });
+</script>

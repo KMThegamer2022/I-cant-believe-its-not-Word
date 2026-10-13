@@ -79,6 +79,10 @@ select,input{font-family:inherit;font-size:13px}
 .color-grid{display:grid;grid-template-columns:repeat(10,18px);gap:2px;padding:6px}
 .color-grid .swatch{width:18px;height:18px;border:1px solid #ccc;border-radius:2px;cursor:pointer}
 .color-grid .swatch:hover{transform:scale(1.2)}
+/* ── Page Break ── */
+.page-break{border-top:2px dashed #999;margin:8px 0;position:relative;height:0;page-break-after:always;break-after:page}
+.page-break::after{content:'Page Break';position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:var(--ribbon-bg);padding:0 8px;font-size:9px;color:#999}
+#editor-page{min-height:1056px}
 </style>
 </head>
 <body>
@@ -86,10 +90,10 @@ select,input{font-family:inherit;font-size:13px}
 <div id="titlebar">
   <div class="ticon" id="btn-auto" title="AutoSave">&#128190;</div>
   <div id="qat">
-    <button id="btn-save" title="Save (Ctrl+S)">&#128190;</button>
-    <button id="btn-undo" title="Undo (Ctrl+Z)">&#8630;</button>
-    <button id="btn-redo" title="Redo (Ctrl+Y)">&#8631;</button>
-    <button id="btn-print-pv" title="Print Preview">&#128438;</button>
+    <button id="btn-save" title="Save (Ctrl+S)" onclick="saveDoc()">&#128190;</button>
+    <button id="btn-undo" title="Undo (Ctrl+Z)" onclick="doUndo()">&#8630;</button>
+    <button id="btn-redo" title="Redo (Ctrl+Y)" onclick="doRedo()">&#8631;</button>
+    <button id="btn-print-pv" title="Print Preview" onclick="window.print()">&#128438;</button>
   </div>
   <div id="autosave-wrap">
     <div id="autosave-toggle" title="AutoSave"></div><span>AutoSave</span>
@@ -103,16 +107,16 @@ select,input{font-family:inherit;font-size:13px}
 </div>
 <!-- RIBBON TABS -->
 <div id="ribbon-tabs">
-  <div class="tab file-tab" data-panel="panel-file">File</div>
-  <div class="tab active" data-panel="panel-home">Home</div>
-  <div class="tab" data-panel="panel-insert">Insert</div>
-  <div class="tab" data-panel="panel-draw">Draw</div>
-  <div class="tab" data-panel="panel-design">Design</div>
-  <div class="tab" data-panel="panel-layout">Layout</div>
-  <div class="tab" data-panel="panel-references">References</div>
-  <div class="tab" data-panel="panel-mailings">Mailings</div>
-  <div class="tab" data-panel="panel-review">Review</div>
-  <div class="tab" data-panel="panel-view">View</div>
+  <div class="tab file-tab" data-panel="panel-file" onclick="switchTab(this)">File</div>
+  <div class="tab active" data-panel="panel-home" onclick="switchTab(this)">Home</div>
+  <div class="tab" data-panel="panel-insert" onclick="switchTab(this)">Insert</div>
+  <div class="tab" data-panel="panel-draw" onclick="switchTab(this)">Draw</div>
+  <div class="tab" data-panel="panel-design" onclick="switchTab(this)">Design</div>
+  <div class="tab" data-panel="panel-layout" onclick="switchTab(this)">Layout</div>
+  <div class="tab" data-panel="panel-references" onclick="switchTab(this)">References</div>
+  <div class="tab" data-panel="panel-mailings" onclick="switchTab(this)">Mailings</div>
+  <div class="tab" data-panel="panel-review" onclick="switchTab(this)">Review</div>
+  <div class="tab" data-panel="panel-view" onclick="switchTab(this)">View</div>
 </div>
 
 <div id="ribbon">
@@ -1015,8 +1019,65 @@ function applyStyle(s) {
 }
 
 // Insert helpers
-function insertPageBreak() { cmd('insertHTML', '<div style="border-top:2px dashed #aaa;margin:20px 0;height:0" contenteditable="false" data-pagebreak="1"></div><p><br></p>'); }
-function insertBlankPage() { cmd('insertHTML', '<div style="border-top:2px dashed #aaa;margin:20px 0;height:400px" contenteditable="false" data-pagebreak="1"></div><p><br></p>'); }
+const PAGE_HEIGHT = 1056; // 11 inches at 96dpi
+function insertPageBreak() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) { editor.focus(); return; }
+  const pb = document.createElement('div');
+  pb.className = 'page-break';
+  pb.contentEditable = 'false';
+  const range = sel.getRangeAt(0);
+  range.collapse(false); // collapse to end of selection
+  range.insertNode(pb);
+  // Insert a new paragraph after the break and put cursor there
+  const np = document.createElement('p');
+  np.innerHTML = '<br>';
+  pb.parentNode.insertBefore(np, pb.nextSibling);
+  const nr = document.createRange();
+  nr.setStart(np, 0);
+  nr.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(nr);
+  editor.focus();
+  saveUndo();
+  updateStatus();
+}
+function insertBlankPage() {
+  const pb = document.createElement('div');
+  pb.className = 'page-break';
+  pb.contentEditable = 'false';
+  editor.appendChild(pb);
+  const np = document.createElement('p');
+  np.innerHTML = '<br>';
+  editor.appendChild(np);
+  saveUndo();
+  updateStatus();
+}
+// Auto page break: check if content overflows and insert break
+function checkAutoPageBreak() {
+  if (editor.scrollHeight > PAGE_HEIGHT * 1.5) {
+    // Content is significantly taller than 1.5 pages — insert a visual break marker at the page boundary
+    const existingBreaks = editor.querySelectorAll('.page-break');
+    const expectedBreaks = Math.floor(editor.scrollHeight / PAGE_HEIGHT) - 1;
+    if (existingBreaks.length < expectedBreaks) {
+      // Find the element closest to the page boundary
+      const children = Array.from(editor.childNodes);
+      let cumHeight = 0;
+      for (const child of children) {
+        if (child.nodeType !== 1) continue; // skip text nodes
+        if (child.classList && child.classList.contains('page-break')) { cumHeight = 0; continue; }
+        cumHeight += child.offsetHeight || 0;
+        if (cumHeight >= PAGE_HEIGHT && existingBreaks.length < expectedBreaks) {
+          const pb = document.createElement('div');
+          pb.className = 'page-break';
+          pb.contentEditable = 'false';
+          editor.insertBefore(pb, child);
+          break; // one at a time to avoid cursor issues
+        }
+      }
+    }
+  }
+}
 function insertHorizontalRule() { cmd('insertHorizontalRule'); }
 function insertDateTime() {
   const d = new Date();
@@ -1382,22 +1443,28 @@ function insertSectionBreak() { insertPageBreak(); }
 
 <script>
 // ═══════════════ RIBBON / UI ═══════════════
-// Tab switching via event delegation
-document.getElementById('ribbon-tabs').addEventListener('click', (e) => {
-  const t = e.target.closest('.tab');
-  if (!t) return;
-  document.querySelectorAll('#ribbon-tabs .tab').forEach(x=>x.classList.remove('active'));
-  document.querySelectorAll('.ribbon-panel').forEach(x=>x.classList.remove('active'));
-  t.classList.add('active');
-  if (t.classList.contains('file-tab')) {
-    document.getElementById('backstage').style.display = 'flex';
-    showBackstagePanel('new');
-    // File tab stays highlighted but no ribbon panel
-    return;
-  }
-  const panel = document.getElementById(t.dataset.panel);
-  if (panel) panel.classList.add('active');
-});
+// Tab switching — inline onclick calls this directly (bulletproof)
+function switchTab(t) {
+  try {
+    document.querySelectorAll('#ribbon-tabs .tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.ribbon-panel').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    if (t.classList.contains('file-tab')) {
+      document.getElementById('backstage').style.display = 'flex';
+      showBackstagePanel('new');
+      return;
+    }
+    const panel = document.getElementById(t.dataset.panel);
+    if (panel) panel.classList.add('active');
+  } catch(e) { console.error('switchTab error:', e); }
+}
+// Backup: event delegation in case inline handlers fail
+try {
+  document.getElementById('ribbon-tabs').addEventListener('click', (e) => {
+    const t = e.target.closest('.tab');
+    if (t) switchTab(t);
+  });
+} catch(e) {}
 function closeBackstage() { document.getElementById('backstage').style.display = 'none'; }
 function showBackstagePanel(panel) {
   const c = document.getElementById('backstage-content');
@@ -1595,8 +1662,10 @@ function updateStatus() {
   document.getElementById('sb-words').textContent = words + ' words';
   document.getElementById('sb-chars').textContent = text.length + ' characters';
   // page estimate
-  const lines = Math.ceil(editor.scrollHeight / (96 * 11 / 12));
-  document.getElementById('sb-page').textContent = `Page ${lines} of ${Math.max(1, Math.ceil(editor.scrollHeight / 1056))}`;
+  const pageH = (typeof PAGE_HEIGHT !== 'undefined') ? PAGE_HEIGHT : 1056;
+  const breaks = editor.querySelectorAll('.page-break').length;
+  const totalPages = Math.max(1, Math.ceil(editor.scrollHeight / pageH) + breaks);
+  document.getElementById('sb-page').textContent = `Page ${totalPages} of ${totalPages}`;
   // info panel
   const iw = document.getElementById('info-words'); if (iw) iw.textContent = words;
   const ic = document.getElementById('info-chars'); if (ic) ic.textContent = text.length;
@@ -1605,7 +1674,7 @@ function updateStatus() {
   updateNavPane();
   checkActiveButtons();
 }
-editor.addEventListener('input', () => { updateStatus(); saveUndo(); scheduleAutoSave(); });
+editor.addEventListener('input', () => { updateStatus(); saveUndo(); scheduleAutoSave(); checkAutoPageBreak(); });
 // Initial
 updateStatus();
 saveUndo();
@@ -1621,9 +1690,18 @@ document.addEventListener('selectionchange', checkActiveButtons);
 // ═══════════════ ZOOM / VIEWS ═══════════════
 let zoomLevel = 1;
 function setZoom(z) {
-  zoomLevel = Math.max(0.1, Math.min(5, z));
-  editor.style.transform = `scale(${zoomLevel})`;
-  editor.style.transformOrigin = 'top center';
+  zoomLevel = Math.max(0.25, Math.min(5, z));
+  const page = document.getElementById('editor-page');
+  // Use CSS zoom (supported in Chrome, Edge, Safari, Firefox 126+)
+  if (CSS.supports('zoom', '1')) {
+    page.style.zoom = zoomLevel;
+  } else {
+    // Fallback: transform scale + manual container adjustment
+    page.style.transform = `scale(${zoomLevel})`;
+    page.style.transformOrigin = 'top left';
+    page.style.width = (816 / zoomLevel) + 'px';
+    page.style.minHeight = (1056 / zoomLevel) + 'px';
+  }
   document.getElementById('zoom-pct').textContent = Math.round(zoomLevel * 100) + '%';
   document.getElementById('zoom-slider').value = Math.round(zoomLevel * 100);
 }
@@ -2349,17 +2427,33 @@ document.addEventListener('click', (e) => { if (!e.target.closest('.dropdown')) 
 
 <script>
 // ═══════════════ SAVE / LOAD / EXPORT ═══════════════
+function downloadBlob(blob, filename) {
+  try {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+  } catch(e) {
+    console.error('Download error:', e);
+    alert('Download failed: ' + e.message + '\n\nTry right-clicking the page and "Save As" instead.');
+  }
+}
 function saveDoc() {
-  const name = document.getElementById('docname').value || 'Document';
-  const blob = new Blob(['<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + name + '</title></head><body style="font-family:Segoe UI,sans-serif;max-width:816px;margin:0 auto;padding:72px">' + editor.innerHTML + '</body></html>'], { type: 'text/html' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = name + '.html';
-  a.click();
-  URL.revokeObjectURL(a.href);
-  localStorage.setItem('wordclone-lastdoc', editor.innerHTML);
-  localStorage.setItem('wordclone-lastname', name);
-  alert('Document saved as ' + name + '.html');
+  try {
+    const name = document.getElementById('docname').value || 'Document';
+    const html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + name + '</title></head><body style="font-family:Segoe UI,sans-serif;max-width:816px;margin:0 auto;padding:72px">' + editor.innerHTML + '</body></html>';
+    downloadBlob(new Blob([html], { type: 'text/html' }), name + '.html');
+    localStorage.setItem('wordclone-lastdoc', editor.innerHTML);
+    localStorage.setItem('wordclone-lastname', name);
+    alert('Document saved as "' + name + '.html" — check your Downloads folder.');
+  } catch(e) {
+    console.error('Save error:', e);
+    alert('Save failed: ' + e.message);
+  }
 }
 function saveDocLocal() { saveDoc(); }
 function doSaveAs() {
@@ -2383,13 +2477,7 @@ function doSaveAs() {
   }
   closeBackstage();
 }
-function a_download(blob, fname) {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = fname;
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
+function a_download(blob, fname) { downloadBlob(blob, fname); }
 function exportFile(type) {
   document.getElementById('saveas-name') // ensure field exists
   const name = document.getElementById('docname').value || 'Document';
