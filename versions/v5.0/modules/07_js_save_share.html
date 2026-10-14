@@ -241,10 +241,11 @@ function restoreAutosave(btn) {
 // ═══════════════ SHARE ═══════════════
 async function shareDoc() {
   const name = docName();
-  // 1) System share sheet with the document attached (Chrome/Edge/Safari support this on most platforms)
+  // 1) System share sheet with a real .docx attached (opens natively in Word/Outlook)
   try {
     if (navigator.share && navigator.canShare) {
-      const file = new File([new Blob([standaloneHtml(name)], { type: 'text/html' })], name + '.html', { type: 'text/html' });
+      const blob = await buildDocx(editor, name);
+      const file = new File([blob], name + '.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
       if (navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: name, text: 'Document: ' + name });
         showToast('Shared!', 'ok');
@@ -254,16 +255,22 @@ async function shareDoc() {
   } catch (e) {
     if (e && e.name === 'AbortError') return; // user cancelled the share sheet
   }
-  // 2) Copy to clipboard + open the mail app
+  // 2) Fallback: download the .docx so it is ready to attach, copy text, open the mail app
   const text = editor.innerText || '';
   const subject = encodeURIComponent('Document: ' + name);
-  const body = encodeURIComponent('My document "' + name + '" is copied to your clipboard (paste it into this email).\n\nPreview:\n' + text.substring(0, 800) + (text.length > 800 ? '\n\n[…]' : ''));
+  const body = encodeURIComponent('My document "' + name + '" is attached as a .docx — open it in Microsoft Word or Outlook.\n\nPreview:\n' + text.substring(0, 800) + (text.length > 800 ? '\n\n[…]' : ''));
   let copied = false;
   try {
     if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(text); copied = true; }
   } catch (e) {}
+  let downloaded = false;
+  try {
+    const blob = await buildDocx(editor, name);
+    downloadBlob(blob, name + '.docx');
+    downloaded = true;
+  } catch (e) {}
   window.location.href = 'mailto:?subject=' + subject + '&body=' + body;
-  showToast(copied ? 'Document copied to clipboard — your email app is opening' : 'Email app opening — attach the downloaded file manually', 'ok', 4500);
+  showToast(downloaded ? 'Document downloaded as .docx — attach it to your email' : (copied ? 'Document copied to clipboard — your email app is opening' : 'Email app opening — attach the downloaded file manually'), 'ok', 4500);
 }
 function shareByEmail() { return shareDoc(); }
 function shareAsLink() {

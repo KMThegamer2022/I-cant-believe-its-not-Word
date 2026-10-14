@@ -25,8 +25,9 @@
   highlighting, lists, tables, hyperlinks and images), plus `.html`, `.rtf` and `.txt`.
 - **AutoSave** toggle in the title bar. It debounces and writes to browser storage without
   blocking typing, and shows a **non-blocking Restore banner** on reload (no modal dialogs).
-- **Share** opens your default email app (mailto with the document attached via a fallback that
-  copies the content and opens the mail client). Falls back to the Web Share API where available.
+- **Share** sends a real **`.docx`** so it opens natively in Microsoft Word and Outlook. Uses the
+  Web Share API (system share sheet with the .docx attached) where available; otherwise downloads
+  the .docx, copies the text to the clipboard and opens your default email app so you can attach it.
 
 ### Contextual tabs
 - Selecting a picture auto-shows a **Picture Format** contextual tab: brightness/contrast/colour,

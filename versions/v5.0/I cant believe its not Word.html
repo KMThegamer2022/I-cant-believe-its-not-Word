@@ -359,7 +359,7 @@ function showBackstagePanel(panel) {
     save: '',
     saveas: '<h2>Save As</h2><div style="margin-top:16px"><p>File name:</p><input id="saveas-name" style="width:320px;padding:7px;border:1px solid var(--input-border);border-radius:4px;margin:8px 0;background:var(--input-bg);color:var(--text)"><p>Save as type:</p><select id="saveas-type" style="width:320px;padding:7px;border:1px solid var(--input-border);border-radius:4px;margin:8px 0;background:var(--input-bg);color:var(--text)"><option value="docx">Word Document (.docx)</option><option value="html">Web Page (.html)</option><option value="rtf">Rich Text Format (.rtf)</option><option value="txt">Plain Text (.txt)</option></select><br><button onclick="doSaveAs()" style="' + btnPrimary + '">Save</button></div>',
     print: '<h2>Print</h2><div style="margin-top:16px"><button onclick="window.print()" style="' + btnPrimary + '">&#128424; Print / Save as PDF</button><p style="color:var(--text-2);margin-top:10px;font-size:12px">In the print dialog choose "Save as PDF" as the destination to export a PDF.</p></div>',
-    share: '<h2>Share</h2><div style="margin-top:16px"><button onclick="shareDoc()" style="' + btnPrimary + '">&#9993; Share document</button><p style="color:var(--text-2);margin-top:10px;font-size:12px">Uses your system share sheet when available, otherwise copies the document and opens your email app.</p></div>',
+    share: '<h2>Share</h2><div style="margin-top:16px"><button onclick="shareDoc()" style="' + btnPrimary + '">&#9993; Share document</button><p style="color:var(--text-2);margin-top:10px;font-size:12px">Sends a .docx file (opens natively in Word and Outlook). Uses your system share sheet when available, otherwise downloads the .docx and opens your email app.</p></div>',
     export: '<h2>Export</h2><div style="margin-top:16px"><button onclick="exportPDF()" style="padding:10px 22px;background:#c0392b;color:#fff;border:none;border-radius:5px;cursor:pointer;margin:0 8px 8px 0;font-size:13px;font-weight:600">&#128196; PDF (via Print)</button><button onclick="exportFile(\'docx\')" style="' + btnP + '">Word (.docx)</button><button onclick="exportFile(\'rtf\')" style="' + btnP + '">Rich Text (.rtf)</button><button onclick="exportFile(\'html\')" style="' + btnP + '">Web Page (.html)</button><button onclick="exportFile(\'txt\')" style="' + btnP + '">Plain Text (.txt)</button></div>',
     transform: '<h2>Transform</h2><p style="margin-top:16px">Turn your document into a web page.</p>',
     account: '<h2>Account</h2><div style="margin-top:16px;display:flex;gap:16px"><div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#7c4dff,#4472c4);display:flex;align-items:center;justify-content:center;color:#fff;font-size:28px;font-weight:700">W</div><div><p><b>Word User</b></p><p style="color:var(--text-2)">user@example.com</p><p style="color:var(--text-2);font-size:11px">I can\'t believe it\'s not Word (Free Web Edition)</p></div></div>',
@@ -3794,10 +3794,11 @@ function restoreAutosave(btn) {
 // ═══════════════ SHARE ═══════════════
 async function shareDoc() {
   const name = docName();
-  // 1) System share sheet with the document attached (Chrome/Edge/Safari support this on most platforms)
+  // 1) System share sheet with a real .docx attached (opens natively in Word/Outlook)
   try {
     if (navigator.share && navigator.canShare) {
-      const file = new File([new Blob([standaloneHtml(name)], { type: 'text/html' })], name + '.html', { type: 'text/html' });
+      const blob = await buildDocx(editor, name);
+      const file = new File([blob], name + '.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
       if (navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: name, text: 'Document: ' + name });
         showToast('Shared!', 'ok');
@@ -3807,16 +3808,22 @@ async function shareDoc() {
   } catch (e) {
     if (e && e.name === 'AbortError') return; // user cancelled the share sheet
   }
-  // 2) Copy to clipboard + open the mail app
+  // 2) Fallback: download the .docx so it is ready to attach, copy text, open the mail app
   const text = editor.innerText || '';
   const subject = encodeURIComponent('Document: ' + name);
-  const body = encodeURIComponent('My document "' + name + '" is copied to your clipboard (paste it into this email).\n\nPreview:\n' + text.substring(0, 800) + (text.length > 800 ? '\n\n[…]' : ''));
+  const body = encodeURIComponent('My document "' + name + '" is attached as a .docx — open it in Microsoft Word or Outlook.\n\nPreview:\n' + text.substring(0, 800) + (text.length > 800 ? '\n\n[…]' : ''));
   let copied = false;
   try {
     if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(text); copied = true; }
   } catch (e) {}
+  let downloaded = false;
+  try {
+    const blob = await buildDocx(editor, name);
+    downloadBlob(blob, name + '.docx');
+    downloaded = true;
+  } catch (e) {}
   window.location.href = 'mailto:?subject=' + subject + '&body=' + body;
-  showToast(copied ? 'Document copied to clipboard — your email app is opening' : 'Email app opening — attach the downloaded file manually', 'ok', 4500);
+  showToast(downloaded ? 'Document downloaded as .docx — attach it to your email' : (copied ? 'Document copied to clipboard — your email app is opening' : 'Email app opening — attach the downloaded file manually'), 'ok', 4500);
 }
 function shareByEmail() { return shareDoc(); }
 function shareAsLink() {

@@ -37,7 +37,7 @@ A web-based word processor that tries really hard to look and feel like Microsof
 | **Save / Save As (.docx)** | ✅ | Real OOXML, opens in Word — new in v5.0 |
 | **Open (.docx)** | ✅ | Reads headings/lists/tables/images — new in v5.0 |
 | **AutoSave + Restore** | ✅ | Non-blocking banner on reload — fixed in v5.0 |
-| **Share via email** | ✅ | Web Share API → clipboard+mailto fallback |
+| **Share via email** | ✅ | Shares a real .docx (opens in Word/Outlook) — Web Share API → download .docx + clipboard + mailto fallback |
 | **Contextual Picture tab** | ✅ | Auto-shows on image selection — new in v5.0 |
 | **Accessibility Assistant** | ✅ | Right-click menu + fixes — new in v5.0 |
 | **Word/page count** | ✅ | Status bar + dialog + Info panel |
