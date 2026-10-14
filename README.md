@@ -31,8 +31,17 @@ A web-based word processor that tries really hard to look and feel like Microsof
 | Font controls | ✅ | Family, size, colors, effects |
 | Paragraph controls | ✅ | Alignment, lists, indent, spacing |
 | Styles (Heading 1-3, Title) | ✅ | Applied correctly |
-| Tables | ✅ | Grid picker insertion |
-| Images | ✅ | Insert from device |
+| Tables | ✅ | Grid picker insertion, exported to .docx |
+| Images | ✅ | Insert from device, exported to .docx |
+| **Dark mode (default)** | ✅ | New in v5.0, toggled in Settings/theme cycle |
+| **Save / Save As (.docx)** | ✅ | Real OOXML, opens in Word — new in v5.0 |
+| **Open (.docx)** | ✅ | Reads headings/lists/tables/images — new in v5.0 |
+| **AutoSave + Restore** | ✅ | Non-blocking banner on reload — fixed in v5.0 |
+| **Share via email** | ✅ | Web Share API → clipboard+mailto fallback |
+| **Contextual Picture tab** | ✅ | Auto-shows on image selection — new in v5.0 |
+| **Accessibility Assistant** | ✅ | Right-click menu + fixes — new in v5.0 |
+| **Word/page count** | ✅ | Status bar + dialog + Info panel |
+| **Settings dialog** | ✅ | General/Display/Proofing/Save/Accessibility |
 | Shapes & SmartArt | ⚠️ | Basic SVG shapes only |
 | Charts | ⚠️ | Canvas-drawn, not data-driven |
 | Find & Replace | ✅ | Works |
@@ -52,17 +61,16 @@ A web-based word processor that tries really hard to look and feel like Microsof
 | Zoom & Views | ✅ | Read/Print/Web/Outline/Draft |
 | Copilot AI | ❌ | Removed in v2.0 |
 
-### ❌ NOT Working Yet (planned for v5.0)
+### ❌ Still NOT Working
 
 | Area | Problem |
 |------|---------|
-| **Save to device** | Download function unreliable — file may not appear in Downloads |
-| **Open from device** | File picker may not load documents correctly |
-| **Share via email** | mailto: link opens but doesn't attach the file |
-| **Export (PDF/HTML/TXT)** | Depends on broken save function |
-| **AutoSave** | localStorage restore prompt unreliable on reload |
-| **Page breaks** | Visual markers exist but auto-pagination doesn't trigger reliably |
+| **.docx round-trip fidelity** | SmartArt, charts, footnotes, section breaks, tracked changes, embedded fonts are not imported/exported |
+| **Page breaks** | Visual only — auto-pagination is approximate, not a real layout engine |
+| **Drawing ink → .docx** | Ink is canvas strokes; it does not export into the .docx |
 | **Zoom (older Firefox)** | CSS `zoom` works in Chrome/Edge but may fail in older Firefox |
+| **Insert tab extras** | Charts, 3D models, screenshots are still mostly decorative |
+| **Mail Merge** | Cannot talk to a real mail server |
 
 ## 🚀 Quick Start
 
@@ -82,15 +90,16 @@ A web-based word processor that tries really hard to look and feel like Microsof
     ├── v1.0/     ← initial release (broken tabs)
     ├── v2.0/     ← fixed tabs/layout, removed Copilot
     ├── v3.0/     ← internal — never released
-    └── v4.0/     ← current (tabs, backstage, drawing fixed)
-        └── modules/ (8 files)
+    ├── v4.0/     ← tabs, backstage, drawing fixed
+    └── v5.0/     ← current (dark mode, real .docx, contextual tabs)
+        └── modules/ (9 files)
 ```
 
 ## 🔧 Building from Source
 
 ```bash
 python3 build.py          # build latest version
-python3 build.py v4.0     # build specific version
+python3 build.py v5.0     # build specific version
 python3 build.py --list   # list all versions
 ```
 
@@ -101,15 +110,15 @@ python3 build.py --list   # list all versions
 | v1.0 | ❌ Broken | Initial build. Tabs didn't switch. |
 | v2.0 | ⚠️ Less broken | Fixed tabs/layout, removed Copilot. |
 | v3.0 | — | Internal only, never released. |
-| **v4.0** | ⚠️ **Current** | **Tabs switch, backstage works, drawing is page-only.** |
+| v4.0 | ⚠️ Mostly working | Tabs switch, backstage works, drawing is page-only. |
+| **v5.0** | ✅ **Current** | **Dark mode, real .docx save/open, AutoSave restore, contextual Picture tab, Accessibility Assistant, Settings dialog.** |
 
-### Planned for v5.0
-- Fix save to device (download reliability)
-- Fix open from device (file picker)
-- Fix share via email (file attachment)
-- Fix autoSave restore on reload
-- Fix auto page breaks while typing
-- Fix zoom in older Firefox
+### Planned for v6.0
+- Better .docx fidelity (footnotes, section breaks, tracked changes)
+- True auto-pagination while typing
+- Data-driven charts
+- Mail merge against a real mail server
+- Export ink drawings into .docx
 
 ## 🐛 Reporting Issues
 

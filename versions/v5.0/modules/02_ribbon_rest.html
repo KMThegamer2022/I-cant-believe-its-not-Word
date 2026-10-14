@@ -1,0 +1,459 @@
+<!-- ═══════ DRAW ═══════ -->
+<div class="ribbon-panel" id="panel-draw">
+  <div class="rgroup">
+    <div class="rgroup-btns">
+      <button class="rbtn large" onclick="stopDrawing()" title="Select — stop drawing and go back to the text cursor"><span class="icon">&#8599;</span><span class="lbl">Select</span></button>
+      <button class="rbtn large" onclick="setPen('pen')" title="Pen"><span class="icon">&#9998;</span><span class="lbl">Pen</span></button>
+      <button class="rbtn large" onclick="setPen('pencil')" title="Pencil"><span class="icon">&#9997;</span><span class="lbl">Pencil</span></button>
+      <button class="rbtn large" onclick="setPen('highlighter')" title="Highlighter"><span class="icon">&#127912;</span><span class="lbl">Highlighter</span></button>
+      <button class="rbtn large" onclick="setPen('eraser')" title="Eraser"><span class="icon">&#9109;</span><span class="lbl">Eraser</span></button>
+    </div>
+    <div class="rgroup-label">Drawing Tools</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <div class="rgroup-btns">
+        <label style="font-size:11px">Color:</label>
+        <input type="color" id="pen-color" value="#000000" style="width:28px;height:24px;border:none;cursor:pointer">
+        <label style="font-size:11px;margin-left:6px">Size:</label>
+        <input type="range" id="pen-size" min="1" max="20" value="3" style="width:80px">
+        <span id="pen-size-label" style="font-size:11px">3px</span>
+      </div>
+    </div>
+    <div class="rgroup-label">Ink Properties</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="inkToShape()"><span class="icon">&#9645;</span><span class="lbl">Ink to Shape</span></button>
+      <button class="rbtn small" onclick="inkToMath()"><span class="icon">&#8721;</span><span class="lbl">Ink to Math</span></button>
+      <button class="rbtn small" onclick="inkReplay()"><span class="icon">&#9654;</span><span class="lbl">Ink Replay</span></button>
+    </div>
+    <div class="rgroup-label">Convert</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns">
+      <button class="rbtn" onclick="toggleDrawMode()" id="btn-drawmode" title="Toggle Drawing Canvas"><span class="icon">&#127912;</span><span class="lbl">Draw on Page</span></button>
+      <button class="rbtn" onclick="clearInk()"><span class="icon">&#128465;</span><span class="lbl">Clear Ink</span></button>
+    </div>
+    <div class="rgroup-label">Canvas</div>
+  </div>
+</div>
+<!-- ═══════ DESIGN ═══════ -->
+<div class="ribbon-panel" id="panel-design">
+  <div class="rgroup">
+    <div class="rgroup-btns">
+      <button class="rbtn large" onclick="applyTheme('default')" title="Theme: Default"><span class="icon">&#127912;</span><span class="lbl">Default</span></button>
+      <button class="rbtn large" onclick="applyTheme('blue')" title="Theme: Blue"><span class="icon" style="color:#2b579a">&#127912;</span><span class="lbl">Blue</span></button>
+      <button class="rbtn large" onclick="applyTheme('dark')" title="Theme: Dark"><span class="icon" style="color:#333">&#127912;</span><span class="lbl">Dark</span></button>
+      <button class="rbtn large" onclick="applyTheme('green')" title="Theme: Green"><span class="icon" style="color:#2e7d32">&#127912;</span><span class="lbl">Green</span></button>
+      <button class="rbtn large" onclick="applyTheme('red')" title="Theme: Red"><span class="icon" style="color:#c62828">&#127912;</span><span class="lbl">Red</span></button>
+    </div>
+    <div class="rgroup-label">Document Formatting</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="showWatermarkDialog()"><span class="icon">&#128438;</span><span class="lbl">Watermark</span></button>
+      <button class="rbtn small" onclick="showPageColorPicker()"><span class="icon">&#127912;</span><span class="lbl">Page Color</span></button>
+      <button class="rbtn small" onclick="showPageBordersDialog()"><span class="icon">&#9645;</span><span class="lbl">Page Borders</span></button>
+    </div>
+    <div class="rgroup-label">Page Background</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <div class="rgroup-btns">
+        <label style="font-size:11px">Para Spacing:</label>
+        <select class="rselect" onchange="setDesignSpacing(this.value)">
+          <option value="0">No Space</option>
+          <option value="8">Compact</option>
+          <option value="10">Tight</option>
+          <option value="18">Open</option>
+          <option value="24">Relaxed</option>
+        </select>
+      </div>
+    </div>
+    <div class="rgroup-label">Paragraph Spacing</div>
+  </div>
+</div>
+<!-- ═══════ LAYOUT ═══════ -->
+<div class="ribbon-panel" id="panel-layout">
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="showMarginsMenu(this)"><span class="icon">&#9638;</span><span class="lbl">Margins</span></button>
+      <button class="rbtn small" onclick="toggleOrientation()"><span class="icon">&#8635;</span><span class="lbl">Orientation</span></button>
+      <button class="rbtn small" onclick="showSizeMenu(this)"><span class="icon">&#128196;</span><span class="lbl">Size</span></button>
+      <button class="rbtn small" onclick="showColumnsMenu(this)"><span class="icon">&#8214;</span><span class="lbl">Columns</span></button>
+      <button class="rbtn small" onclick="insertSectionBreak()"><span class="icon">&#9995;</span><span class="lbl">Breaks</span></button>
+      <button class="rbtn small" onclick="toggleLineNumbers()"><span class="icon">&#9776;</span><span class="lbl">Line Numbers</span></button>
+      <button class="rbtn small" onclick="toggleHyphenation()"><span class="icon">&#8208;</span><span class="lbl">Hyphenation</span></button>
+    </div>
+    <div class="rgroup-label">Page Setup</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <div class="rgroup-btns">
+        <label style="font-size:11px">Left Indent:</label>
+        <input type="number" class="rinput" id="indent-left" value="0" min="0" max="720" onchange="setIndent('left',this.value)">
+        <label style="font-size:11px">Right:</label>
+        <input type="number" class="rinput" id="indent-right" value="0" min="0" max="720" onchange="setIndent('right',this.value)">
+      </div>
+      <div class="rgroup-btns">
+        <label style="font-size:11px">Before:</label>
+        <input type="number" class="rinput" id="spacing-before" value="0" min="0" max="720" onchange="setParaSpacingBefore(this.value)">
+        <label style="font-size:11px">After:</label>
+        <input type="number" class="rinput" id="spacing-after" value="0" min="0" max="720" onchange="setParaSpacingAfter(this.value)">
+      </div>
+    </div>
+    <div class="rgroup-label">Paragraph</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="showArrangeMenu()"><span class="icon">&#9638;</span><span class="lbl">Position</span></button>
+      <button class="rbtn small" onclick="wrapText()"><span class="icon">&#8644;</span><span class="lbl">Wrap Text</span></button>
+      <button class="rbtn small" onclick="bringForward()"><span class="icon">&#8593;</span><span class="lbl">Bring Fwd</span></button>
+      <button class="rbtn small" onclick="sendBackward()"><span class="icon">&#8595;</span><span class="lbl">Send Back</span></button>
+      <button class="rbtn small" onclick="showSelectionPane()"><span class="icon">&#9776;</span><span class="lbl">Selection Pane</span></button>
+    </div>
+    <div class="rgroup-label">Arrange</div>
+  </div>
+</div>
+<!-- ═══════ REFERENCES ═══════ -->
+<div class="ribbon-panel" id="panel-references">
+  <div class="rgroup">
+    <button class="rbtn large" onclick="insertTOC()"><span class="icon">&#9776;</span><span class="lbl">Table of Contents</span></button>
+    <div class="rgroup-label">Table of Contents</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="insertFootnote()"><span class="icon">&#9998;</span><span class="lbl">Insert Footnote</span></button>
+      <button class="rbtn small" onclick="insertEndnote()"><span class="icon">&#9998;</span><span class="lbl">Insert Endnote</span></button>
+    </div>
+    <div class="rgroup-label">Footnotes</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <button class="rbtn large" onclick="smartLookup()"><span class="icon">&#128269;</span><span class="lbl">Smart Lookup</span></button>
+    <div class="rgroup-label">Research</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <div class="rgroup-btns">
+        <select class="rselect" id="citation-style" onchange="setCitationStyle(this.value)">
+          <option value="apa">APA</option>
+          <option value="mla">MLA</option>
+          <option value="chicago">Chicago</option>
+          <option value="harvard">Harvard</option>
+        </select>
+      </div>
+      <button class="rbtn small" onclick="insertCitation()"><span class="icon">&#128218;</span><span class="lbl">Insert Citation</span></button>
+      <button class="rbtn small" onclick="showBibliography()"><span class="icon">&#128214;</span><span class="lbl">Bibliography</span></button>
+      <button class="rbtn small" onclick="showSourceManager()"><span class="icon">&#128188;</span><span class="lbl">Manage Sources</span></button>
+    </div>
+    <div class="rgroup-label">Citations &amp; Bibliography</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="insertCaption()"><span class="icon">&#128203;</span><span class="lbl">Insert Caption</span></button>
+      <button class="rbtn small" onclick="insertTableOfFigures()"><span class="icon">&#128202;</span><span class="lbl">Table of Figures</span></button>
+      <button class="rbtn small" onclick="updateCaptions()"><span class="icon">&#8635;</span><span class="lbl">Update Labels</span></button>
+    </div>
+    <div class="rgroup-label">Captions</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="markIndexEntry()"><span class="icon">&#9998;</span><span class="lbl">Mark Entry</span></button>
+      <button class="rbtn small" onclick="insertIndex()"><span class="icon">&#9776;</span><span class="lbl">Insert Index</span></button>
+    </div>
+    <div class="rgroup-label">Index</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="markTOACitation()"><span class="icon">&#9998;</span><span class="lbl">Mark Citation</span></button>
+      <button class="rbtn small" onclick="insertTOA()"><span class="icon">&#9776;</span><span class="lbl">Insert TOA</span></button>
+    </div>
+    <div class="rgroup-label">Table of Authorities</div>
+  </div>
+</div>
+<!-- ═══════ MAILINGS ═══════ -->
+<div class="ribbon-panel" id="panel-mailings">
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="showEnvelope()"><span class="icon">&#9993;</span><span class="lbl">Envelopes</span></button>
+      <button class="rbtn small" onclick="showLabels()"><span class="icon">&#127991;</span><span class="lbl">Labels</span></button>
+    </div>
+    <div class="rgroup-label">Create</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="startMailMerge('letters')"><span class="icon">&#128196;</span><span class="lbl">Letters</span></button>
+      <button class="rbtn small" onclick="startMailMerge('emails')"><span class="icon">&#9993;</span><span class="lbl">Emails</span></button>
+      <button class="rbtn small" onclick="startMailMerge('labels')"><span class="icon">&#127991;</span><span class="lbl">Labels</span></button>
+      <button class="rbtn small" onclick="selectRecipients()"><span class="icon">&#128101;</span><span class="lbl">Recipients</span></button>
+    </div>
+    <div class="rgroup-label">Start Mail Merge</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="insertMergeField()"><span class="icon">&#128101;</span><span class="lbl">Merge Field</span></button>
+      <button class="rbtn small" onclick="insertAddressBlock()"><span class="icon">&#128205;</span><span class="lbl">Address Block</span></button>
+      <button class="rbtn small" onclick="insertGreetingLine()"><span class="icon">&#128075;</span><span class="lbl">Greeting Line</span></button>
+    </div>
+    <div class="rgroup-label">Write &amp; Insert Fields</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns">
+      <button class="rbtn" onclick="previewMerge()"><span class="icon">&#9654;&#124;&#9664;</span><span class="lbl">Preview Results</span></button>
+    </div>
+    <div class="rgroup-label">Preview Results</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="finishMerge('print')"><span class="icon">&#128424;</span><span class="lbl">Print</span></button>
+      <button class="rbtn small" onclick="finishMerge('email')"><span class="icon">&#9993;</span><span class="lbl">Send Email</span></button>
+    </div>
+    <div class="rgroup-label">Finish &amp; Merge</div>
+  </div>
+</div>
+<!-- ═══════ REVIEW ═══════ -->
+<div class="ribbon-panel" id="panel-review">
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="showEditorPanel()"><span class="icon">&#9998;</span><span class="lbl">Editor</span></button>
+      <button class="rbtn small" onclick="cmd('checkSpelling')"><span class="icon">&#10003;</span><span class="lbl">Spelling</span></button>
+      <button class="rbtn small" onclick="showThesaurus()"><span class="icon">&#128218;</span><span class="lbl">Thesaurus</span></button>
+      <button class="rbtn small" onclick="showWordCount()"><span class="icon">&#9776;</span><span class="lbl">Word Count</span></button>
+    </div>
+    <div class="rgroup-label">Proofing</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <button class="rbtn large" onclick="checkAccessibility()"><span class="icon">&#128100;</span><span class="lbl">Accessibility</span></button>
+    <div class="rgroup-label">Accessibility</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="translateDoc()"><span class="icon">&#127760;</span><span class="lbl">Translate</span></button>
+      <button class="rbtn small" onclick="showLangPrefs()"><span class="icon">&#128172;</span><span class="lbl">Language</span></button>
+    </div>
+    <div class="rgroup-label">Language</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <button class="rbtn large" onclick="readAloud()"><span class="icon">&#128266;</span><span class="lbl">Read Aloud</span></button>
+    <div class="rgroup-label">Speech</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="addComment()"><span class="icon">&#10010;</span><span class="lbl">New</span></button>
+      <button class="rbtn small" onclick="deleteComment()"><span class="icon">&#10006;</span><span class="lbl">Delete</span></button>
+      <button class="rbtn small" onclick="prevComment()">&#9664;<span class="lbl">Previous</span></button>
+      <button class="rbtn small" onclick="nextComment()"><span class="lbl">Next</span>&#9654;</button>
+      <button class="rbtn small" onclick="resolveComment()"><span class="icon">&#10003;</span><span class="lbl">Resolve</span></button>
+    </div>
+    <div class="rgroup-label">Comments</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="toggleTrackChanges()" id="btn-trackchanges"><span class="icon">&#9998;</span><span class="lbl">Track Changes</span></button>
+      <select class="rselect" id="markup-view" onchange="setMarkupView(this.value)" style="width:100px">
+        <option value="simple">Simple Markup</option>
+        <option value="all">All Markup</option>
+        <option value="original">Original</option>
+      </select>
+    </div>
+    <div class="rgroup-label">Tracking</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="acceptChange()"><span class="icon">&#10003;</span><span class="lbl">Accept</span></button>
+      <button class="rbtn small" onclick="rejectChange()"><span class="icon">&#10007;</span><span class="lbl">Reject</span></button>
+    </div>
+    <div class="rgroup-label">Changes</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="compareDocs()"><span class="icon">&#8214;</span><span class="lbl">Compare</span></button>
+      <button class="rbtn small" onclick="combineDocs()"><span class="icon">&#10133;</span><span class="lbl">Combine</span></button>
+    </div>
+    <div class="rgroup-label">Compare</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="restrictEditing()"><span class="icon">&#128274;</span><span class="lbl">Restrict Editing</span></button>
+      <button class="rbtn small" onclick="blockAuthors()"><span class="icon">&#128100;</span><span class="lbl">Block Authors</span></button>
+    </div>
+    <div class="rgroup-label">Protect</div>
+  </div>
+</div>
+<!-- ═══════ VIEW ═══════ -->
+<div class="ribbon-panel" id="panel-view">
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="setView('read')" id="btn-view-read"><span class="icon">&#128214;</span><span class="lbl">Read Mode</span></button>
+      <button class="rbtn small active" onclick="setView('print')" id="btn-view-print"><span class="icon">&#128196;</span><span class="lbl">Print Layout</span></button>
+      <button class="rbtn small" onclick="setView('web')" id="btn-view-web"><span class="icon">&#127760;</span><span class="lbl">Web Layout</span></button>
+      <button class="rbtn small" onclick="setView('outline')" id="btn-view-outline"><span class="icon">&#9776;</span><span class="lbl">Outline</span></button>
+      <button class="rbtn small" onclick="setView('draft')" id="btn-view-draft"><span class="icon">&#9998;</span><span class="lbl">Draft</span></button>
+    </div>
+    <div class="rgroup-label">Views</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <button class="rbtn large" onclick="immersiveReader()"><span class="icon">&#128214;</span><span class="lbl">Immersive Reader</span></button>
+    <div class="rgroup-label">Immersive</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns">
+      <button class="rbtn" onclick="togglePageMovement('vertical')" id="btn-pg-vert"><span class="icon">&#8597;</span><span class="lbl">Vertical</span></button>
+      <button class="rbtn" onclick="togglePageMovement('sideways')" id="btn-pg-side"><span class="icon">&#8596;</span><span class="lbl">Side to Side</span></button>
+    </div>
+    <div class="rgroup-label">Page Movement</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="toggleRuler()" id="btn-ruler"><span class="icon">&#9644;</span><span class="lbl">Ruler</span></button>
+      <button class="rbtn small" onclick="toggleGridlines()" id="btn-grid"><span class="icon">&#9638;</span><span class="lbl">Gridlines</span></button>
+      <button class="rbtn small" onclick="toggleNavPane()" id="btn-nav"><span class="icon">&#9776;</span><span class="lbl">Navigation</span></button>
+    </div>
+    <div class="rgroup-label">Show</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <div class="rgroup-btns">
+        <button class="rbtn small" onclick="setZoom(0.5)">50%</button>
+        <button class="rbtn small" onclick="setZoom(1)">100%</button>
+        <button class="rbtn small" onclick="setZoom(1.5)">150%</button>
+        <button class="rbtn small" onclick="setZoom(2)">200%</button>
+      </div>
+      <button class="rbtn small" onclick="zoomOnePage()"><span class="icon">&#128196;</span><span class="lbl">One Page</span></button>
+      <button class="rbtn small" onclick="zoomPageWidth()"><span class="icon">&#11036;</span><span class="lbl">Page Width</span></button>
+    </div>
+    <div class="rgroup-label">Zoom</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="newWindow()"><span class="icon">&#10133;</span><span class="lbl">New Window</span></button>
+      <button class="rbtn small" onclick="splitWindow()"><span class="icon">&#8214;</span><span class="lbl">Split</span></button>
+      <button class="rbtn small" onclick="sideBySide()"><span class="icon">&#8214;</span><span class="lbl">Side by Side</span></button>
+    </div>
+    <div class="rgroup-label">Window</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="recordMacro()"><span class="icon">&#9679;</span><span class="lbl">Record Macro</span></button>
+      <button class="rbtn small" onclick="showMacros()"><span class="icon">&#9881;</span><span class="lbl">Macros</span></button>
+    </div>
+    <div class="rgroup-label">Macros</div>
+  </div>
+</div>
+<!-- ═══════ HELP ═══════ -->
+<div class="ribbon-panel" id="panel-help">
+  <div class="rgroup">
+    <button class="rbtn large" onclick="showHelp()"><span class="icon">?</span><span class="lbl">Help</span></button>
+    <div class="rgroup-label">Help</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="contactSupport()"><span class="icon">&#128172;</span><span class="lbl">Contact Support</span></button>
+      <button class="rbtn small" onclick="showFeedback()"><span class="icon">&#128172;</span><span class="lbl">Feedback</span></button>
+    </div>
+    <div class="rgroup-label">Support</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="showTraining()"><span class="icon">&#127891;</span><span class="lbl">Show Training</span></button>
+      <button class="rbtn small" onclick="showWhatsNew()"><span class="icon">&#10024;</span><span class="lbl">What's New</span></button>
+    </div>
+    <div class="rgroup-label">Training</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <button class="rbtn large" onclick="showShortcuts()"><span class="icon">&#9000;</span><span class="lbl">Keyboard Shortcuts</span></button>
+    <div class="rgroup-label">Quick Reference</div>
+  </div>
+</div>
+<!-- ═══════ PICTURE FORMAT (contextual) ═══════ -->
+<div class="ribbon-panel" id="panel-picture">
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="picCorrections()"><span class="icon">&#9728;</span><span class="lbl">Corrections</span></button>
+      <button class="rbtn small" onclick="picColor()"><span class="icon">&#127912;</span><span class="lbl">Color</span></button>
+      <button class="rbtn small" onclick="picArtistic()"><span class="icon">&#9998;</span><span class="lbl">Artistic Effects</span></button>
+    </div>
+    <div class="rgroup-label">Adjust</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="compressPictures()"><span class="icon">&#8862;</span><span class="lbl">Compress</span></button>
+      <button class="rbtn small" onclick="changePicture()"><span class="icon">&#8644;</span><span class="lbl">Change Picture</span></button>
+      <button class="rbtn small" onclick="deletePicture()"><span class="icon">&#128465;</span><span class="lbl">Delete</span></button>
+    </div>
+    <div class="rgroup-label">Picture</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="cropPicture()"><span class="icon">&#9634;</span><span class="lbl">Crop</span></button>
+      <button class="rbtn small" onclick="picStyle('none')"><span class="icon">&#9645;</span><span class="lbl">No Border</span></button>
+      <button class="rbtn small" onclick="picStyle('frame')"><span class="icon">&#9646;</span><span class="lbl">Simple Frame</span></button>
+      <button class="rbtn small" onclick="picStyle('shadow')"><span class="icon">&#9670;</span><span class="lbl">Drop Shadow</span></button>
+      <button class="rbtn small" onclick="picStyle('round')"><span class="icon">&#9711;</span><span class="lbl">Rounded</span></button>
+    </div>
+    <div class="rgroup-label">Picture Styles</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="picWrap()"><span class="icon">&#8644;</span><span class="lbl">Wrap Text</span></button>
+      <button class="rbtn small" onclick="picForward()"><span class="icon">&#8593;</span><span class="lbl">Bring Fwd</span></button>
+      <button class="rbtn small" onclick="picBackward()"><span class="icon">&#8595;</span><span class="lbl">Send Back</span></button>
+      <button class="rbtn small" onclick="showSelectionPane()"><span class="icon">&#9776;</span><span class="lbl">Selection Pane</span></button>
+      <button class="rbtn small" onclick="picAlign()"><span class="icon">&#8676;</span><span class="lbl">Align</span></button>
+      <button class="rbtn small" onclick="picRotate()"><span class="icon">&#8635;</span><span class="lbl">Rotate</span></button>
+    </div>
+    <div class="rgroup-label">Arrange</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <div class="rgroup-btns">
+        <label style="font-size:11px">H:</label>
+        <input type="number" class="rinput" id="pic-height" min="10" max="2000" onchange="setPicSize('h',this.value)">
+        <label style="font-size:11px">W:</label>
+        <input type="number" class="rinput" id="pic-width" min="10" max="2000" onchange="setPicSize('w',this.value)">
+      </div>
+      <button class="rbtn small" onclick="addPicAltText()"><span class="icon">&#9855;</span><span class="lbl">Alt Text</span></button>
+    </div>
+    <div class="rgroup-label">Size &amp; Accessibility</div>
+  </div>
+</div>
+</div><!-- /ribbon -->

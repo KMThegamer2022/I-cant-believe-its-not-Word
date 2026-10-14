@@ -1,0 +1,220 @@
+<div id="ribbon">
+<!-- ═══════ HOME ═══════ -->
+<div class="ribbon-panel active" id="panel-home">
+  <!-- Clipboard -->
+  <div class="rgroup">
+    <div class="rgroup-btns">
+      <button class="rbtn large" onclick="pasteContent()" title="Paste (Ctrl+V)"><span class="icon">&#128203;</span><span class="lbl">Paste</span></button>
+      <div style="display:flex;flex-direction:column;gap:1px">
+        <button class="rbtn small" onclick="cmd('cut')" title="Cut (Ctrl+X)"><span class="icon">&#9986;</span><span class="lbl">Cut</span></button>
+        <button class="rbtn small" onclick="cmd('copy')" title="Copy (Ctrl+C)"><span class="icon">&#10697;</span><span class="lbl">Copy</span></button>
+        <button class="rbtn small" onclick="formatPainter()" title="Format Painter"><span class="icon">&#128396;</span><span class="lbl">Format Painter</span></button>
+      </div>
+    </div>
+    <div class="rgroup-label">Clipboard</div>
+  </div>
+  <div class="rsep"></div>
+  <!-- Font -->
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-wrap:wrap;justify-content:flex-start">
+      <select id="font-family" class="rselect" style="width:130px" onchange="applyFontFamily(this.value)">
+        <option value="'Segoe UI'">Segoe UI</option>
+        <option value="Arial">Arial</option>
+        <option value="'Times New Roman'">Times New Roman</option>
+        <option value="'Courier New'">Courier New</option>
+        <option value="Georgia">Georgia</option>
+        <option value="'Comic Sans MS'">Comic Sans MS</option>
+        <option value="Verdana">Verdana</option>
+        <option value="'Trebuchet MS'">Trebuchet MS</option>
+        <option value="Impact">Impact</option>
+        <option value="'Palatino Linotype'">Palatino</option>
+      </select>
+      <select id="font-size" class="rselect" style="width:44px" onchange="applyFontSize(this.value)">
+        <option>8</option><option>9</option><option>10</option><option>11</option><option selected>12</option>
+        <option>14</option><option>16</option><option>18</option><option>20</option><option>24</option>
+        <option>28</option><option>36</option><option>48</option><option>72</option>
+      </select>
+      <button class="rbtn small" onclick="growFont()" title="Grow Font">&#9650;</button>
+      <button class="rbtn small" onclick="shrinkFont()" title="Shrink Font">&#9660;</button>
+      <button class="rbtn small" onclick="cmd('removeFormat')" title="Clear Formatting">A&#10005;</button>
+    </div>
+    <div class="rgroup-btns" style="margin-top:2px">
+      <button class="rbtn small" onclick="cmd('bold')" id="btn-bold" title="Bold (Ctrl+B)"><b>B</b></button>
+      <button class="rbtn small" onclick="cmd('italic')" id="btn-italic" title="Italic (Ctrl+I)"><i>I</i></button>
+      <button class="rbtn small" onclick="cmd('underline')" id="btn-underline" title="Underline (Ctrl+U)"><u>U</u></button>
+      <button class="rbtn small" onclick="cmd('strikeThrough')" title="Strikethrough"><s>ab</s></button>
+      <button class="rbtn small" onclick="cmd('subscript')" title="Subscript">X&#8322;</button>
+      <button class="rbtn small" onclick="cmd('superscript')" title="Superscript">X&#178;</button>
+      <div class="dropdown">
+        <button class="rbtn small" onclick="toggleDropdown(this,'dd-case')" title="Change Case">Aa&#9660;</button>
+        <div class="dropdown-menu" id="dd-case">
+          <button onclick="changeCase('sentence')">Sentence case.</button>
+          <button onclick="changeCase('lower')">lowercase</button>
+          <button onclick="changeCase('upper')">UPPERCASE</button>
+          <button onclick="changeCase('capitalize')">Capitalize Each Word</button>
+          <button onclick="changeCase('toggle')">tOGGLE cASE</button>
+        </div>
+      </div>
+      <div class="dropdown">
+        <button class="rbtn small" title="Text Effects" style="font-weight:700;color:#7b1fa2">A&#9660;</button>
+        <div class="dropdown-menu"><div class="color-grid" id="text-effects-grid"></div></div>
+      </div>
+      <div class="dropdown">
+        <button class="rbtn small" title="Highlight Color"><span style="background:#ffff00;padding:0 4px;border-bottom:3px solid #c00">A</span>&#9660;</button>
+        <div class="dropdown-menu"><div class="color-grid" id="highlight-grid"></div></div>
+      </div>
+      <div class="dropdown">
+        <button class="rbtn small" title="Font Color"><span style="color:#c00;font-weight:700">A</span>&#9660;</button>
+        <div class="dropdown-menu"><div class="color-grid" id="fontcolor-grid"></div></div>
+      </div>
+    </div>
+    <div class="rgroup-label">Font</div>
+  </div>
+  <div class="rsep"></div>
+  <!-- Paragraph -->
+  <div class="rgroup">
+    <div class="rgroup-btns">
+      <button class="rbtn small" onclick="cmd('insertUnorderedList')" title="Bullets">&#8226;&#8226;&#8226;</button>
+      <button class="rbtn small" onclick="cmd('insertOrderedList')" title="Numbering">1.<br>2.</button>
+      <button class="rbtn small" onclick="multilevelList()" title="Multilevel List">&#9776;+</button>
+      <button class="rbtn small" onclick="cmd('outdent')" title="Decrease Indent">&#8676;</button>
+      <button class="rbtn small" onclick="cmd('indent')" title="Increase Indent">&#8677;</button>
+      <button class="rbtn small" onclick="showSortDialog()" title="Sort">&#8597;A</button>
+      <button class="rbtn small" onclick="togglePilcrow()" id="btn-pilcrow" title="Show/Paragraph Marks">&para;</button>
+    </div>
+    <div class="rgroup-btns" style="margin-top:2px">
+      <button class="rbtn small" onclick="cmd('justifyLeft')" title="Align Left">&#8676;</button>
+      <button class="rbtn small" onclick="cmd('justifyCenter')" title="Center">&#8596;</button>
+      <button class="rbtn small" onclick="cmd('justifyRight')" title="Align Right">&#8677;</button>
+      <button class="rbtn small" onclick="cmd('justifyFull')" title="Justify">&#9776;</button>
+      <div class="dropdown">
+        <button class="rbtn small" onclick="toggleDropdown(this,'dd-linespacing')" title="Line Spacing">&#8597;&#9660;</button>
+        <div class="dropdown-menu" id="dd-linespacing">
+          <button onclick="setLineSpacing(1)">1.0</button>
+          <button onclick="setLineSpacing(1.15)">1.15</button>
+          <button onclick="setLineSpacing(1.5)">1.5</button>
+          <button onclick="setLineSpacing(2)">2.0</button>
+          <button onclick="setLineSpacing(2.5)">2.5</button>
+          <button onclick="setLineSpacing(3)">3.0</button>
+          <hr>
+          <button onclick="setParaSpacing(0,0)">No Space Before/After</button>
+        </div>
+      </div>
+      <div class="dropdown">
+        <button class="rbtn small" title="Shading">&#9634;&#9660;</button>
+        <div class="dropdown-menu"><div class="color-grid" id="shading-grid"></div></div>
+      </div>
+      <button class="rbtn small" onclick="showBordersMenu(this)" title="Borders">&#9605;&#9660;</button>
+    </div>
+    <div class="rgroup-label">Paragraph</div>
+  </div>
+  <div class="rsep"></div>
+  <!-- Styles -->
+  <div class="rgroup">
+    <div class="rgroup-btns" style="gap:3px">
+      <button class="rbtn" onclick="applyStyle('normal')" style="border:1px solid var(--input-border);border-radius:4px;padding:6px 8px;background:var(--panel-bg2)"><span style="font-size:13px">Normal</span></button>
+      <button class="rbtn" onclick="applyStyle('title')" style="border:1px solid var(--input-border);border-radius:4px;padding:6px 8px;background:var(--panel-bg2)"><span style="font-size:18px;font-weight:700;color:#2b579a">Title</span></button>
+      <button class="rbtn" onclick="applyStyle('subtitle')" style="border:1px solid var(--input-border);border-radius:4px;padding:6px 8px;background:var(--panel-bg2)"><span style="font-size:13px;color:#666">Subtitle</span></button>
+      <button class="rbtn" onclick="applyStyle('h1')" style="border:1px solid var(--input-border);border-radius:4px;padding:6px 8px;background:var(--panel-bg2)"><span style="font-size:15px;font-weight:700;color:#2b579a">Heading 1</span></button>
+      <button class="rbtn" onclick="applyStyle('h2')" style="border:1px solid var(--input-border);border-radius:4px;padding:6px 8px;background:var(--panel-bg2)"><span style="font-size:14px;font-weight:700;color:#2b579a">Heading 2</span></button>
+      <button class="rbtn" onclick="applyStyle('h3')" style="border:1px solid var(--input-border);border-radius:4px;padding:6px 8px;background:var(--panel-bg2)"><span style="font-size:13px;font-weight:600;color:#2b579a">Heading 3</span></button>
+    </div>
+    <div class="rgroup-label">Styles</div>
+  </div>
+  <div class="rsep"></div>
+  <!-- Editing -->
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="showFind()" title="Find (Ctrl+F)"><span class="icon">&#128269;</span><span class="lbl">Find</span></button>
+      <button class="rbtn small" onclick="showReplace()" title="Replace (Ctrl+H)"><span class="icon">&#8644;</span><span class="lbl">Replace</span></button>
+      <button class="rbtn small" onclick="showSelectMenu()" title="Select"><span class="icon">&#9634;</span><span class="lbl">Select</span></button>
+    </div>
+    <div class="rgroup-label">Editing</div>
+  </div>
+  <div class="rsep"></div>
+  <!-- Voice & AI -->
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="toggleDictate()" title="Dictate (Speech to Text)"><span class="icon">&#127908;</span><span class="lbl">Dictate</span></button>
+      <button class="rbtn small" onclick="showEditorPanel()" title="Editor"><span class="icon">&#9998;</span><span class="lbl">Editor</span></button>
+      <button class="rbtn small" onclick="toggleAccessibilityPane()" title="Accessibility Checker"><span class="icon">&#9855;</span><span class="lbl">Accessibility</span></button>
+    </div>
+    <div class="rgroup-label">Voice &amp; Accessibility</div>
+  </div>
+</div>
+<!-- ═══════ INSERT ═══════ -->
+<div class="ribbon-panel" id="panel-insert">
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="insertCoverPage()"><span class="icon">&#128196;</span><span class="lbl">Cover Page</span></button>
+      <button class="rbtn small" onclick="insertBlankPage()"><span class="icon">&#128196;</span><span class="lbl">Blank Page</span></button>
+      <button class="rbtn small" onclick="cmd('insertHorizontalRule');insertPageBreak()" title="Page Break (Ctrl+Enter)"><span class="icon">&#9995;</span><span class="lbl">Page Break</span></button>
+    </div>
+    <div class="rgroup-label">Pages</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <button class="rbtn large" onclick="showInsertTable()" title="Insert Table"><span class="icon">&#9638;</span><span class="lbl">Table</span></button>
+    <div class="rgroup-label">Tables</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="insertPicture()" title="Pictures from Device"><span class="icon">&#127748;</span><span class="lbl">Pictures</span></button>
+      <button class="rbtn small" onclick="insertShape()" title="Shapes"><span class="icon">&#9646;&#9645;</span><span class="lbl">Shapes</span></button>
+      <button class="rbtn small" onclick="insertIcon()" title="Icons"><span class="icon">&#9733;</span><span class="lbl">Icons</span></button>
+      <button class="rbtn small" onclick="insertSmartArt()" title="SmartArt"><span class="icon">&#8801;</span><span class="lbl">SmartArt</span></button>
+      <button class="rbtn small" onclick="insertChart()" title="Chart"><span class="icon">&#128202;</span><span class="lbl">Chart</span></button>
+      <button class="rbtn small" onclick="insertScreenshot()" title="Screenshot"><span class="icon">&#128247;</span><span class="lbl">Screenshot</span></button>
+    </div>
+    <div class="rgroup-label">Illustrations</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="showAddins()"><span class="icon">&#10133;</span><span class="lbl">Add-ins</span></button>
+      <button class="rbtn small" onclick="wikipediaLookup()"><span class="icon">&#128218;</span><span class="lbl">Wikipedia</span></button>
+    </div>
+    <div class="rgroup-label">Add-ins</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <button class="rbtn large" onclick="insertOnlineVideo()"><span class="icon">&#127909;</span><span class="lbl">Online Video</span></button>
+    <div class="rgroup-label">Media</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="insertLink()" title="Hyperlink (Ctrl+K)"><span class="icon">&#128279;</span><span class="lbl">Link</span></button>
+      <button class="rbtn small" onclick="insertBookmark()"><span class="icon">&#128278;</span><span class="lbl">Bookmark</span></button>
+      <button class="rbtn small" onclick="insertCrossRef()"><span class="icon">&#8635;</span><span class="lbl">Cross-ref</span></button>
+    </div>
+    <div class="rgroup-label">Links</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <button class="rbtn large" onclick="addComment()"><span class="icon">&#128172;</span><span class="lbl">Comment</span></button>
+    <div class="rgroup-label">Comments</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="insertHeader()"><span class="icon">&#9776;</span><span class="lbl">Header</span></button>
+      <button class="rbtn small" onclick="insertFooter()"><span class="icon">&#9776;</span><span class="lbl">Footer</span></button>
+      <button class="rbtn small" onclick="insertPageNumber()"><span class="icon">&#9998;</span><span class="lbl">Page Number</span></button>
+    </div>
+    <div class="rgroup-label">Header &amp; Footer</div>
+  </div>
+  <div class="rsep"></div>
+  <div class="rgroup">
+    <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
+      <button class="rbtn small" onclick="insertTextBox()"><span class="icon">&#9645;</span><span class="lbl">Text Box</span></button>
+      <button class="rbtn small" onclick="insertWordArt()"><span class="icon" style="font-weight:700;color:#7b1fa2">A</span><span class="lbl">WordArt</span></button>
+      <button class="rbtn small" onclick="insertDropCap()"><span class="icon" style="font-weight:700;font-size:20px">A</span><span class="lbl">Drop Cap</span></button>
+      <button class="rbtn small" onclick="insertDateTime()"><span class="icon">&#128197;</span><span class="lbl">Date &amp; Time</span></button>
+      <button class="rbtn small" onclick="insertSignatureLine()"><span class="icon">&#9998;</span><span class="lbl">Signature</span></button>
+      <button class="rbtn small" onclick="insertSymbolMenu(this)"><span class="icon">&#937;</span><span class="lbl">Symbol</span></button>
+    </div>
+    <div class="rgroup-label">Text &amp; Symbols</div>
+  </div>
+</div>

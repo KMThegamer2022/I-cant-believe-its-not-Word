@@ -1,0 +1,362 @@
+<script>
+// ═══════════════ SAVE / DOWNLOAD ═══════════════
+function downloadBlob(blob, filename) {
+  try {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { if (a.parentNode) a.parentNode.removeChild(a); URL.revokeObjectURL(url); }, 1500);
+    return true;
+  } catch (e) {
+    console.error('Download error:', e);
+    showToast('Download failed: ' + e.message, 'err');
+    return false;
+  }
+}
+function a_download(blob, fname) { return downloadBlob(blob, fname); }
+function docName() { const el = document.getElementById('docname'); return (el && el.value.trim()) || 'Document'; }
+function standaloneHtml(name) {
+  return '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n<title>' + name.replace(/</g, '&lt;') + '</title>\n' +
+    '<style>body{font-family:Georgia,serif;max-width:816px;margin:0 auto;padding:72px;line-height:1.5;color:#111;background:#fff}' +
+    'img{max-width:100%}table{border-collapse:collapse;width:100%}td,th{border:1px solid #999;padding:6px 8px}' +
+    'h1,h2,h3{color:#2b579a}blockquote{border-left:3px solid #ccc;margin-left:0;padding-left:12px;color:#555}</style>\n' +
+    '</head>\n<body>\n' + editor.innerHTML.replace(/<canvas[^>]*>[\s\S]*?<\/canvas>/gi, '') + '\n</body>\n</html>';
+}
+// Export any supported format; resolves after the download starts.
+function exportAs(type, name) {
+  name = (name || docName()).replace(/[\\/:*?"<>|]/g, '_');
+  return new Promise((resolve) => {
+    try {
+      let blob = null, fname = name + '.' + type;
+      switch (type) {
+        case 'docx':
+          buildDocx(editor, name).then(b => { downloadBlob(b, fname); showToast('Saved <b>' + fname + '</b> — check your Downloads folder', 'ok'); resolve(true); })
+            .catch(e => { console.error(e); showToast('DOCX export failed: ' + e.message, 'err'); resolve(false); });
+          return;
+        case 'doc':
+          blob = new Blob(['\ufeff<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>' + name + '</title></head><body>' + editor.innerHTML + '</body></html>'], { type: 'application/msword' });
+          break;
+        case 'rtf':
+          blob = new Blob([buildRtf()], { type: 'application/rtf' });
+          break;
+        case 'txt':
+          blob = new Blob([editor.innerText], { type: 'text/plain;charset=utf-8' });
+          break;
+        case 'html':
+          blob = new Blob([standaloneHtml(name)], { type: 'text/html;charset=utf-8' });
+          break;
+        default:
+          blob = new Blob([standaloneHtml(name)], { type: 'text/html;charset=utf-8' });
+          fname = name + '.html';
+      }
+      const ok = downloadBlob(blob, fname);
+      if (ok) {
+        showToast('Saved <b>' + fname + '</b> — check your Downloads folder', 'ok');
+        try {
+          localStorage.setItem('wordclone-lastdoc', editor.innerHTML);
+          localStorage.setItem('wordclone-lastname', name);
+        } catch (e) {}
+      }
+      resolve(ok);
+    } catch (e) {
+      console.error(e);
+      showToast('Save failed: ' + e.message, 'err');
+      resolve(false);
+    }
+  });
+}
+function saveDoc() {
+  const fmt = (typeof SETTINGS !== 'undefined' && SETTINGS.saveformat) || 'docx';
+  return exportAs(fmt, docName());
+}
+function saveDocLocal() { return saveDoc(); }
+function doSaveAs() {
+  const nameEl = document.getElementById('saveas-name');
+  const typeEl = document.getElementById('saveas-type');
+  const name = (nameEl && nameEl.value.trim()) || docName();
+  const type = (typeEl && typeEl.value) || 'docx';
+  closeBackstage();
+  exportAs(type, name);
+}
+function exportFile(type) { closeBackstage(); return exportAs(type, docName()); }
+function exportPDF() {
+  closeBackstage();
+  showToast('Choose <b>"Save as PDF"</b> as the destination in the print dialog', 'ok', 5000);
+  setTimeout(() => window.print(), 250);
+}
+
+// ═══════════════ OPEN FILES (incl. real .docx) ═══════════════
+function rtfToText(rtf) {
+  let t = rtf;
+  t = t.replace(/'([0-9a-fA-F]{2})/g, (m, h) => String.fromCharCode(parseInt(h, 16)));
+  t = t.replace(/\\([a-z]+)(-?\d+)?\s?/g, (m, cmd) => {
+    if (cmd === 'par' || cmd === 'line' || cmd === 'row') return '\n';
+    if (cmd === 'tab') return '\t';
+    if (cmd === 'emdash') return '—';
+    if (cmd === 'endash') return '–';
+    if (cmd === 'lquote') return '‘';
+    if (cmd === 'rquote') return '’';
+    if (cmd === 'ldblquote') return '“';
+    if (cmd === 'rdblquote') return '”';
+    return '';
+  });
+  t = t.replace(/[{}]/g, '');
+  return t.split('\n').map(l => l.trim()).filter((l, i, a) => l || (i && a[i - 1])).join('\n');
+}
+function setDocContent(htmlOrText, isHtml) {
+  if (isHtml) editor.innerHTML = htmlOrText;
+  else editor.innerHTML = String(htmlOrText).split(/\n{2,}/).map(p => '<p>' + p.replace(/\n/g, '<br>').replace(/</g, '&lt;') + '</p>').join('') || '<p><br></p>';
+  saveUndo(); updateStatus(); scheduleAutoSave();
+}
+function openLocalFile() {
+  const inp = document.createElement('input');
+  inp.type = 'file';
+  inp.accept = '.docx,.doc,.html,.htm,.rtf,.txt';
+  inp.onchange = () => {
+    const f = inp.files[0]; if (!f) return;
+    const lower = f.name.toLowerCase();
+    const reader = new FileReader();
+    reader.onerror = () => showToast('Could not read the file', 'err');
+    reader.onload = async () => {
+      try {
+        closeBackstage();
+        if (lower.endsWith('.docx') || lower.endsWith('.doc')) {
+          const buf = reader.result;
+          let html = null;
+          // .docx is a zip; also try zip parsing for odd files
+          try { html = await parseDocx(buf); } catch (e) { html = null; }
+          if (html) {
+            setDocContent(html, true);
+          } else if (typeof buf === 'string' || /<\/?(html|body)[\s>]/i.test(String(buf).substring(0, 2000))) {
+            // HTML-based document saved with .doc extension
+            const tmp = document.createElement('div');
+            tmp.innerHTML = reader.result;
+            const body = tmp.querySelector('body');
+            setDocContent(body ? body.innerHTML : tmp.innerHTML, true);
+          } else {
+            showToast('Could not open "' + f.name + '" — unsupported or corrupt file', 'err');
+            return;
+          }
+        } else if (lower.endsWith('.html') || lower.endsWith('.htm')) {
+          const tmp = document.createElement('div');
+          tmp.innerHTML = reader.result;
+          const body = tmp.querySelector('body');
+          setDocContent(body ? body.innerHTML : tmp.innerHTML, true);
+        } else if (lower.endsWith('.rtf')) {
+          setDocContent(rtfToText(String(reader.result)), false);
+        } else {
+          setDocContent(String(reader.result), false);
+        }
+        document.getElementById('docname').value = f.name.replace(/\.[^.]+$/, '');
+        showToast('Opened <b>' + f.name + '</b>', 'ok');
+      } catch (e) {
+        console.error(e);
+        showToast('Open failed: ' + e.message, 'err');
+      }
+    };
+    if (lower.endsWith('.docx') || lower.endsWith('.doc')) reader.readAsArrayBuffer(f);
+    else reader.readAsText(f);
+  };
+  inp.click();
+}
+function newDoc() {
+  const hasContent = editor.innerText.trim() && editor.innerText.trim() !== 'Start typing your document here...';
+  if (hasContent && !confirm('Create a new document? Unsaved changes will be lost.')) return;
+  editor.innerHTML = '<p><br></p>';
+  document.getElementById('docname').value = 'Document' + (Math.floor(Math.random() * 999) + 1);
+  undoStack = []; redoStack = [];
+  saveUndo(); updateStatus(); closeBackstage();
+  showToast('New document created', 'ok');
+}
+
+// ═══════════════ AUTOSAVE ═══════════════
+let autoSaveTimer = null, autosaveWarned = false;
+function scheduleAutoSave() {
+  if (typeof SETTINGS === 'undefined' || !SETTINGS.autosave) return;
+  clearTimeout(autoSaveTimer);
+  const iv = Math.max(1, SETTINGS.autosaveInterval || 2) * 1000;
+  autoSaveTimer = setTimeout(doAutoSave, iv);
+}
+function doAutoSave() {
+  if (typeof SETTINGS === 'undefined' || !SETTINGS.autosave) return;
+  try {
+    localStorage.setItem('wordclone-autosave', editor.innerHTML);
+    localStorage.setItem('wordclone-autosave-time', new Date().toISOString());
+    localStorage.setItem('wordclone-autosave-name', docName());
+    const st = document.getElementById('autosave-state');
+    if (st) st.textContent = 'Saved ' + new Date().toLocaleTimeString();
+    const sb = document.getElementById('sb-saved');
+    if (sb) { sb.textContent = '✓ Saved'; setTimeout(() => { if (sb.textContent === '✓ Saved') sb.textContent = ''; }, 3000); }
+  } catch (e) {
+    if (!autosaveWarned) { autosaveWarned = true; showToast('AutoSave failed (storage full?): ' + e.message, 'err'); }
+  }
+}
+function toggleAutoSave() {
+  if (typeof SETTINGS === 'undefined') return;
+  SETTINGS.autosave = !SETTINGS.autosave;
+  const at = document.getElementById('autosave-toggle');
+  if (at) at.classList.toggle('on', SETTINGS.autosave);
+  try { persistSettings(); } catch (e) {}
+  if (SETTINGS.autosave) {
+    doAutoSave();
+    showToast('AutoSave ON — your document is kept in browser storage and survives reloads', 'ok', 4200);
+  } else {
+    showToast('AutoSave OFF', 'warn');
+  }
+}
+function maybeRestoreAutosave() {
+  let saved = null;
+  try { saved = localStorage.getItem('wordclone-autosave'); } catch (e) {}
+  if (!saved || saved === editor.innerHTML) return;
+  const c = document.getElementById('toast-container');
+  if (!c) return;
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.innerHTML = '<b>Restore autosaved document?</b><span style="font-size:11.5px;color:var(--text-2)">An autosave from ' +
+    (localStorage.getItem('wordclone-autosave-time') || 'earlier').replace('T', ' ').replace(/\.\d+Z/, '') + ' is available.</span>' +
+    '<div style="display:flex;gap:8px;margin-top:8px"><button class="btn primary" style="padding:4px 14px" onclick="restoreAutosave(this)">Restore</button>' +
+    '<button class="btn" style="padding:4px 14px" onclick="this.closest(\'.toast\').remove()">Keep current</button></div>';
+  c.appendChild(t);
+}
+function restoreAutosave(btn) {
+  try {
+    const s = localStorage.getItem('wordclone-autosave');
+    if (s) {
+      editor.innerHTML = s;
+      const n = localStorage.getItem('wordclone-autosave-name');
+      if (n) document.getElementById('docname').value = n;
+      saveUndo(); updateStatus();
+      showToast('Autosaved document restored', 'ok');
+    }
+  } catch (e) { showToast('Restore failed: ' + e.message, 'err'); }
+  // btn is undefined when called programmatically (not from the banner button).
+  const t = (btn && btn.closest) ? btn.closest('.toast') : document.querySelector('.toast');
+  if (t) t.remove();
+}
+
+// ═══════════════ SHARE ═══════════════
+async function shareDoc() {
+  const name = docName();
+  // 1) System share sheet with the document attached (Chrome/Edge/Safari support this on most platforms)
+  try {
+    if (navigator.share && navigator.canShare) {
+      const file = new File([new Blob([standaloneHtml(name)], { type: 'text/html' })], name + '.html', { type: 'text/html' });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: name, text: 'Document: ' + name });
+        showToast('Shared!', 'ok');
+        return;
+      }
+    }
+  } catch (e) {
+    if (e && e.name === 'AbortError') return; // user cancelled the share sheet
+  }
+  // 2) Copy to clipboard + open the mail app
+  const text = editor.innerText || '';
+  const subject = encodeURIComponent('Document: ' + name);
+  const body = encodeURIComponent('My document "' + name + '" is copied to your clipboard (paste it into this email).\n\nPreview:\n' + text.substring(0, 800) + (text.length > 800 ? '\n\n[…]' : ''));
+  let copied = false;
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(text); copied = true; }
+  } catch (e) {}
+  window.location.href = 'mailto:?subject=' + subject + '&body=' + body;
+  showToast(copied ? 'Document copied to clipboard — your email app is opening' : 'Email app opening — attach the downloaded file manually', 'ok', 4500);
+}
+function shareByEmail() { return shareDoc(); }
+function shareAsLink() {
+  try {
+    const data = btoa(unescape(encodeURIComponent(editor.innerHTML)));
+    const url = window.location.href.split('#')[0] + '#doc=' + data;
+    navigator.clipboard.writeText(url).then(() => showToast('Link copied to clipboard', 'ok'))
+      .catch(() => showToast('Could not copy link — document may be too large', 'warn'));
+  } catch (e) { showToast('Could not build link: ' + e.message, 'err'); }
+}
+function presentOnline() { showToast('Online presentation requires a Microsoft account', 'warn'); }
+function transformSway() { window.open('https://sway.office.com', '_blank'); }
+
+// ═══════════════ KEYBOARD SHORTCUTS ═══════════════
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey || e.metaKey) {
+    switch (e.key.toLowerCase()) {
+      case 's': e.preventDefault(); if (e.shiftKey) { openSaveAsBackstage(); } else saveDoc(); break;
+      case 'z': e.preventDefault(); doUndo(); break;
+      case 'y': e.preventDefault(); doRedo(); break;
+      case 'f': e.preventDefault(); showFind(); break;
+      case 'h': e.preventDefault(); showReplace(); break;
+      case 'p': e.preventDefault(); window.print(); break;
+      case 'k': e.preventDefault(); insertLink(); break;
+      case '1': case '2': case '3':
+        if (e.altKey) { e.preventDefault(); applyStyle('h' + e.key); }
+        break;
+    }
+  } else if (e.key === 'Escape') {
+    hideContextMenu();
+    hideMiniToolbar();
+    if (typeof drawMode !== 'undefined' && drawMode) toggleDrawMode();
+    const fr = document.getElementById('find-replace-bar');
+    if (fr && fr.style.display !== 'none') fr.style.display = 'none';
+    const so = document.getElementById('settings-overlay');
+    if (so && so.style.display === 'flex') closeSettings();
+    const mo = document.getElementById('modal-overlay');
+    if (mo && mo.style.display === 'flex') closeModal();
+    const bs = document.getElementById('backstage');
+    if (bs && bs.style.display === 'flex') closeBackstage();
+  }
+});
+function openSaveAsBackstage() {
+  document.getElementById('backstage').style.display = 'flex';
+  showBackstagePanel('saveas');
+}
+
+// ═══════════════ TELL ME / SEARCH ═══════════════
+document.getElementById('tellme').addEventListener('keydown', function (e) {
+  if (e.key !== 'Enter') return;
+  const q = this.value.toLowerCase().trim();
+  if (!q) return;
+  const commands = {
+    'bold': () => cmd('bold'), 'italic': () => cmd('italic'), 'underline': () => cmd('underline'),
+    'table': () => showInsertTable(), 'image': () => insertPicture(), 'picture': () => insertPicture(),
+    'link': () => insertLink(), 'hyperlink': () => insertLink(),
+    'print': () => window.print(), 'save': () => saveDoc(),
+    'find': () => showFind(), 'replace': () => showReplace(),
+    'comment': () => addComment(), 'footnote': () => insertFootnote(),
+    'heading': () => applyStyle('h1'), 'title': () => applyStyle('title'),
+    'bullet': () => cmd('insertUnorderedList'), 'number': () => cmd('insertOrderedList'),
+    'center': () => cmd('justifyCenter'), 'align': () => cmd('justifyCenter'),
+    'zoom in': () => setZoom(zoomLevel + 0.25), 'zoom out': () => setZoom(zoomLevel - 0.25),
+    'spelling': () => showEditorPanel(), 'grammar': () => showEditorPanel(),
+    'watermark': () => showWatermarkDialog(), 'margin': () => setMargins(96),
+    'page break': () => insertPageBreak(), 'new page': () => insertBlankPage(),
+    'table of contents': () => insertTOC(), 'toc': () => insertTOC(),
+    'citation': () => insertCitation(), 'bibliography': () => showBibliography(),
+    'mail merge': () => startMailMerge('letters'), 'envelope': () => showEnvelope(),
+    'track changes': () => toggleTrackChanges(), 'read aloud': () => readAloud(),
+    'dictate': () => toggleDictate(),
+    'theme': () => cycleTheme(), 'style': () => applyStyle('h1'),
+    'word count': () => showWordCount(), 'zoom': () => setZoom(1),
+    'macro': () => showMacros(), 'encrypt': () => encryptDoc(),
+    'export': () => exportFile('docx'), 'pdf': () => exportPDF(),
+    'share': () => shareDoc(), 'email': () => shareDoc(),
+    'dark mode': () => cycleTheme(), 'light mode': () => cycleTheme(),
+    'settings': () => openSettings(), 'options': () => openSettings(),
+    'accessibility': () => runAccessibilityChecks(),
+    'help': () => showHelp()
+  };
+  let matched = false;
+  for (const [key, fn] of Object.entries(commands)) {
+    if (q.includes(key)) { try { fn(); } catch (err) { showToast(err.message, 'err'); } matched = true; break; }
+  }
+  if (!matched) smartLookup();
+  this.value = '';
+});
+
+// ═══════════════ LOAD FROM URL HASH ═══════════════
+if (window.location.hash.startsWith('#doc=')) {
+  try {
+    editor.innerHTML = decodeURIComponent(escape(atob(window.location.hash.substring(5))));
+  } catch (e) {}
+}
+</script>

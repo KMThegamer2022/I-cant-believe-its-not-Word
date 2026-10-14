@@ -1,0 +1,375 @@
+<script>
+// ═══════════════ STATUS BAR / COUNTS ═══════════════
+// switchTab, closeBackstage, showBackstagePanel are defined in module 00 (standalone scripts)
+let zoomLevel = 1; // declared early: updateStatus() runs at load time below
+function updateStatus() {
+  const text = editor.innerText || '';
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  const chars = text.length;
+  const charsNoSpace = text.replace(/\s/g, '').length;
+  const paras = editor.querySelectorAll('p,h1,h2,h3,h4,h5,h6,li,blockquote').length;
+  const zoom = (typeof zoomLevel !== 'undefined' && zoomLevel) ? zoomLevel : 1;
+  const pageH = (typeof PAGE_HEIGHT !== 'undefined') ? PAGE_HEIGHT : 1056;
+  const breaks = editor.querySelectorAll('.page-break').length;
+  const totalPages = Math.max(1, Math.ceil(editor.scrollHeight / (pageH * zoom)) + breaks);
+  // current page from scroll position of the page container
+  const pc = document.getElementById('page-container');
+  let currentPage = 1;
+  if (pc && pc.clientHeight > 50) {
+    currentPage = Math.min(totalPages, Math.floor(pc.scrollTop / Math.max(1, pc.clientHeight - 40)) + 1);
+  }
+  document.getElementById('sb-page').textContent = 'Page ' + currentPage + ' of ' + totalPages;
+  document.getElementById('sb-words').textContent = words.toLocaleString() + ' words';
+  document.getElementById('sb-chars').textContent = chars.toLocaleString() + ' characters';
+  // backstage info panel (if open)
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  set('info-pages', totalPages); set('info-words', words.toLocaleString());
+  set('info-chars', chars.toLocaleString()); set('info-paras', paras);
+  set('info-modified', new Date().toLocaleString());
+  // word count dialog live update
+  const wc = document.getElementById('wordcount-rows');
+  if (wc) wc.innerHTML = wordCountRows(totalPages, words, chars, charsNoSpace, paras);
+  try { updateNavPane(); } catch (e) {}
+  try { checkActiveButtons(); } catch (e) {}
+}
+function wordCountRows(pages, words, chars, charsNoSpace, paras) {
+  const lines = Math.max(1, Math.ceil(editor.scrollHeight / 22));
+  const row = (l, v) => '<div style="display:flex;justify-content:space-between;padding:7px 4px;border-bottom:1px solid var(--border)"><span>' + l + '</span><b>' + v.toLocaleString() + '</b></div>';
+  return row('Pages', pages) + row('Words', words) + row('Characters (no spaces)', charsNoSpace) +
+         row('Characters (with spaces)', chars) + row('Paragraphs', paras) + row('Lines', lines);
+}
+function showWordCount() {
+  const text = editor.innerText || '';
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  const paras = editor.querySelectorAll('p,h1,h2,h3,h4,h5,h6,li,blockquote').length;
+  const zoom = (typeof zoomLevel !== 'undefined' && zoomLevel) ? zoomLevel : 1;
+  const breaks = editor.querySelectorAll('.page-break').length;
+  const pages = Math.max(1, Math.ceil(editor.scrollHeight / (1056 * zoom)) + breaks);
+  showModal('Word Count',
+    '<div id="wordcount-rows">' + wordCountRows(pages, words, text.length, text.replace(/\s/g, '').length, paras) + '</div>' +
+    '<label style="display:flex;align-items:center;gap:6px;margin-top:14px;font-size:12px"><input type="checkbox" id="wc-countbox" checked onclick="updateStatus()"> Include textboxes, footnotes and endnotes</label>' +
+    '<div style="text-align:right;margin-top:14px"><button class="btn" onclick="closeModal()">Close</button></div>');
+}
+document.getElementById('page-container').addEventListener('scroll', function () {
+  const pc = document.getElementById('page-container');
+  const el = document.getElementById('sb-page');
+  if (!el) return;
+  const cur = el.textContent.match(/Page (\d+) of (\d+)/);
+  if (!cur) return;
+  const total = +cur[2];
+  const current = Math.min(total, Math.floor(pc.scrollTop / Math.max(1, pc.clientHeight - 40)) + 1);
+  el.textContent = 'Page ' + current + ' of ' + total;
+});
+editor.addEventListener('input', () => { updateStatus(); saveUndo(); scheduleAutoSave(); checkAutoPageBreak(); });
+updateStatus();
+saveUndo();
+
+// Track active formatting buttons
+function checkActiveButtons() {
+  const b = (id, cmdName) => { const el = document.getElementById(id); if (el) try { el.classList.toggle('active', document.queryCommandState(cmdName)); } catch (e) {} };
+  b('btn-bold', 'bold'); b('btn-italic', 'italic'); b('btn-underline', 'underline');
+}
+document.addEventListener('selectionchange', checkActiveButtons);
+
+// ═══════════════ THEME / PAGE MODE / SETTINGS ═══════════════
+const DEFAULT_SETTINGS = {
+  theme: 'dark', pagemode: 'dark', name: '', miniToolbar: true, spellcheck: true,
+  paragraphMarks: false, autosave: false, autosaveInterval: 2, textSpacing: false, saveformat: 'docx'
+};
+let SETTINGS = Object.assign({}, DEFAULT_SETTINGS);
+let settingsSnapshot = null;
+try {
+  const saved = JSON.parse(localStorage.getItem('icbimw-settings') || 'null');
+  if (saved) SETTINGS = Object.assign({}, DEFAULT_SETTINGS, saved);
+  // legacy keys from earlier versions
+  if (!localStorage.getItem('icbimw-settings')) {
+    const t = localStorage.getItem('icbimw-theme'); const p = localStorage.getItem('icbimw-pagemode');
+    if (t) SETTINGS.theme = t; if (p) SETTINGS.pagemode = p;
+  }
+} catch (e) {}
+
+function resolveTheme(pref) {
+  if (pref === 'system') return (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+  return pref === 'light' ? 'light' : 'dark';
+}
+function applyThemePref(pref, persist) {
+  SETTINGS.theme = pref;
+  const resolved = resolveTheme(pref);
+  document.documentElement.setAttribute('data-theme', resolved);
+  document.documentElement.setAttribute('data-theme-pref', pref);
+  if (persist !== false) persistSettings();
+}
+function setPageMode(mode, persist) {
+  SETTINGS.pagemode = mode === 'light' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-pagemode', SETTINGS.pagemode);
+  if (persist !== false) persistSettings();
+}
+function togglePageMode() { setPageMode(SETTINGS.pagemode === 'dark' ? 'light' : 'dark'); showToast('Page switched to ' + SETTINGS.pagemode + ' mode', 'ok'); }
+function cycleTheme() {
+  const order = ['dark', 'light', 'system'];
+  const next = order[(order.indexOf(SETTINGS.theme) + 1) % 3];
+  applyThemePref(next);
+  showToast('Theme: ' + next.charAt(0).toUpperCase() + next.slice(1), 'ok');
+}
+function persistSettings() {
+  try {
+    localStorage.setItem('icbimw-settings', JSON.stringify(SETTINGS));
+    localStorage.setItem('icbimw-theme', SETTINGS.theme);
+    localStorage.setItem('icbimw-pagemode', SETTINGS.pagemode);
+  } catch (e) {}
+}
+function applyAllSettings() {
+  applyThemePref(SETTINGS.theme, false);
+  setPageMode(SETTINGS.pagemode, false);
+  if (editor) {
+    editor.spellcheck = !!SETTINGS.spellcheck;
+    applyTextSpacing(!!SETTINGS.textSpacing, false);
+  }
+  const at = document.getElementById('autosave-toggle');
+  if (at) at.classList.toggle('on', !!SETTINGS.autosave);
+  try { if (SETTINGS.paragraphMarks && !editor.classList.contains('show-pilcrow')) togglePilcrow(); } catch (e) {}
+  persistSettings();
+}
+function applyTextSpacing(on, persist) {
+  SETTINGS.textSpacing = on;
+  if (editor) {
+    editor.style.letterSpacing = on ? '0.12em' : '';
+    editor.style.wordSpacing = on ? '0.16em' : '';
+    editor.style.lineHeight = on ? '1.9' : '';
+  }
+  if (persist !== false) persistSettings();
+}
+if (window.matchMedia) {
+  const mq = window.matchMedia('(prefers-color-scheme: light)');
+  const onChange = () => { if (SETTINGS.theme === 'system') applyThemePref('system'); };
+  if (mq.addEventListener) mq.addEventListener('change', onChange);
+}
+// ── Settings dialog ──
+function openSettings() {
+  settingsSnapshot = JSON.parse(JSON.stringify(SETTINGS));
+  closeBackstage();
+  document.getElementById('settings-overlay').style.display = 'flex';
+  settingsPanel('general', document.querySelector('#settings-nav .sn-item'));
+}
+function closeSettings() {
+  if (settingsSnapshot) { SETTINGS = settingsSnapshot; applyAllSettings(); settingsSnapshot = null; }
+  document.getElementById('settings-overlay').style.display = 'none';
+}
+function applySettingsDialog() { collectSettings(); settingsSnapshot = null; applyAllSettings(); showToast('Settings applied', 'ok'); }
+function saveSettingsDialog() {
+  collectSettings();
+  settingsSnapshot = null;
+  applyAllSettings();
+  document.getElementById('settings-overlay').style.display = 'none';
+  showToast('Settings saved', 'ok');
+}
+function settingsPanel(name, el) {
+  document.querySelectorAll('#settings-nav .sn-item').forEach(i => i.classList.remove('active'));
+  if (el) el.classList.add('active');
+  const p = document.getElementById('settings-panel');
+  const row = (label, desc, control) =>
+    '<div class="st-row"><div><div>' + label + '</div>' + (desc ? '<div class="st-desc">' + desc + '</div>' : '') + '</div><div>' + control + '</div></div>';
+  const cb = (id, on) => '<input type="checkbox" id="set-' + id + '"' + (on ? ' checked' : '') + '>';
+  switch (name) {
+    case 'general':
+      p.innerHTML = '<h3>General</h3>' +
+        row('Office Theme', 'Choose how the app looks. Dark is the default.', '<select id="set-theme" onchange="applyThemePref(this.value,false)"><option value="dark"' + (SETTINGS.theme === 'dark' ? ' selected' : '') + '>Dark</option><option value="light"' + (SETTINGS.theme === 'light' ? ' selected' : '') + '>Light</option><option value="system"' + (SETTINGS.theme === 'system' ? ' selected' : '') + '>Use system setting</option></select>') +
+        row('Document page mode', 'Dark pages match the dark UI, or keep the classic white page.', '<select id="set-pagemode" onchange="setPageMode(this.value,false)"><option value="dark"' + (SETTINGS.pagemode === 'dark' ? ' selected' : '') + '>Dark page</option><option value="light"' + (SETTINGS.pagemode === 'light' ? ' selected' : '') + '>Light page</option></select>') +
+        row('User name', 'Used for comments and document properties.', '<input type="text" id="set-name" value="' + (SETTINGS.name || '').replace(/"/g, '&quot;') + '" placeholder="Word User">') +
+        row('Show mini toolbar when selecting text', '', cb('minitoolbar', SETTINGS.miniToolbar));
+      break;
+    case 'display':
+      p.innerHTML = '<h3>Display</h3>' +
+        row('Show paragraph marks', 'Display pilcrows (¶) at the end of paragraphs.', cb('paragraphmarks', SETTINGS.paragraphMarks)) +
+        row('Show accessibility score in status bar', '', cb('statusaccess', true)) +
+        row('Show word and character counts in status bar', '', cb('statuscounts', true));
+      break;
+    case 'proofing':
+      p.innerHTML = '<h3>Proofing</h3>' +
+        row('Check spelling as you type', 'Red squiggly lines under misspelled words.', cb('spellcheck', SETTINGS.spellcheck)) +
+        row('Mark grammar errors', 'Blue double underline for grammar issues.', cb('grammar', true)) +
+        '<div class="st-row"><div><div>Writing style</div></div><div><select id="set-writing"><option>Grammar &amp; Refinements</option><option>Grammar only</option></select></div></div>';
+      break;
+    case 'save':
+      p.innerHTML = '<h3>Save</h3>' +
+        row('AutoSave to this browser', 'Keeps your document in browser storage so it survives reloads.', cb('autosave', SETTINGS.autosave)) +
+        row('AutoSave frequency', 'How often the document is written to browser storage.', '<select id="set-autosave-interval"><option value="1"' + (SETTINGS.autosaveInterval == 1 ? ' selected' : '') + '>Every 1 second</option><option value="2"' + (SETTINGS.autosaveInterval == 2 ? ' selected' : '') + '>Every 2 seconds</option><option value="5"' + (SETTINGS.autosaveInterval == 5 ? ' selected' : '') + '>Every 5 seconds</option></select>') +
+        '<div class="st-row"><div><div>Default file format</div><div class="st-desc">Used by Ctrl+S / File &gt; Save.</div></div><div><select id="set-saveformat"><option value="docx"' + (SETTINGS.saveformat === 'docx' ? ' selected' : '') + '>Word Document (.docx)</option><option value="html"' + (SETTINGS.saveformat === 'html' ? ' selected' : '') + '>Web Page (.html)</option><option value="rtf"' + (SETTINGS.saveformat === 'rtf' ? ' selected' : '') + '>Rich Text (.rtf)</option><option value="txt"' + (SETTINGS.saveformat === 'txt' ? ' selected' : '') + '>Plain Text (.txt)</option></select></div></div>';
+      break;
+    case 'accessibility':
+      p.innerHTML = '<h3>Accessibility</h3>' +
+        row('Always show Accessibility Assistant', 'Keeps accessibility results available while you type.', cb('accessalways', true)) +
+        row('Increase text spacing', 'Adds letter and line spacing for easier reading.', cb('textspacing', SETTINGS.textSpacing)) +
+        row('Check contrast of coloured text', 'Run from the right-click Accessibility Assistant menu.', '<button class="btn" onclick="runAccessibilityChecks(\'contrast\')">Run contrast check</button>');
+      break;
+    case 'about':
+      p.innerHTML = '<h3>About</h3>' +
+        '<div class="st-row"><div><div>I can\'t believe it\'s not Word</div><div class="st-desc">Version v5.0 — single-file HTML word processor.</div></div></div>' +
+        '<div class="st-row"><div><div>Warning</div><div class="st-desc">This is NOT a replacement for Microsoft Word. It is very broken. Report bugs in the GitHub Issues tab.</div></div></div>' +
+        '<div class="st-row"><div><div>Stored data</div><div class="st-desc">Documents and settings stay in your browser\'s local storage. Nothing is uploaded anywhere.</div></div><div><button class="btn" onclick="clearAllData()">Clear all data</button></div></div>';
+      break;
+  }
+}
+function collectSettings() {
+  const v = id => { const el = document.getElementById('set-' + id); return el ? (el.type === 'checkbox' ? el.checked : el.value) : null; };
+  const theme = v('theme'); if (theme) SETTINGS.theme = theme;
+  const pm = v('pagemode'); if (pm) SETTINGS.pagemode = pm;
+  const nm = v('name'); if (nm !== null) SETTINGS.name = nm;
+  const mt = v('minitoolbar'); if (mt !== null) SETTINGS.miniToolbar = mt;
+  const sc = v('spellcheck'); if (sc !== null) SETTINGS.spellcheck = sc;
+  const pmk = v('paragraphmarks'); if (pmk !== null) SETTINGS.paragraphMarks = pmk;
+  const as = v('autosave'); if (as !== null) SETTINGS.autosave = as;
+  const asi = v('autosave-interval'); if (asi) SETTINGS.autosaveInterval = +asi;
+  const sf = v('saveformat'); if (sf) SETTINGS.saveformat = sf;
+  const ts = v('textspacing'); if (ts !== null) applyTextSpacing(ts, false);
+}
+function clearAllData() {
+  if (!confirm('Delete ALL saved documents and settings from this browser?')) return;
+  localStorage.removeItem('icbimw-settings'); localStorage.removeItem('icbimw-theme');
+  localStorage.removeItem('icbimw-pagemode'); localStorage.removeItem('wordclone-autosave');
+  localStorage.removeItem('wordclone-autosave-time'); localStorage.removeItem('wordclone-lastdoc');
+  localStorage.removeItem('wordclone-lastname');
+  SETTINGS = Object.assign({}, DEFAULT_SETTINGS);
+  applyAllSettings();
+  showToast('All local data cleared', 'ok');
+}
+applyAllSettings();
+
+// ═══════════════ ZOOM / VIEWS ═══════════════
+// (zoomLevel is declared at the top of this module)
+function setZoom(z) {
+  zoomLevel = Math.max(0.25, Math.min(5, z));
+  const page = document.getElementById('editor-page');
+  if (CSS.supports('zoom', '1')) {
+    page.style.zoom = zoomLevel;
+    page.style.transform = '';
+    page.style.width = '';
+    page.style.minHeight = '';
+  } else {
+    page.style.transform = 'scale(' + zoomLevel + ')';
+    page.style.transformOrigin = 'top left';
+    page.style.width = (816 / zoomLevel) + 'px';
+    page.style.minHeight = (1056 / zoomLevel) + 'px';
+  }
+  document.getElementById('zoom-pct').textContent = Math.round(zoomLevel * 100) + '%';
+  document.getElementById('zoom-slider').value = Math.round(zoomLevel * 100);
+  try { updateStatus(); } catch (e) {}
+}
+function zoomOnePage() { setZoom(Math.min(window.innerHeight / 1100, 2)); }
+function zoomPageWidth() { setZoom(Math.min((document.getElementById('page-container').clientWidth - 60) / 816, 3)); }
+let currentView = 'print';
+function setView(v) {
+  currentView = v;
+  document.querySelectorAll('[id^="btn-view-"]').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('btn-view-' + v); if (btn) btn.classList.add('active');
+  const pc = document.getElementById('page-container');
+  editor.classList.remove('view-read', 'view-web', 'view-outline', 'view-draft');
+  switch (v) {
+    case 'read':
+      editor.classList.add('view-read');
+      pc.style.background = 'var(--panel-bg2)';
+      break;
+    case 'print':
+      pc.style.background = 'var(--canvas-bg)';
+      break;
+    case 'web':
+      editor.classList.add('view-web');
+      pc.style.background = 'var(--canvas-bg)';
+      break;
+    case 'outline':
+      editor.classList.add('view-outline');
+      pc.style.background = 'var(--canvas-bg)';
+      break;
+    case 'draft':
+      editor.classList.add('view-draft');
+      pc.style.background = 'var(--canvas-bg)';
+      break;
+  }
+}
+function toggleRuler() {
+  const pc = document.getElementById('page-container');
+  let ruler = document.getElementById('ruler');
+  if (ruler) { ruler.remove(); document.getElementById('btn-ruler')?.classList.remove('active'); return; }
+  document.getElementById('btn-ruler')?.classList.add('active');
+  ruler = document.createElement('div');
+  ruler.id = 'ruler';
+  ruler.style.cssText = 'height:24px;background:var(--page);border-bottom:1px solid var(--border);width:816px;margin:0 auto;font-size:9px;color:var(--text-2);position:relative;overflow:hidden;user-select:none';
+  let marks = '';
+  for (let i = 0; i <= 8.5; i++) {
+    marks += `<span style="position:absolute;left:${i * 96}px;top:2px;border-left:1px solid var(--text-2);padding-left:2px;height:20px">${i}</span>`;
+    for (let j = 1; j < 8; j++) marks += `<span style="position:absolute;left:${i * 96 + j * 12}px;top:14px;border-left:1px solid var(--border);height:10px"></span>`;
+  }
+  ruler.innerHTML = marks;
+  pc.prepend(ruler);
+}
+function toggleGridlines() {
+  const ex = editor.querySelector('.grid-overlay');
+  if (ex) { ex.remove(); document.getElementById('btn-grid')?.classList.remove('active'); return; }
+  document.getElementById('btn-grid')?.classList.add('active');
+  const g = document.createElement('div');
+  g.className = 'grid-overlay';
+  g.style.cssText = 'position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(rgba(128,128,128,.25) 1px,transparent 1px),linear-gradient(90deg,rgba(128,128,128,.25) 1px,transparent 1px);background-size:24px 24px;z-index:5';
+  editor.style.position = 'relative';
+  editor.appendChild(g);
+}
+function toggleNavPane() {
+  const np = document.getElementById('nav-pane');
+  np.style.display = np.style.display === 'none' ? 'block' : 'none';
+  document.getElementById('btn-nav')?.classList.toggle('active', np.style.display !== 'none');
+  updateNavPane();
+}
+function updateNavPane() {
+  const list = document.getElementById('nav-headings-list');
+  if (!list) return;
+  let html = '';
+  editor.querySelectorAll('h1,h2,h3,p,li').forEach(el => {
+    const isHeading = /^H[1-3]$/.test(el.tagName);
+    const fs = parseInt(getComputedStyle(el).fontSize);
+    if (isHeading || fs > 14) {
+      const indent = el.tagName === 'H1' || el.tagName === 'H2' ? '' : 'padding-left:14px;';
+      html += `<p style="cursor:pointer;padding:3px 0;font-size:12px;${indent}color:var(--text)" onclick="navGoto(this)">${el.textContent.trim().substring(0, 50) || '(empty heading)'}</p>`;
+    }
+  });
+  list.innerHTML = html || '<p style="color:var(--text-2);font-size:11px">No headings found. Apply Heading styles.</p>';
+}
+function navGoto(el) {
+  const text = el.textContent.trim().substring(0, 50);
+  const nodes = [];
+  const walk = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+  while (walk.nextNode()) if (walk.currentNode.textContent.includes(text)) nodes.push(walk.currentNode);
+  if (nodes.length) {
+    const range = document.createRange();
+    range.selectNodeContents(nodes[0]);
+    const sel = window.getSelection();
+    sel.removeAllRanges(); sel.addRange(range);
+    nodes[0].parentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+function navPaneTab(t) {
+  ['headings', 'pages', 'results'].forEach(x => {
+    const b = document.getElementById('nav-' + x); if (b) b.classList.toggle('active', x === t);
+    const l = document.getElementById('nav-' + x + '-list'); if (l) l.style.display = x === t ? 'block' : 'none';
+  });
+}
+function togglePageMovement(dir) {
+  const pc = document.getElementById('page-container');
+  pc.style.scrollSnapType = dir === 'sideways' ? 'x mandatory' : '';
+  document.getElementById('btn-pg-vert').classList.toggle('active', dir === 'vertical');
+  document.getElementById('btn-pg-side').classList.toggle('active', dir === 'sideways');
+}
+function immersiveReader() {
+  showModal('Immersive Reader',
+    '<div style="background:var(--panel-bg2);padding:24px;border-radius:8px;max-height:500px;overflow-y:auto;font-size:18pt;line-height:2;letter-spacing:0.1em;max-width:600px;margin:0 auto;color:var(--text)">' +
+    editor.innerText.substring(0, 3000) + '</div>' +
+    '<div style="display:flex;gap:12px;margin-top:12px;justify-content:center">' +
+    '<button class="btn" onclick="applyTextSpacing(true);showToast(\'Text spacing on\',\'ok\')">Text Spacing</button>' +
+    '<button class="btn" onclick="showToast(\'Syllables shown\',\'ok\')">Syllables</button>' +
+    '<button class="btn" onclick="showToast(\'Line focus enabled\',\'ok\')">Line Focus</button></div>');
+}
+function newWindow() { window.open(window.location.href, '_blank'); }
+function splitWindow() { showToast('Split view: use your browser split-screen feature', 'warn'); }
+function sideBySide() { showToast('Side-by-side: open a second browser window', 'warn'); }
+
+// ═══════════════ ZOOM SLIDER ═══════════════
+document.getElementById('zoom-slider').addEventListener('input', function () { setZoom(this.value / 100); });
+</script>

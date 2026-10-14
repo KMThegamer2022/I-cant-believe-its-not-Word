@@ -1,0 +1,702 @@
+<script>
+// ═══════════════════════════════════════════════════════════
+// MODULE 08 — DOCX / RTF ENGINE
+// Real .docx export (ZIP + OOXML), .docx import, RTF export.
+// ═══════════════════════════════════════════════════════════
+
+// ── CRC32 ──
+const CRC_TABLE = (function () {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(buf) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+// ── ZIP writer (deflate when available, stored otherwise) ──
+async function zipFiles(files) {
+  const enc = new TextEncoder();
+  const now = new Date();
+  const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+  const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+  const localParts = [], centralParts = [];
+  let offset = 0;
+  for (const f of files) {
+    const raw = f.data;
+    const nameBytes = enc.encode(f.name);
+    let method = 0, data = raw;
+    if (typeof CompressionStream !== 'undefined') {
+      try {
+        const stream = new Blob([raw]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+        const buf = new Uint8Array(await new Response(stream).arrayBuffer());
+        if (buf.length < raw.length) { method = 8; data = buf; }
+      } catch (e) { /* stored fallback */ }
+    }
+    const crc = crc32(raw);
+    const local = new Uint8Array(30 + nameBytes.length);
+    const lv = new DataView(local.buffer);
+    lv.setUint32(0, 0x04034b50, true);
+    lv.setUint16(4, 20, true);
+    lv.setUint16(6, 0x0800, true); // UTF-8 names
+    lv.setUint16(8, method, true);
+    lv.setUint16(10, dosTime, true);
+    lv.setUint16(12, dosDate, true);
+    lv.setUint32(14, crc, true);
+    lv.setUint32(18, data.length, true);
+    lv.setUint32(22, raw.length, true);
+    lv.setUint16(26, nameBytes.length, true);
+    lv.setUint16(28, 0, true);
+    local.set(nameBytes, 30);
+    localParts.push(local, data);
+    const central = new Uint8Array(46 + nameBytes.length);
+    const cv = new DataView(central.buffer);
+    cv.setUint32(0, 0x02014b50, true);
+    cv.setUint16(4, 20, true);
+    cv.setUint16(6, 20, true);
+    cv.setUint16(8, 0x0800, true);
+    cv.setUint16(10, method, true);
+    cv.setUint16(12, dosTime, true);
+    cv.setUint16(14, dosDate, true);
+    cv.setUint32(16, crc, true);
+    cv.setUint32(20, data.length, true);
+    cv.setUint32(24, raw.length, true);
+    cv.setUint16(28, nameBytes.length, true);
+    cv.setUint16(30, 0, true);
+    cv.setUint16(32, 0, true);
+    cv.setUint16(34, 0, true);
+    cv.setUint16(36, 0, true);
+    cv.setUint32(38, 0, true);
+    cv.setUint32(42, offset, true);
+    central.set(nameBytes, 46);
+    centralParts.push(central);
+    offset += local.length + data.length;
+  }
+  let centralSize = 0;
+  for (const p of centralParts) centralSize += p.length;
+  const end = new Uint8Array(22);
+  const ev = new DataView(end.buffer);
+  ev.setUint32(0, 0x06054b50, true);
+  ev.setUint16(8, files.length, true);
+  ev.setUint16(10, files.length, true);
+  ev.setUint32(12, centralSize, true);
+  ev.setUint32(16, offset, true);
+  ev.setUint16(20, 0, true);
+  return new Blob(localParts.concat(centralParts, [end]), {
+    type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  });
+}
+
+// ── ZIP reader (for .docx import) ──
+async function unzip(buf) {
+  const dv = new DataView(buf);
+  let eocd = -1;
+  const min = Math.max(0, buf.byteLength - 22 - 65535);
+  for (let i = buf.byteLength - 22; i >= min; i--) {
+    if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error('Not a valid .docx file (ZIP directory not found)');
+  const count = dv.getUint16(eocd + 10, true);
+  let off = dv.getUint32(eocd + 16, true);
+  const out = new Map();
+  for (let i = 0; i < count; i++) {
+    if (dv.getUint32(off, true) !== 0x02014b50) break;
+    const method = dv.getUint16(off + 10, true);
+    const csize = dv.getUint32(off + 20, true);
+    const nameLen = dv.getUint16(off + 28, true);
+    const extraLen = dv.getUint16(off + 30, true);
+    const commentLen = dv.getUint16(off + 32, true);
+    const lho = dv.getUint32(off + 42, true);
+    const name = new TextDecoder().decode(new Uint8Array(buf, off + 46, nameLen));
+    const lNameLen = dv.getUint16(lho + 26, true);
+    const lExtraLen = dv.getUint16(lho + 28, true);
+    const dataStart = lho + 30 + lNameLen + lExtraLen;
+    const raw = new Uint8Array(buf, dataStart, csize);
+    if (method === 0) {
+      out.set(name, raw.slice());
+    } else if (method === 8) {
+      if (typeof DecompressionStream === 'undefined') throw new Error('This browser cannot unzip files (DecompressionStream unsupported)');
+      const stream = new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+      const ab = await new Response(stream).arrayBuffer();
+      out.set(name, new Uint8Array(ab));
+    } else {
+      throw new Error('Unsupported ZIP compression method ' + method);
+    }
+    off += 46 + nameLen + extraLen + commentLen;
+  }
+  return out;
+}
+
+// ── Shared run walker: cb({text|br|img, fmt}) over a subtree ──
+function eachRun(node, fmt, cb) {
+  if (node.nodeType === 3) {
+    if (node.textContent) cb({ text: node.textContent, fmt: fmt });
+    return;
+  }
+  if (node.nodeType !== 1) return;
+  const tag = node.tagName;
+  if (tag === 'CANVAS' || tag === 'SCRIPT' || tag === 'STYLE') return;
+  if (tag === 'BR') { cb({ br: true, fmt: fmt }); return; }
+  if (tag === 'IMG') { cb({ img: node, fmt: fmt }); return; }
+  const f = {};
+  for (const k in fmt) f[k] = fmt[k];
+  const st = node.style || {};
+  if (/^H[1-6]$/.test(tag) || tag === 'B' || tag === 'STRONG' || tag === 'TH') f.bold = true;
+  if (tag === 'I' || tag === 'EM' || tag === 'CITE' || tag === 'VAR') f.italic = true;
+  if (tag === 'U') f.underline = true;
+  if (tag === 'S' || tag === 'STRIKE' || tag === 'DEL') f.strike = true;
+  if (tag === 'SUP') f.vert = 'sup';
+  if (tag === 'SUB') f.vert = 'sub';
+  if (tag === 'MARK') f.highlight = f.highlight || '#FFFF00';
+  const deco = (st.textDecorationLine || st.textDecoration || '');
+  if (deco.includes('underline')) f.underline = true;
+  if (deco.includes('line-through')) f.strike = true;
+  if (st.fontWeight) f.bold = st.fontWeight === 'bold' || st.fontWeight === 'bolder' || parseInt(st.fontWeight, 10) >= 600;
+  if (st.fontStyle === 'italic') f.italic = true;
+  if (st.color) { const h = colorToHex(st.color); if (h) f.color = h; }
+  if (st.backgroundColor && !/rgba\(0, 0, 0, 0\)/.test(st.backgroundColor)) { const h = colorToHex(st.backgroundColor); if (h) f.highlight = h; }
+  if (st.fontSize) f.size = sizeToHalfPoints(st.fontSize);
+  if (st.fontFamily) f.font = st.fontFamily.split(',')[0].replace(/["']/g, '').trim();
+  if (st.textAlign && st.textAlign !== 'start' && st.textAlign !== 'left') f.align = st.textAlign;
+  for (const c of node.childNodes) eachRun(c, f, cb);
+}
+function colorToHex(str) {
+  if (!str) return null;
+  if (/^#[0-9a-fA-F]{6}$/.test(str)) return str.substring(1).toUpperCase();
+  const m = str.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  if (!m) return null;
+  const hex = n => ('0' + parseInt(n, 10).toString(16)).slice(-2);
+  const h = (hex(m[1]) + hex(m[2]) + hex(m[3])).toUpperCase();
+  if (h === '000000' || h === 'FFFFFF' && str.indexOf('rgba') === 0) { /* keep explicit black out */ }
+  return h;
+}
+function sizeToHalfPoints(str) {
+  const v = parseFloat(str);
+  if (!isNaN(v)) {
+    if (/pt$/.test(str)) return Math.max(2, Math.round(v * 2));
+    if (/px$/.test(str)) return Math.max(2, Math.round(v * 0.75 * 2));
+    if (/em$/.test(str) || /rem$/.test(str)) return Math.max(2, Math.round(v * 12 * 0.75 * 2));
+  }
+  return null;
+}
+function xmlEsc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ── BLOCK collection ──
+function docBlocks(root) {
+  const BLOCK = /^(P|H1|H2|H3|H4|H5|H6|DIV|BLOCKQUOTE|PRE|TABLE|UL|OL|LI|HR)$/;
+  const out = [];
+  (function walk(node) {
+    for (const child of node.childNodes) {
+      if (child.nodeType === 3) {
+        if (child.textContent.trim()) out.push({ type: 'p', el: null, text: child });
+        continue;
+      }
+      if (child.nodeType !== 1) continue;
+      if (child.id === 'ink-canvas') continue;
+      if (BLOCK.test(child.tagName)) {
+        if (child.tagName === 'UL' || child.tagName === 'OL') {
+          for (const li of child.children) if (li.tagName === 'LI') out.push({ type: 'li', el: li, list: child.tagName });
+        } else if (child.tagName === 'DIV' && (child.classList.contains('page-break'))) {
+          out.push({ type: 'pagebreak', el: child });
+        } else if (child.tagName === 'DIV' && child.children.length && !child.querySelector(':scope > br')) {
+          walk(child); // content wrapper div — descend instead of flattening
+        } else {
+          out.push({ type: child.tagName.toLowerCase(), el: child });
+        }
+      } else {
+        walk(child);
+      }
+    }
+  })(root);
+  return out;
+}
+
+// ═══════════════ DOCX EXPORT ═══════════════
+function drawingXml(img, rId, id) {
+  const wPx = img.offsetWidth || img.getBoundingClientRect().width || img.naturalWidth || 300;
+  const hPx = img.offsetHeight || img.getBoundingClientRect().height || img.naturalHeight || 200;
+  const cx = Math.max(1, Math.round(wPx * 9525));
+  const cy = Math.max(1, Math.round(hPx * 9525));
+  return '<w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0">' +
+    '<wp:extent cx="' + cx + '" cy="' + cy + '"/>' +
+    '<wp:docPr id="' + id + '" name="Picture ' + id + '" descr="' + xmlEsc(img.alt || '') + '"/>' +
+    '<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">' +
+    '<pic:pic><pic:nvPicPr><pic:cNvPr id="' + id + '" name="Picture ' + id + '" descr="' + xmlEsc(img.alt || '') + '"/><pic:cNvPicPr/></pic:nvPicPr>' +
+    '<pic:blipFill><a:blip r:embed="' + rId + '"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>' +
+    '<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="' + cx + '" cy="' + cy + '"/></a:xfrm>' +
+    '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic>' +
+    '</a:graphicData></a:graphic></wp:inline></w:drawing>';
+}
+function runToXml(run, media) {
+  if (run.br) return '<w:r><w:br/></w:r>';
+  if (run.img) {
+    const img = run.img;
+    const m = /^data:image\/(png|jpe?g|gif);base64,(.+)$/s.exec(img.src || '');
+    if (!m) return '';
+    const ext = m[1] === 'jpg' ? 'jpeg' : m[1];
+    const id = media.list.length + 1;
+    const rid = 'rIdImg' + id;
+    media.list.push({ rid: rid, name: 'media/image' + id + '.' + ext, b64: m[2], ext: ext });
+    return '<w:r><w:drawing>' + drawingXml(img, rid, id).replace(/^<w:drawing>|<\/w:drawing>$/g, '') + '</w:drawing></w:r>';
+  }
+  const text = run.text || '';
+  if (!text.length) return '';
+  const f = run.fmt || {};
+  let rPr = '<w:rPr>';
+  if (f.bold) rPr += '<w:b/>';
+  if (f.italic) rPr += '<w:i/>';
+  if (f.underline) rPr += '<w:u w:val="single"/>';
+  if (f.strike) rPr += '<w:strike/>';
+  if (f.vert === 'sup') rPr += '<w:vertAlign w:val="superscript"/>';
+  if (f.vert === 'sub') rPr += '<w:vertAlign w:val="subscript"/>';
+  if (f.color && f.color !== '000000') rPr += '<w:color w:val="' + f.color + '"/>';
+  if (f.highlight) rPr += '<w:shd w:val="clear" w:color="auto" w:fill="' + f.highlight.replace('#', '') + '"/>';
+  if (f.size) rPr += '<w:sz w:val="' + f.size + '"/><w:szCs w:val="' + f.size + '"/>';
+  if (f.font) rPr += '<w:rFonts w:ascii="' + xmlEsc(f.font) + '" w:hAnsi="' + xmlEsc(f.font) + '"/>';
+  rPr += '</w:rPr>';
+  return '<w:r>' + rPr + '<w:t xml:space="preserve">' + xmlEsc(text) + '</w:t></w:r>';
+}
+async function buildDocx(root, name) {
+  const media = { list: [] };
+  const bodyXml = [];
+  const blocks = docBlocks(root);
+  const landscape = (root.offsetWidth || 816) > (root.offsetHeight || 1056);
+  for (const b of blocks) {
+    if (b.type === 'pagebreak') { bodyXml.push('<w:p><w:r><w:br w:type="page"/></w:r></w:p>'); continue; }
+    if (b.type === 'hr') { bodyXml.push('<w:p><w:r><w:t xml:space="preserve">__________________________</w:t></w:r></w:p>'); continue; }
+    if (b.type === 'table') {
+      let tbl = '<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/><w:tblBorders>' +
+        '<w:top w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:left w:val="single" w:sz="4" w:space="0" w:color="999999"/>' +
+        '<w:bottom w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:right w:val="single" w:sz="4" w:space="0" w:color="999999"/>' +
+        '<w:insideH w:val="single" w:sz="4" w:space="0" w:color="999999"/><w:insideV w:val="single" w:sz="4" w:space="0" w:color="999999"/>' +
+        '</w:tblBorders></w:tblPr>';
+      const rows = b.el.querySelectorAll('tr');
+      rows.forEach(tr => {
+        tbl += '<w:tr>';
+        tr.querySelectorAll('td,th').forEach(cell => {
+          const isTh = cell.tagName === 'TH';
+          let runs = '';
+          eachRun(cell, {}, r => { runs += runToXml(r, media); });
+          if (!runs) runs = '<w:r><w:t xml:space="preserve"> </w:t></w:r>';
+          tbl += '<w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"/>' + (isTh ? '<w:shd w:val="clear" w:color="auto" w:fill="E7E6E6"/>' : '') + '</w:tcPr>' +
+            '<w:p>' + (isTh ? '<w:pPr><w:rPr><w:b/></w:rPr></w:pPr>' : '') + runs + '</w:p></w:tc>';
+        });
+        tbl += '</w:tr>';
+      });
+      tbl += '</w:tbl><w:p/>';
+      bodyXml.push(tbl);
+      continue;
+    }
+    // paragraph-like block
+    const el = b.el;
+    const runs = [];
+    if (el) eachRun(el, {}, r => runs.push(r));
+    else if (b.text) runs.push({ text: b.text.textContent, fmt: {} });
+    if (!runs.length && b.type !== 'p') continue;
+    let pPr = '<w:pPr>';
+    let style = null;
+    if (b.type === 'h1') style = 'Heading1';
+    else if (b.type === 'h2') style = 'Heading2';
+    else if (b.type === 'h3' || b.type === 'h4' || b.type === 'h5' || b.type === 'h6') style = 'Heading3';
+    if (style) pPr += '<w:pStyle w:val="' + style + '"/>';
+    if (b.type === 'li') {
+      const ordered = b.list === 'OL';
+      pPr += '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="' + (ordered ? 2 : 1) + '"/></w:numPr>';
+    }
+    // alignment: from block or first run that sets it
+    let align = el && el.style ? el.style.textAlign : '';
+    if (!align || align === 'start' || align === 'left') {
+      for (const r of runs) if (r.fmt && r.fmt.align) { align = r.fmt.align; break; }
+    }
+    if (align === 'center') pPr += '<w:jc w:val="center"/>';
+    else if (align === 'right') pPr += '<w:jc w:val="right"/>';
+    else if (align === 'justify') pPr += '<w:jc w:val="both"/>';
+    if (el && el.style && el.style.marginLeft) {
+      const ml = parseFloat(el.style.marginLeft);
+      if (!isNaN(ml) && ml > 0) pPr += '<w:ind w:left="' + Math.round(ml * 15) + '"/>';
+    }
+    if (el && el.style && (el.style.marginTop || el.style.marginBottom)) {
+      const before = parseFloat(el.style.marginTop) || 0;
+      const after = parseFloat(el.style.marginBottom) || 0;
+      pPr += '<w:spacing w:before="' + Math.round(before * 15) + '" w:after="' + Math.round(after * 15) + '"/>';
+    }
+    pPr += '</w:pPr>';
+    let runXml = '';
+    for (const r of runs) runXml += runToXml(r, media);
+    if (!runXml && style) runXml = '<w:r><w:t xml:space="preserve"> </w:t></w:r>';
+    bodyXml.push('<w:p>' + (style || b.type === 'li' || (el && el.style && (el.style.textAlign || el.style.marginLeft)) ? pPr : '') + runXml + '</w:p>');
+  }
+  if (!bodyXml.length) bodyXml.push('<w:p><w:r><w:t xml:space="preserve"> </w:t></w:r></w:p>');
+
+  const pgSz = landscape ? '<w:pgSz w:w="15840" w:h="12240"/>' : '<w:pgSz w:w="12240" w:h="15840"/>';
+  const documentXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+    '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ' +
+    'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ' +
+    'xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" ' +
+    'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" ' +
+    'xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">' +
+    '<w:body>' + bodyXml.join('') +
+    '<w:sectPr>' + pgSz +
+    '<w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/>' +
+    '</w:sectPr></w:body></w:document>';
+
+  const contentTypes = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+    '<Default Extension="xml" ContentType="application/xml"/>' +
+    '<Default Extension="png" ContentType="image/png"/>' +
+    '<Default Extension="jpeg" ContentType="image/jpeg"/>' +
+    '<Default Extension="gif" ContentType="image/gif"/>' +
+    '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
+    '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>' +
+    '<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>' +
+    '<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>' +
+    '</Types>';
+  const rels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>' +
+    '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>' +
+    '</Relationships>';
+  const core = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+    '<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" ' +
+    'xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">' +
+    '<dc:title>' + xmlEsc(name) + '</dc:title>' +
+    '<dc:creator>I can\'t believe it\'s not Word</dc:creator>' +
+    '<dcterms:created xsi:type="dcterms:W3CDTF">' + new Date().toISOString().replace(/\.\d+Z$/, 'Z') + '</dcterms:created>' +
+    '</cp:coreProperties>';
+  const docRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    '<Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
+    '<Relationship Id="rIdNum" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>' +
+    media.list.map(m => '<Relationship Id="' + m.rid + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="' + m.name + '"/>').join('') +
+    '</Relationships>';
+  const styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+    '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
+    '<w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr></w:rPrDefault>' +
+    '<w:pPrDefault><w:pPr><w:spacing w:after="160" w:line="276" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>' +
+    '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>' +
+    '<w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before="240" w:after="120"/><w:outlineLvl w:val="0"/></w:pPr><w:rPr><w:b/><w:color w:val="2B579A"/><w:sz w:val="36"/></w:rPr></w:style>' +
+    '<w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before="200" w:after="100"/><w:outlineLvl w:val="1"/></w:pPr><w:rPr><w:b/><w:color w:val="2B579A"/><w:sz w:val="30"/></w:rPr></w:style>' +
+    '<w:style w:type="paragraph" w:styleId="Heading3"><w:name w:val="heading 3"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before="160" w:after="80"/><w:outlineLvl w:val="2"/></w:pPr><w:rPr><w:b/><w:color w:val="1F4E79"/><w:sz w:val="26"/></w:rPr></w:style>' +
+    '</w:styles>';
+  const numbering = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+    '<w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
+    '<w:abstractNum w:abstractNumId="0"><w:multiLevelType w:val="hybridMultilevel"/><w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="&#8226;"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:hint="default"/></w:rPr></w:lvl></w:abstractNum>' +
+    '<w:abstractNum w:abstractNumId="1"><w:multiLevelType w:val="hybridMultilevel"/><w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl></w:abstractNum>' +
+    '<w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>' +
+    '<w:num w:numId="2"><w:abstractNumId w:val="1"/></w:num>' +
+    '</w:numbering>';
+
+  const enc = new TextEncoder();
+  const files = [
+    { name: '[Content_Types].xml', data: enc.encode(contentTypes) },
+    { name: '_rels/.rels', data: enc.encode(rels) },
+    { name: 'docProps/core.xml', data: enc.encode(core) },
+    { name: 'word/document.xml', data: enc.encode(documentXml) },
+    { name: 'word/_rels/document.xml.rels', data: enc.encode(docRels) },
+    { name: 'word/styles.xml', data: enc.encode(styles) },
+    { name: 'word/numbering.xml', data: enc.encode(numbering) }
+  ];
+  const dec = str => {
+    const bin = atob(str);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return arr;
+  };
+  for (const m of media.list) files.push({ name: 'word/' + m.name, data: dec(m.b64) });
+  return zipFiles(files);
+}
+
+// ═══════════════ DOCX IMPORT ═══════════════
+async function parseDocx(buf) {
+  const files = await unzip(buf);
+  const docBytes = files.get('word/document.xml');
+  if (!docBytes) throw new Error('word/document.xml missing — not a Word document');
+  const xmlStr = new TextDecoder().decode(docBytes);
+  const doc = new DOMParser().parseFromString(xmlStr, 'application/xml');
+  if (doc.querySelector('parsererror')) throw new Error('document.xml is not valid XML');
+  const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  const R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  const q = (el, local) => el.getElementsByTagNameNS(W, local)[0] || null;
+  const qa = (el, local) => Array.from(el.getElementsByTagNameNS(W, local));
+  // relationship map (for links + images)
+  const relMap = {};
+  const relBytes = files.get('word/_rels/document.xml.rels');
+  if (relBytes) {
+    try {
+      const rdoc = new DOMParser().parseFromString(new TextDecoder().decode(relBytes), 'application/xml');
+      Array.from(rdoc.getElementsByTagName('Relationship')).forEach(rel => {
+        relMap[rel.getAttribute('Id')] = rel.getAttribute('Target');
+      });
+    } catch (e) {}
+  }
+  // numbering map: numId → 'ul'|'ol'
+  const numKind = {};
+  const numBytes = files.get('word/numbering.xml');
+  if (numBytes) {
+    try {
+      const ndoc = new DOMParser().parseFromString(new TextDecoder().decode(numBytes), 'application/xml');
+      const abstractFmt = {};
+      Array.from(ndoc.getElementsByTagNameNS(W, 'abstractNum')).forEach(an => {
+        const id = an.getAttributeNS(W, 'abstractNumId') || an.getAttribute('w:abstractNumId');
+        const fmt = an.getElementsByTagNameNS(W, 'numFmt')[0];
+        abstractFmt[id] = fmt ? fmt.getAttributeNS(W, 'val') || fmt.getAttribute('w:val') : 'bullet';
+      });
+      Array.from(ndoc.getElementsByTagNameNS(W, 'num')).forEach(n => {
+        const id = n.getAttributeNS(W, 'numId') || n.getAttribute('w:numId');
+        const ab = n.getElementsByTagNameNS(W, 'abstractNumId')[0];
+        const abId = ab ? (ab.getAttributeNS(W, 'val') || ab.getAttribute('w:val')) : '0';
+        numKind[id] = abstractFmt[abId] === 'decimal' || abstractFmt[abId] === 'lowerLetter' || abstractFmt[abId] === 'upperLetter' || abstractFmt[abId] === 'lowerRoman' ? 'ol' : 'ul';
+      });
+    } catch (e) {}
+  }
+  const b64 = bytes => {
+    let s = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(s);
+  };
+  const val = (el, name) => {
+    if (!el) return null;
+    return el.getAttributeNS(W, name) !== null ? el.getAttributeNS(W, name) : el.getAttribute('w:' + name);
+  };
+  function runsToHtml(container) {
+    let html = '';
+    const children = Array.from(container.childNodes);
+    for (const node of children) {
+      const local = node.localName;
+      if (local === 'hyperlink') {
+        const rid = node.getAttributeNS(R, 'id') || node.getAttribute('r:id');
+        const href = rid && relMap[rid] ? relMap[rid] : null;
+        const inner = runsToHtml(node);
+        html += href ? '<a href="' + href.replace(/"/g, '&quot;') + '">' + inner + '</a>' : inner;
+        continue;
+      }
+      if (local !== 'r') continue;
+      const rPr = q(node, 'rPr');
+      let wrap = '';
+      const wrapAdd = t => { wrap += t; };
+      if (rPr) {
+        const b = q(rPr, 'b');
+        if (b && val(b, 'val') !== '0' && val(b, 'val') !== 'false') wrapAdd('<b>');
+        const i = q(rPr, 'i');
+        if (i && val(i, 'val') !== '0' && val(i, 'val') !== 'false') wrapAdd('<i>');
+        const u = q(rPr, 'u');
+        if (u && val(u, 'val') !== 'none') wrapAdd('<u>');
+        const st = q(rPr, 'strike');
+        if (st && val(st, 'val') !== '0' && val(st, 'val') !== 'false') wrapAdd('<s>');
+        const va = q(rPr, 'vertAlign');
+        if (va) { const v = val(va, 'val'); if (v === 'superscript') wrapAdd('<sup>'); else if (v === 'subscript') wrapAdd('<sub>'); }
+        const color = q(rPr, 'color');
+        const cv = color ? val(color, 'val') : null;
+        if (cv && cv !== 'auto' && cv !== '000000') wrapAdd('<span style="color:#' + cv + '">');
+        const shd = q(rPr, 'shd');
+        const fill = shd ? val(shd, 'fill') : null;
+        if (fill && fill !== 'auto' && fill !== '000000') wrapAdd('<span style="background:#' + fill + '">');
+        const hl = q(rPr, 'highlight');
+        const hv = hl ? val(hl, 'val') : null;
+        const hlColors = { yellow: '#FFFF00', green: '#00FF00', cyan: '#00FFFF', magenta: '#FF00FF', blue: '#0000FF', red: '#FF0000', darkBlue: '#00008B', darkCyan: '#008B8B', darkGreen: '#006400', darkMagenta: '#8B008B', darkRed: '#8B0000', darkYellow: '#8B8B00', darkGray: '#A9A9A9', lightGray: '#D3D3D3', black: '#000000', white: '#FFFFFF' };
+        if (hv && hlColors[hv]) wrapAdd('<span style="background:' + hlColors[hv] + '">');
+        const sz = q(rPr, 'sz');
+        const szv = sz ? val(sz, 'val') : null;
+        if (szv) wrapAdd('<span style="font-size:' + (parseInt(szv, 10) / 2) + 'pt">');
+        const rf = q(rPr, 'rFonts');
+        const font = rf ? (val(rf, 'ascii') || val(rf, 'hAnsi')) : null;
+        if (font && font !== 'Calibri') wrapAdd('<span style="font-family:\'' + font + '\'">');
+      }
+      // element content
+      let inner = '';
+      for (const c of node.childNodes) {
+        const cl = c.localName;
+        if (cl === 't') inner += (c.textContent || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+        else if (cl === 'br') {
+          const bt = val(c, 'type');
+          if (bt === 'page') inner += '</span></b></i></u></s></sup></sub><div class="page-break" contenteditable="false"></div>';
+          else inner += '<br>';
+        } else if (cl === 'tab') inner += '\t';
+      }
+      // images: look for blip inside this run
+      const blips = node.getElementsByTagNameNS('http://schemas.openxmlformats.org/drawingml/2006/main', 'blip');
+      if (blips.length) {
+        const rid = blips[0].getAttributeNS(R, 'embed') || blips[0].getAttribute('r:embed');
+        const target = rid ? relMap[rid] : null;
+        if (target) {
+          const path = target.startsWith('word/') ? target : 'word/' + target.replace(/^\.\//, '');
+          const bytes = files.get(path) || files.get(target);
+          if (bytes) {
+            const mime = /\.png$/.test(path) ? 'image/png' : /\.gif$/.test(path) ? 'image/gif' : 'image/jpeg';
+            inner += '<img src="data:' + mime + ';base64,' + b64(bytes) + '" style="max-width:100%">';
+          }
+        }
+      }
+      if (wrap) html += wrapOpenClose(wrap, inner);
+      else html += inner;
+    }
+    return html;
+  }
+  function wrapOpenClose(openTags, inner) {
+    const re = /<(span|b|i|u|s|sup|sub)( [^>]*)?>/g;
+    const stack = [];
+    let m;
+    while ((m = re.exec(openTags))) stack.push('<' + m[1] + '>');
+    let out = openTags + inner;
+    for (let i = stack.length - 1; i >= 0; i--) out += stack[i].replace('<', '</');
+    return out;
+  }
+  function paraHtml(p) {
+    const pPr = q(p, 'pPr');
+    let tag = 'p', style = '', listOpen = null;
+    if (pPr) {
+      const pStyle = q(pPr, 'pStyle');
+      const sv = pStyle ? (val(pStyle, 'val') || '') : '';
+      if (/^Heading1$|^Title$/.test(sv)) tag = 'h1';
+      else if (sv === 'Heading2') tag = 'h2';
+      else if (/^Heading[3-9]$/.test(sv)) tag = 'h3';
+      const jc = q(pPr, 'jc');
+      const jv = jc ? (val(jc, 'val') || '') : '';
+      if (jv === 'center') style += 'text-align:center;';
+      else if (jv === 'right') style += 'text-align:right;';
+      else if (jv === 'both' || jv === 'distribute') style += 'text-align:justify;';
+      const ind = q(pPr, 'ind');
+      const il = ind ? (val(ind, 'left') || val(ind, 'start')) : null;
+      if (il && +il > 0) style += 'margin-left:' + Math.round(+il / 15) + 'px;';
+      const numPr = q(pPr, 'numPr');
+      if (numPr) {
+        const numIdEl = q(numPr, 'numId');
+        const nid = numIdEl ? (val(numIdEl, 'val') || '1') : '1';
+        listOpen = numKind[nid] || 'ul';
+      }
+    }
+    const inner = runsToHtml(p).trim();
+    if (listOpen) return { list: listOpen, html: '<li' + (style ? ' style="' + style + '"' : '') + '>' + (inner || '<br>') + '</li>' };
+    return { list: null, html: '<' + tag + (style ? ' style="' + style + '"' : '') + '>' + (inner || '<br>') + '</' + tag + '>' };
+  }
+  function tableHtml(tbl) {
+    let html = '<table style="border-collapse:collapse;width:100%"><tbody>';
+    for (const tr of Array.from(tbl.getElementsByTagNameNS(W, 'tr'))) {
+      html += '<tr>';
+      for (const tc of Array.from(tr.children)) {
+        if (tc.localName !== 'tc') continue;
+        const isTh = tc.getElementsByTagNameNS(W, 'tcPr')[0] && q(tc, 'shd');
+        let cell = '';
+        let openList = null;
+        for (const p of Array.from(tc.children)) {
+          if (p.localName !== 'p') continue;
+          const ph = paraHtml(p);
+          if (ph.list) {
+            if (openList !== ph.list) { if (openList) cell += '</' + openList + '>'; cell += '<' + ph.list + '>'; openList = ph.list; }
+            cell += ph.html;
+          } else {
+            if (openList) { cell += '</' + openList + '>'; openList = null; }
+            cell += ph.html;
+          }
+        }
+        if (openList) cell += '</' + openList + '>';
+        html += (isTh ? '<th>' : '<td>') + cell + (isTh ? '</th>' : '</td>');
+      }
+      html += '</tr>';
+    }
+    return html + '</tbody></table>';
+  }
+  const body = doc.getElementsByTagNameNS(W, 'body')[0];
+  if (!body) throw new Error('Invalid Word document (no body)');
+  let html = '';
+  let listTag = null;
+  for (const node of Array.from(body.children)) {
+    const local = node.localName;
+    if (local === 'p') {
+      const ph = paraHtml(node);
+      if (ph.list) {
+        if (listTag !== ph.list) { if (listTag) html += '</' + listTag + '>'; html += '<' + ph.list + '>'; listTag = ph.list; }
+        html += ph.html;
+      } else {
+        if (listTag) { html += '</' + listTag + '>'; listTag = null; }
+        html += ph.html;
+      }
+    } else if (local === 'tbl') {
+      if (listTag) { html += '</' + listTag + '>'; listTag = null; }
+      html += tableHtml(node);
+    }
+  }
+  if (listTag) html += '</' + listTag + '>';
+  return html || '<p><br></p>';
+}
+
+// ═══════════════ RTF EXPORT ═══════════════
+function buildRtf() {
+  const esc = s => String(s)
+    .replace(/\\/g, '\\\\').replace(/\{/g, '\\{').replace(/\}/g, '\\}')
+    .replace(/[^\x20-\x7E]/g, c => {
+      let cc = c.charCodeAt(0);
+      if (cc > 32767) cc -= 65536;
+      return '\\u' + cc + '?';
+    });
+  function runsRtf(container) {
+    let out = '';
+    eachRun(container, {}, r => {
+      if (r.br) { out += '\\line '; return; }
+      if (r.img) { out += '{\\i [image: ' + esc((r.img.alt || 'picture')) + ']}'; return; }
+      if (!r.text) return;
+      const f = r.fmt || {};
+      let open = '', close = '';
+      if (f.bold) { open += '\\b '; close = '\\b0 ' + close; }
+      if (f.italic) { open += '\\i '; close = '\\i0 ' + close; }
+      if (f.underline) { open += '\\ul '; close = '\\ul0 ' + close; }
+      if (f.strike) { open += '\\strike '; close = '\\strike0 ' + close; }
+      if (f.vert === 'sup') { open += '\\super '; close = '\\nosuper ' + close; }
+      if (f.size) open += '\\fs' + f.size + ' ';
+      if (f.color && f.color !== '000000') open = '\\cf' + colorIndex(f.color) + ' ' + open;
+      out += '{' + open + esc(r.text) + ' ' + close + '}';
+    });
+    return out;
+  }
+  const colorTable = ['000000', '2B579A', 'C00000', '008000', '808080', 'FFFFFF'];
+  function colorIndex(hex) {
+    const h = hex.toUpperCase();
+    let idx = colorTable.indexOf(h);
+    if (idx === -1) { colorTable.push(h); idx = colorTable.length - 1; }
+    return idx;
+  }
+  let body = '';
+  for (const b of docBlocks(editor)) {
+    if (b.type === 'pagebreak') { body += '\\page '; continue; }
+    if (b.type === 'hr') { body += '\\pard \\brdrb \\brdrs \\brdrw15 \\par '; continue; }
+    if (b.type === 'table') {
+      b.el.querySelectorAll('tr').forEach(tr => {
+        let row = '';
+        tr.querySelectorAll('td,th').forEach((cell, i, all) => { row += esc(cell.innerText.replace(/\n/g, ' ')) + '\\cell '; });
+        body += '{\\trowd \\cellx' + (9000 / Math.max(1, tr.children.length)) + ' ' + row + '}\\row ';
+      });
+      body += '\\par ';
+      continue;
+    }
+    const el = b.el;
+    let prefix = '{';
+    if (b.type === 'h1') prefix = '{\\fs52\\b\\cf1 ';
+    else if (b.type === 'h2') prefix = '{\\fs40\\b\\cf1 ';
+    else if (b.type === 'h3' || b.type === 'h4') prefix = '{\\fs32\\b\\cf1 ';
+    else if (b.type === 'li') prefix = '{\\fi-360\\li720 ';
+    if (el) body += prefix + runsRtf(el) + '}' + (b.type === 'li' ? '\\bullet \\par ' : '\\par ');
+    else if (b.text) body += '{' + esc(b.text.textContent) + '}\\par ';
+  }
+  const colors = colorTable.map(c => '\\red' + parseInt(c.substring(0, 2), 16) + '\\green' + parseInt(c.substring(2, 4), 16) + '\\blue' + parseInt(c.substring(4, 6), 16) + ';').join('');
+  return '{\\rtf1\\ansi\\ansicpg1252\\deff0' +
+    '{\\fonttbl{\\f0\\fswiss Calibri;}{\\f1\\fswiss Segoe UI;}}' +
+    '{\\colortbl;' + colors + '}' +
+    '\\f0\\fs24 ' + body + '}';
+}
+
+// ═══════════════ INIT ═══════════════
+updateStatus();
+console.log("I can't believe it's not Word v5.0 — Loaded successfully!");
+setTimeout(function () { try { maybeRestoreAutosave(); } catch (e) {} }, 600);
+</script>
+</body>
+</html>
