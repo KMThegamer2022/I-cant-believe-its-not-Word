@@ -50,6 +50,13 @@
 - Added working **Sort**, **Add-ins** and **Signature Line** features (all three previously
   referenced buttons that did nothing).
 
+### Subscript / superscript shortcuts + app icon
+- **⌘⇧+ (or Ctrl⇧+)** toggles **superscript**, **⌘⇧- (or Ctrl⇧-)** toggles **subscript** — the
+  same bindings as the desktop Word app. Listed in Help → Keyboard Shortcuts. Plain `Ctrl`/`⌘`
+  with `+`/`-` (no Shift) is deliberately left to the browser so zoom keeps working.
+- The **ICBINW "Local Word Viewer" app icon** is now bundled as an inline SVG favicon, so the
+  correct icon shows in the browser tab and on the home screen — with no external image request.
+
 ## What's Still Broken ❌
 - **Page breaks** are visual only. Auto-pagination while typing is approximate (based on zoom and
   page height), not a true layout engine.

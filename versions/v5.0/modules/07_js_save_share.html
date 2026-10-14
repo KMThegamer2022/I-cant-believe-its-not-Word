@@ -280,6 +280,15 @@ function transformSway() { window.open('https://sway.office.com', '_blank'); }
 // ═══════════════ KEYBOARD SHORTCUTS ═══════════════
 document.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey) {
+    // Subscript / superscript. Desktop Word: Cmd+Shift+Plus (superscript) and
+    // Cmd+Shift+Minus (subscript) on Mac, Ctrl+Shift+= / Ctrl+- on Windows.
+    // The '+' key is Shift+'=' on a US layout, so both are matched below.
+    if (e.shiftKey && (e.key === '=' || e.key === '+' || e.code === 'Equal' || e.code === 'NumpadAdd')) {
+      e.preventDefault(); cmd('superscript'); return;
+    }
+    if (e.shiftKey && (e.key === '-' || e.key === '_' || e.code === 'Minus' || e.code === 'NumpadSubtract')) {
+      e.preventDefault(); cmd('subscript'); return;
+    }
     switch (e.key.toLowerCase()) {
       case 's': e.preventDefault(); if (e.shiftKey) { openSaveAsBackstage(); } else saveDoc(); break;
       case 'z': e.preventDefault(); doUndo(); break;

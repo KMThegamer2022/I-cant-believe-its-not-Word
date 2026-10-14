@@ -120,6 +120,9 @@ python3 build.py --list   # list all versions
 - Mail merge against a real mail server
 - Export ink drawings into .docx
 
+### Subscript / superscript shortcuts
+- **⌘⇧+ / Ctrl⇧+** = superscript, **⌘⇧- / Ctrl⇧-** = subscript (same as the desktop app).
+
 ## 🐛 Reporting Issues
 
 **This is the most important section.**
