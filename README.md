@@ -10,7 +10,7 @@
 >
 > **Do NOT use this for important documents.** There is no cloud backup, no real auto-save to a server, no collaboration, and no guarantee your work won't disappear. Save early, save often, and keep your own backups.
 >
-> **Do NOT expect Word compatibility.** This will not correctly open .docx files, will not interoperate with Microsoft 365, and will not produce professionally formatted documents. It renders HTML, not OOXML.
+> **Do NOT expect full Word compatibility.** v5.0 writes and reads *real* .docx (OOXML) for common content, but it is not a complete implementation — SmartArt, charts, footnotes, section breaks, tracked changes and embedded fonts are **not** supported, and complex documents may not round-trip cleanly. It will not interoperate with Microsoft 365.
 >
 > **Found a bug?** [Open an issue!](../../issues) — That's literally how this project improves.
 >
@@ -42,6 +42,7 @@ A web-based word processor that tries really hard to look and feel like Microsof
 | **Accessibility Assistant** | ✅ | Right-click menu + fixes — new in v5.0 |
 | **Word/page count** | ✅ | Status bar + dialog + Info panel |
 | **Settings dialog** | ✅ | General/Display/Proofing/Save/Accessibility |
+| **Sub/superscript shortcuts** | ✅ | ⌘⇧+ / Ctrl⇧+ superscript, ⌘⇧- / Ctrl⇧- subscript |
 | Shapes & SmartArt | ⚠️ | Basic SVG shapes only |
 | Charts | ⚠️ | Canvas-drawn, not data-driven |
 | Find & Replace | ✅ | Works |
@@ -59,6 +60,7 @@ A web-based word processor that tries really hard to look and feel like Microsof
 | Read Aloud | ✅ | Uses Web Speech API |
 | Dictation | ✅ | Uses Web Speech API (Chrome) |
 | Zoom & Views | ✅ | Read/Print/Web/Outline/Draft |
+| App icon (favicon) | ✅ | Bundled ICBINW icon as inline SVG |
 | Copilot AI | ❌ | Removed in v2.0 |
 
 ### ❌ Still NOT Working
@@ -111,7 +113,7 @@ python3 build.py --list   # list all versions
 | v2.0 | ⚠️ Less broken | Fixed tabs/layout, removed Copilot. |
 | v3.0 | — | Internal only, never released. |
 | v4.0 | ⚠️ Mostly working | Tabs switch, backstage works, drawing is page-only. |
-| **v5.0** | ✅ **Current** | **Dark mode, real .docx save/open, AutoSave restore, contextual Picture tab, Accessibility Assistant, Settings dialog.** |
+| **v5.0** | ✅ **Current** | **Biggest upgrade yet — dark mode, real .docx save/open, share-as-.docx, AutoSave restore, contextual Picture tab, Accessibility Assistant, Settings dialog, sub/superscript shortcuts, bundled icon.** |
 
 ### Planned for v6.0
 - Better .docx fidelity (footnotes, section breaks, tracked changes)
@@ -119,9 +121,6 @@ python3 build.py --list   # list all versions
 - Data-driven charts
 - Mail merge against a real mail server
 - Export ink drawings into .docx
-
-### Subscript / superscript shortcuts
-- **⌘⇧+ / Ctrl⇧+** = superscript, **⌘⇧- / Ctrl⇧-** = subscript (same as the desktop app).
 
 ## 🐛 Reporting Issues
 
