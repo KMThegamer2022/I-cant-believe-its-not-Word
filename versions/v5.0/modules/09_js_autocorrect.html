@@ -1,0 +1,909 @@
+<script>
+// ════════════════════════════════════════════════════════════════════════════
+// MODULE 09 — SPELL CHECK, AUTOCORRECT, MATH AUTOCORRECT, AUTOFORMAT, ACTIONS
+// Loads last (build.py sorts modules), so everything from modules 00-08 is
+// available (editor, cmd, saveUndo, showModal, showToast, SETTINGS, COMMON_WORDS...)
+// ════════════════════════════════════════════════════════════════════════════
+
+// ═══════ DICTIONARY / SPELL ENGINE ═══════
+let DICT_CUSTOM = new Set(), DICT_IGNORE = new Set();
+let spellMarkTimer = null, spellMarking = false;
+let cmSpellWord = '';
+const WORD_DEFS = {
+  anim: 'spirits', anima: 'soul, animating principle', animi: 'personalities, dispositions, spirits',
+  teh: 'the', accomodate: 'accommodate', recieve: 'receive', seperate: 'separate',
+  definately: 'definitely', occurence: 'occurrence', embarass: 'embarrass',
+  librery: 'library', februrary: 'february', goverment: 'government'
+};
+function loadDict() {
+  try {
+    (JSON.parse(localStorage.getItem('icbimw-dict') || '[]') || []).forEach(w => DICT_CUSTOM.add(String(w).toLowerCase()));
+    (JSON.parse(localStorage.getItem('icbimw-ignore') || '[]') || []).forEach(w => DICT_IGNORE.add(String(w).toLowerCase()));
+  } catch (e) {}
+}
+function saveDict() {
+  try { localStorage.setItem('icbimw-dict', JSON.stringify([...DICT_CUSTOM])); localStorage.setItem('icbimw-ignore', JSON.stringify([...DICT_IGNORE])); } catch (e) {}
+}
+function isKnown(w) { const l = w.toLowerCase(); return COMMON_WORDS.has(l) || DICT_CUSTOM.has(l) || DICT_IGNORE.has(l); }
+function addToDictionary(w) { if (!w) return; DICT_CUSTOM.add(w.toLowerCase()); DICT_IGNORE.delete(w.toLowerCase()); saveDict(); showToast('Added "' + w + '" to dictionary', 'ok'); try { markSpellingErrors(); showEditorPanel(); } catch (e) {} }
+function ignoreWord(w, scope) { if (!w) return; if (scope === 'all') DICT_IGNORE.add(w.toLowerCase()); saveDict(); try { markSpellingErrors(); showEditorPanel(); } catch (e) {} hideContextMenu(); }
+function edits1(w) {
+  const letters = 'abcdefghijklmnopqrstuvwxyz', splits = [], lc = letters.split('');
+  for (let i = 0; i <= w.length; i++) splits.push([w.slice(0, i), w.slice(i)]);
+  const del = splits.map(s => s[1] ? s[0] + s[1].slice(1) : '').filter(Boolean);
+  const trans = splits.map(s => s[1].length > 1 ? s[0] + s[1][1] + s[1][0] + s[1].slice(2) : '').filter(Boolean);
+  const rep = [], ins = [];
+  splits.forEach(s => { if (s[1]) lc.forEach(c => rep.push(s[0] + c + s[1].slice(1))); lc.forEach(c => ins.push(s[0] + c + s[1])); });
+  return [...new Set([...del, ...trans, ...rep, ...ins])];
+}
+// Damerau-Levenshtein distance (adjacent transposition counts as one edit).
+function editDistance(a, b) {
+  if (a === b) return 0;
+  const la = a.length, lb = b.length;
+  if (!la) return lb;
+  if (!lb) return la;
+  let prev2 = null, prev = [], cur = [];
+  for (let j = 0; j <= lb; j++) prev[j] = j;
+  for (let i = 1; i <= la; i++) {
+    cur[0] = i;
+    for (let j = 1; j <= lb; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      let v = Math.min(cur[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) v = Math.min(v, prev2[j - 2] + 1);
+      cur[j] = v;
+    }
+    prev2 = prev; prev = cur; cur = [];
+  }
+  return prev[lb];
+}
+function getSuggestions(word) {
+  const l = word.toLowerCase(), cands = new Set();
+  const add = (c) => { if (c && c !== l && !cands.has(c) && (COMMON_WORDS.has(c) || DICT_CUSTOM.has(c))) cands.add(c); };
+  edits1(l).forEach(add);
+  // distance-2 search is edits1() applied to every edit-1 candidate, so it only stays
+  // affordable for short words — long ones get their (usually sufficient) edit-1 hits
+  if (l.length <= 6) [...cands].forEach(c1 => edits1(c1).forEach(add));
+  // rank by actual distance, not alphabetically, or "deceive" outranks "receive"
+  return [...cands]
+    .sort((a, b) => editDistance(l, a) - editDistance(l, b) || a.localeCompare(b))
+    .slice(0, 6);
+}
+function spellCheckWords(text) {
+  const misspelled = [], seen = new Set();
+  const tokens = text.match(/[A-Za-z'][A-Za-z'-]*/g) || [];
+  tokens.forEach(w => {
+    const l = w.toLowerCase();
+    if (w.length < 4 || isKnown(w) || seen.has(l)) return;
+    seen.add(l);
+    misspelled.push({ word: w, replace: '', suggest: getSuggestions(w), def: WORD_DEFS[l] || '' });
+  });
+  return { misspelled, score: Math.max(0, 100 - misspelled.length * 3) };
+}
+
+// Place the caret `offset` characters into the given root nodes. Used to follow the caret
+// across the text-node rewrites in markSpellingErrors().
+function setCaretIn(roots, offset) {
+  let acc = 0;
+  for (const root of roots) {
+    if (!root) continue;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let n;
+    while ((n = walker.nextNode())) {
+      if (offset <= acc + n.length) {
+        const r = document.createRange();
+        r.setStart(n, offset - acc); r.collapse(true);
+        const sel = window.getSelection();
+        sel.removeAllRanges(); sel.addRange(r);
+        return true;
+      }
+      acc += n.length;
+    }
+  }
+  return false;
+}
+// Strip squiggle wrappers, re-parenting the EXISTING text node (not a fresh copy) so a
+// selection anchored inside a flagged word survives and keeps pointing at the same node.
+function unwrapSpell(root) {
+  root.querySelectorAll('.icw-spell').forEach(s => { if (s.firstChild) s.replaceWith(s.firstChild); });
+}
+// Mark misspelled words with red squiggles.
+//
+// The caret is tracked as (text node, character offset) rather than as a document-wide
+// character offset: an empty paragraph contains no text node, so a global offset cannot
+// tell "end of paragraph 1" from "start of paragraph 2". Restoring that offset after
+// pressing Enter put the caret back at the top of the previous paragraph.
+function markSpellingErrors() {
+  if (spellMarking) return;
+  spellMarking = true;
+  try {
+    const sel = window.getSelection();
+    let caret = null;
+    if (sel.rangeCount && sel.anchorNode && sel.anchorNode.nodeType === 3 && editor.contains(sel.anchorNode)) {
+      caret = { node: sel.anchorNode, offset: sel.anchorOffset };
+    }
+    // start from a clean slate: unwrap first, then re-wrap whatever is still wrong, so a
+    // word fixed by a suggestion does not keep its (now wrong) squiggle
+    unwrapSpell(editor);
+    const text = editor.innerText || '';
+    const res = spellCheckWords(text);
+    const miss = new Set(res.misspelled.map(m => m.word));
+    // wrap misspelled words; skip nodes already inside a fresh .icw-spell from this pass
+    const walk = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+    const nodes = []; let n;
+    while ((n = walk.nextNode())) nodes.push(n);
+    for (const node of nodes) {
+      if (!node.parentNode) continue;
+      if (node.parentElement && node.parentElement.classList.contains('icw-spell')) continue;
+      const t = node.textContent;
+      let idx = 0, html = '';
+      t.replace(/\b([A-Za-z'][A-Za-z'-]*)\b/g, (m, w) => {
+        const start = t.indexOf(w, idx);
+        html += t.slice(idx, start);
+        if (miss.has(w) && w.length >= 4) html += '<span class="icw-spell">' + w + '</span>';
+        else html += w;
+        idx = start + w.length;
+        return m;
+      });
+      html += t.slice(idx);
+      // node is untouched -> any selection inside it stays valid, nothing to restore
+      if (html === t) continue;
+      const frag = document.createRange();
+      frag.selectNodeContents(node);
+      const parts = frag.createContextualFragment(html);
+      const roots = [...parts.childNodes];
+      const caretHere = caret && caret.node === node ? caret.offset : null;
+      node.replaceWith(parts);
+      if (caretHere !== null) {
+        setCaretIn(roots, caretHere);
+        caret = null; // re-anchored to a fresh node; later rewrites cannot move it
+      }
+    }
+    return res;
+  } finally {
+    spellMarking = false;
+  }
+}
+function toggleSpellMarking(on) {
+  if (on) { markSpellingErrors(); }
+  else { editor.focus(); unwrapSpell(editor); }
+}
+editor.addEventListener('input', () => {
+  clearTimeout(spellMarkTimer);
+  if (typeof SETTINGS !== 'undefined' && SETTINGS.spellcheck !== false) {
+    spellMarkTimer = setTimeout(markSpellingErrors, 250);
+  }
+  handleAutoCorrectOnInput();
+});
+
+// ═══════ AUTOCORRECT RULES ═══════
+let AC_RULES = [
+  { find: '(c)', replace: '©', formatted: false },
+  { find: '(r)', replace: '®', formatted: false },
+  { find: '(tm)', replace: '™', formatted: false },
+  { find: 'teh', replace: 'the', formatted: false },
+  { find: 'recieve', replace: 'receive', formatted: false },
+  { find: 'seperate', replace: 'separate', formatted: false },
+  { find: 'definately', replace: 'definitely', formatted: false },
+  { find: 'occurence', replace: 'occurrence', formatted: false },
+  { find: 'accomodate', replace: 'accommodate', formatted: false },
+  { find: 'embarass', replace: 'embarrass', formatted: false }
+];
+let AC_EXC = { firstLetter: ['e.g.', 'etc.', 'approx.', 'vs.', 'inc.', 'ltd.', 'no.'], initialCaps: ['IDs', 'GHz', 'PhD', 'McAfee'], other: [] };
+let AC_SET = {
+  enabled: true, showSmartButton: true, twoInitialCaps: true, sentenceCase: true,
+  tableCellCaps: true, dayNames: true, capsLock: true, replaceAsYouType: true, autoSuggest: true
+};
+function loadAC() {
+  try {
+    const s = JSON.parse(localStorage.getItem('icbimw-ac') || 'null');
+    if (s) AC_SET = Object.assign({}, AC_SET, s);
+    const r = JSON.parse(localStorage.getItem('icbimw-ac-rules') || 'null');
+    if (r) AC_RULES = r;
+    const e = JSON.parse(localStorage.getItem('icbimw-ac-exc') || 'null');
+    if (e) AC_EXC = Object.assign({ firstLetter: [], initialCaps: [], other: [] }, e);
+  } catch (e) {}
+}
+function saveAC() {
+  try { localStorage.setItem('icbimw-ac', JSON.stringify(AC_SET)); localStorage.setItem('icbimw-ac-rules', JSON.stringify(AC_RULES)); localStorage.setItem('icbimw-ac-exc', JSON.stringify(AC_EXC)); } catch (e) {}
+}
+function isFirstLetterExc(w) { return AC_EXC.firstLetter.some(x => w.toLowerCase() === x.toLowerCase()); }
+function isInitialCapsExc(w) { return AC_EXC.initialCaps.some(x => w === x); }
+function isOtherCorrectionExc(w) { return AC_EXC.other.some(x => w === x); }
+const DAYS = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+function fixDayName(w) { const d = DAYS.indexOf(w.toLowerCase()); return d >= 0 ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : null; }
+function fixTwoInitialCaps(w) {
+  if (w.length < 3) return null;
+  if (/^[A-Z]{2}[a-z]/.test(w) && !isInitialCapsExc(w)) return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+  return null;
+}
+function fixCapsLock(w) {
+  // accidental caps lock: all caps, length>1, not all-caps exception
+  if (w.length > 1 && /^[A-Z]+$/.test(w) && !isInitialCapsExc(w)) return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+  return null;
+}
+function replaceAsYouType(w) {
+  if (isOtherCorrectionExc(w)) return null;
+  const rule = AC_RULES.find(r => r.find.toLowerCase() === w.toLowerCase());
+  return rule ? rule.replace : null;
+}
+
+// Apply autocorrect to a completed word. Returns replacement string or null.
+function autocorrectWord(word, prevChar, nextChar) {
+  if (!AC_SET.enabled || !word || word.length < 2 || isOtherCorrectionExc(word)) return null;
+  let l = word.toLowerCase();
+  // two initial capitals
+  if (AC_SET.twoInitialCaps) { const f = fixTwoInitialCaps(word); if (f) return f; }
+  // days of week
+  if (AC_SET.dayNames) { const f = fixDayName(word); if (f) return f; }
+  // accidental caps lock
+  if (AC_SET.capsLock) { const f = fixCapsLock(word); if (f) return f; }
+  // replace-as-you-type
+  if (AC_SET.replaceAsYouType) { const f = replaceAsYouType(word); if (f) return f; }
+  return null;
+}
+
+// ═══════ HANDLE AUTOCORRECT AS YOU TYPE ═══════
+let acTyping = false;
+function handleAutoCorrectOnInput() {
+  if (acTyping || !AC_SET.enabled) return;
+  acTyping = true;
+  setTimeout(() => {
+    acTyping = false;
+    try { doAutoCorrectReplace(); } catch (e) {}
+  }, 120);
+}
+function doAutoCorrectReplace() {
+  const sel = window.getSelection(); if (!sel.rangeCount || !sel.isCollapsed) return;
+  const range = sel.getRangeAt(0);
+  const start = range.startContainer;
+  if (start.nodeType !== 3) return;
+  const text = start.textContent;
+  let endOff = range.startOffset;
+  // skip trailing non-word chars (e.g. the space just typed) to locate the end of the last word
+  let probe = endOff;
+  while (probe > 0 && !/[A-Za-z0-9']/.test(text[probe - 1])) probe--;
+  let wordStart = probe;
+  while (wordStart > 0 && /[A-Za-z0-9']/.test(text[wordStart - 1])) wordStart--;
+  const word = text.slice(wordStart, probe);
+  if (!word || word.length < 2) return;
+  // only auto-correct completed words (followed by whitespace) to avoid mid-word edits
+  if (probe < text.length && !/\s/.test(text[probe])) return;
+  const prevChar = wordStart > 0 ? text[wordStart - 1] : '';
+  const replacement = autocorrectWord(word, prevChar, text[probe] || '');
+  if (!replacement) return;
+  const r = document.createRange(); r.setStart(start, wordStart); r.setEnd(start, probe);
+  sel.removeAllRanges(); sel.addRange(r);
+  document.execCommand('insertText', false, replacement);
+  saveUndo(); updateStatus();
+  setCaretOffset(getCaretOffset());
+  if (AC_SET.showSmartButton) showAutoCorrectSmartButton(word, replacement);
+}
+let smartBtnTimer = null;
+function showAutoCorrectSmartButton(orig, repl) {
+  if (smartBtnTimer) clearTimeout(smartBtnTimer);
+  const btn = document.getElementById('ac-smart-btn');
+  if (!btn) {
+    const b = document.createElement('button');
+    b.id = 'ac-smart-btn';
+    b.style.cssText = 'position:fixed;background:#fff;border:1px solid #999;border-radius:12px;padding:4px 10px;font-size:12px;color:#111;z-index:10000;box-shadow:0 2px 8px rgba(0,0,0,.25);cursor:pointer;pointer-events:auto';
+    b.onclick = (e) => { e.stopPropagation(); undoLastAC(); hideSmartBtn(); };
+    b.title = 'Undo AutoCorrect / stop rule';
+    document.body.appendChild(b);
+  }
+  const rect = editor.getBoundingClientRect();
+  btn.style.left = (rect.left + 8) + 'px'; btn.style.top = (rect.top + 8) + 'px';
+  btn.textContent = orig + ' → ' + repl + '  ↶';
+  btn.style.display = 'inline-block';
+  smartBtnTimer = setTimeout(hideSmartBtn, 3500);
+}
+function hideSmartBtn() { const b = document.getElementById('ac-smart-btn'); if (b) b.style.display = 'none'; }
+function undoLastAC() { doUndo(); hideSmartBtn(); showToast('AutoCorrect undone', 'ok'); }
+
+// ═══════ SENTENCE CASE & TABLE CELL CAPS (on terminal punctuation / cell entry) ═══════
+function capitalizeSentenceAfter(text, pos) {
+  // pos is index of terminal punctuation . ! ?
+  let i = pos + 1;
+  while (i < text.length && /\s/.test(text[i])) i++;
+  if (i < text.length && /[a-z]/.test(text[i])) return { at: i, to: text[i].toUpperCase() };
+  return null;
+}
+// Triggered when user types . ! ? followed by a letter — handled in handleAutoCorrectOnInput via word boundaries is weak;
+// instead handle on keydown for terminal punctuation + space below.
+
+// ═══════ MATH AUTOCORRECT ═══════
+const MATH_MAP = {
+  '\\alpha':'α','\\beta':'β','\\gamma':'γ','\\delta':'δ','\\epsilon':'ε','\\zeta':'ζ','\\eta':'η','\\theta':'θ','\\iota':'ι','\\kappa':'κ','\\lambda':'λ','\\mu':'μ','\\nu':'ν','\\xi':'ξ','\\omicron':'ο','\\pi':'π','\\rho':'ρ','\\sigma':'σ','\\tau':'τ','\\upsilon':'υ','\\phi':'φ','\\chi':'χ','\\psi':'ψ','\\omega':'ω','\\Omega':'Ω',
+  '\\pm':'±','\\mp':'∓','\\times':'×','\\div':'÷','\\cdot':'⋅','\\infty':'∞','\\approx':'≈','\\neq':'≠','\\leq':'≤','\\geq':'≥','\\lt':'<','\\gt':'>',
+  '\\sum':'∑','\\prod':'∏','\\int':'∫','\\partial':'∂','\\nabla':'∇','\\in':'∈','\\notin':'∉','\\subset':'⊂','\\subseteq':'⊆','\\cup':'∪','\\cap':'∩','\\emptyset':'∅',
+  '\\rightarrow':'→','\\leftarrow':'←','\\Rightarrow':'⇒','\\Leftrightarrow':'⇔','\\forall':'∀','\\exists':'∃','\\neg':'¬','\\land':'∧','\\lor':'∨',
+  '\\pi':'π','\\degree':'°','\\frac':'','\\sqrt':'√'
+};
+function convertMath(tok) {
+  if (AC_SET.mathOutside !== false && tok) {
+    const r = MATH_MAP[tok];
+    if (r !== undefined) return r;
+  }
+  return null;
+}
+function handleMathOnSpace() {
+  if (!AC_SET.mathOutside) return;
+  const sel = window.getSelection(); if (!sel.rangeCount || sel.isCollapsed) return;
+  const start = sel.getRangeAt(0).startContainer;
+  if (start.nodeType !== 3) return;
+  const text = start.textContent; const off = sel.getRangeAt(0).startOffset;
+  let wordStart = off;
+  while (wordStart > 0 && /[A-Za-z\\]/.test(text[wordStart - 1])) wordStart--;
+  const tok = text.slice(wordStart, off);
+  if (!tok.startsWith('\\') || tok.length < 2) return;
+  const sym = convertMath(tok);
+  if (!sym) return;
+  const r = document.createRange(); r.setStart(start, wordStart); r.setEnd(start, off);
+  sel.removeAllRanges(); sel.addRange(r);
+  document.execCommand('insertText', false, sym);
+  saveUndo(); updateStatus();
+}
+
+// ═══════ AUTOFORMAT AS YOU TYPE ═══════
+let AF_SET = {
+  smartQuotes: true, fractions: true, markdown: true, hyperlinks: true, ordinals: true,
+  hyphens: true, autoBullets: true, autoNumbered: true, borderLines: true, textTables: true,
+  headingStyles: true, formatListItem: true, tabIndent: true, defineStyles: true
+};
+const SMART_OPEN = '“', SMART_CLOSE = '”', SMART_OPEN_S = '‘', SMART_CLOSE_S = '’';
+let quoteOpen = true;
+function autoFormatOnType() {
+  if (!AF_SET.smartQuotes && !AF_SET.fractions && !AF_SET.markdown && !AF_SET.hyperlinks && !AF_SET.ordinals && !AF_SET.hyphens && !AF_SET.autoBullets && !AF_SET.autoNumbered && !AF_SET.borderLines && !AF_SET.textTables && !AF_SET.headingStyles) return;
+  const sel = window.getSelection(); if (!sel.rangeCount || sel.isCollapsed) return;
+  const start = sel.getRangeAt(0).startContainer;
+  if (start.nodeType !== 3) return;
+  const text = start.textContent; const off = sel.getRangeAt(0).startOffset;
+  // look at the line/paragraph text before caret
+  let lineStart = off;
+  while (lineStart > 0 && text[lineStart - 1] !== '\n') lineStart--;
+  const line = text.slice(lineStart, off);
+  // --- border lines: --- === ___ then Enter handled on keydown, skip here
+  // --- smart quotes
+  if (AF_SET.smartQuotes) {
+    // replace trailing straight quotes
+    if (line.endsWith('"')) {
+      const q = quoteOpen ? SMART_OPEN : SMART_CLOSE;
+      quoteOpen = !quoteOpen;
+      applyTrailingReplace(start, off, '"', q);
+    } else if (line.endsWith("'")) {
+      const q = /[\w]$/.test(line.slice(0, -1)) ? SMART_CLOSE_S : SMART_OPEN_S;
+      applyTrailingReplace(start, off, "'", q);
+    }
+  }
+  // --- fractions
+  if (AF_SET.fractions) {
+    const m = line.match(/(\d+)\/(\d+)$/);
+    if (m) {
+      const frac = { '1/2':'½','1/4':'¼','3/4':'¾','1/3':'⅓','2/3':'⅔' }[m[1] + '/' + m[2]];
+      if (frac) applyTrailingReplace(start, off, m[0], frac);
+    }
+  }
+  // --- ordinals
+  if (AF_SET.ordinals) {
+    const m = line.match(/(\d+)(st|nd|rd|th)$/);
+    if (m) {
+      const sup = { st:'ˢᵗ', nd:'ⁿᵈ', rd:'ʳᵈ', th:'ᵗʰ' }[m[2]];
+      if (sup) applyTrailingReplace(start, off, m[2], sup);
+    }
+  }
+  // --- hyphens to dashes
+  if (AF_SET.hyphens) {
+    if (line.endsWith('---')) { applyTrailingReplace(start, off, '---', '—'); }
+    else if (line.endsWith('--')) { applyTrailingReplace(start, off, '--', '–'); }
+  }
+  // --- markdown bold *...* / **...**
+  if (AF_SET.markdown) {
+    const m = line.match(/\*\*([^*]+)\*\*$/);
+    if (m) { applyTrailingReplaceStartEnd(start, off, m[0], '<b>' + m[1] + '</b>', true); return; }
+    const m2 = line.match(/\*([^*]+)\*$/);
+    if (m2 && !m2[1].includes(' ')) { applyTrailingReplaceStartEnd(start, off, m2[0], '<i>' + m2[1] + '</i>', true); return; }
+  }
+  // --- URLs to hyperlinks (very narrow: www. or http at end of word)
+  if (AF_SET.hyperlinks) {
+    const m = line.match(/(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)$/);
+    if (m) {
+      const url = m[0];
+      applyTrailingReplaceStartEnd(start, off, url, '<a href="' + (url.startsWith('www') ? 'http://' + url : url) + '" target="_blank">' + url + '</a>', true);
+    }
+  }
+}
+function applyTrailingReplace(node, off, oldTxt, newTxt) {
+  const r = document.createRange(); r.setStart(node, off - oldTxt.length); r.setEnd(node, off);
+  const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+  document.execCommand('insertText', false, newTxt);
+  saveUndo(); updateStatus();
+}
+function applyTrailingReplaceStartEnd(node, off, oldTxt, newHtml, isHtml) {
+  const r = document.createRange(); r.setStart(node, off - oldTxt.length); r.setEnd(node, off);
+  const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+  if (isHtml) document.execCommand('insertHTML', false, newHtml);
+  else document.execCommand('insertText', false, newHtml);
+  saveUndo(); updateStatus();
+}
+
+// AutoFormat As You Type structural triggers handled on keydown (Enter/Space/Tab)
+function handleAutoFormatKey(e) {
+  const sel = window.getSelection(); if (!sel.rangeCount || sel.isCollapsed) return;
+  const start = sel.getRangeAt(0).startContainer;
+  if (start.nodeType !== 3) return;
+  const text = start.textContent; const off = sel.getRangeAt(0).startOffset;
+  let lineStart = off;
+  while (lineStart > 0 && text[lineStart - 1] !== '\n') lineStart--;
+  const line = text.slice(lineStart, off);
+  let handled = false;
+  if (e.key === 'Enter') {
+    // border lines
+    if (AF_SET.borderLines && (/^---+$/.test(line) || /^===+$/.test(line) || /^\*\*\*+$/.test(line) || /^___+$/.test(line))) {
+      e.preventDefault();
+      // replace the line with a horizontal rule paragraph
+      replaceLineWith(start, lineStart, off, '<hr style="border:none;border-top:1px solid #000;margin:12px 0">');
+      handled = true;
+    }
+    // text tables +---+---+
+    if (!handled && AF_SET.textTables && /^\+[-: ]+\+([-: ]+\+)+$/.test(line)) {
+      e.preventDefault();
+      const tableHtml = buildTableFromLine(line);
+      replaceLineWith(start, lineStart, off, tableHtml + '<p><br></p>');
+      handled = true;
+    }
+    // auto lists
+    if (!handled && AF_SET.autoBullets && /^[\*\-\–]\s$/.test(line.trim())) {
+      e.preventDefault();
+      replaceLineWith(start, lineStart, off, '<ul><li></li></ul><p><br></p>');
+      const li = editor.querySelector('li'); if (li) { const r = document.createRange(); r.selectNodeContents(li); r.collapse(true); sel.removeAllRanges(); sel.addRange(r); editor.focus(); }
+      handled = true;
+    }
+    if (!handled && AF_SET.autoNumbered && /^(\d+)\.\s$/.test(line.trim())) {
+      e.preventDefault();
+      replaceLineWith(start, lineStart, off, '<ol><li></li></ol><p><br></p>');
+      handled = true;
+    }
+    // heading styles
+    if (!handled && AF_SET.headingStyles) {
+      const m = line.match(/^(#{1,3})\s+$/);
+      if (m) {
+        e.preventDefault();
+        const tag = 'h' + m[1].length;
+        replaceLineWith(start, lineStart, off, '<' + tag + '></' + tag + '><p><br></p>');
+        handled = true;
+      }
+    }
+  } else if (e.key === 'Tab' || e.key === 'Backspace') {
+    if (AF_SET.tabIndent && e.key === 'Tab') { /* leave to default; indentation handled by browser */ }
+  }
+  return handled;
+}
+function replaceLineWith(node, lineStart, off, html) {
+  const r = document.createRange(); r.setStart(node, lineStart); r.setEnd(node, off);
+  const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+  document.execCommand('insertHTML', false, html);
+  saveUndo(); updateStatus();
+}
+function buildTableFromLine(line) {
+  const cells = line.split('+').filter(Boolean);
+  const cols = cells.length;
+  let html = '<table style="border-collapse:collapse;width:100%;margin:8px 0"><tr>';
+  for (let i = 0; i < cols; i++) html += '<td style="border:1px solid #999;padding:6px;min-width:60px;min-height:24px"><br></td>';
+  html += '</tr><tr>';
+  for (let i = 0; i < cols; i++) html += '<td style="border:1px solid #999;padding:6px;min-width:60px;min-height:24px"><br></td>';
+  html += '</tr></table>';
+  return html;
+}
+
+// ═══════ DOCUMENT-WIDE AUTOFORMAT ═══════
+function autoFormatDocument() {
+  if (!confirm('Apply AutoFormat to the whole document? This cannot be undone with a single click (use Undo).')) return;
+  const walk = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+  const nodes = []; let n;
+  while ((n = walk.nextNode())) nodes.push(n);
+  nodes.forEach(node => {
+    let t = node.textContent;
+    if (AF_SET.smartQuotes) { t = t.replace(/"/g, quoteOpen ? '“' : '”'); quoteOpen = !quoteOpen; } // rough
+    if (AF_SET.fractions) t = t.replace(/\b(\d)\/(\d)\b/g, (m,a,b) => { const f={'1/2':'½','1/4':'¼','3/4':'¾'}[a+'/'+b]; return f||m; });
+    if (AF_SET.ordinals) t = t.replace(/\b(\d+)(st|nd|rd|th)\b/g, (m,n,s) => n + {'st':'ˢᵗ','nd':'ⁿᵈ','rd':'ʳᵈ','th':'ᵗʰ'}[s]);
+    if (AF_SET.hyphens) t = t.replace(/---/g,'—').replace(/--/g,'–');
+    if (AF_SET.hyperlinks) t = t.replace(/\b(https?:\/\/[^\s<>"']+)/g, '<a href="$1" target="_blank">$1</a>');
+    if (t !== node.textContent) {
+      const frag = document.createRange(); frag.selectNodeContents(node);
+      node.replaceWith(frag.createContextualFragment(t));
+    }
+  });
+  saveUndo(); updateStatus();
+  showToast('AutoFormat applied to document', 'ok');
+}
+
+// ═══════ ACTIONS / SMART TAGS ═══════
+const ACTIONS_SET = { enabled: true };
+function detectSmartTags(text) {
+  const tags = [];
+  // dates
+  const dateRe = /\b(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}|(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]* \d{1,2}(st|nd|rd|th)?,? \d{4})/gi;
+  text.replace(dateRe, (m) => tags.push({ kind: 'Date', text: m, actions: ['Create calendar event', 'Add to calendar'] }));
+  // emails
+  text.replace(/\b[\w.+-]+@[\w-]+\.[\w.-]+\b/g, (m) => tags.push({ kind: 'Email', text: m, actions: ['Send email', 'Add to contacts'] }));
+  // phones (rough)
+  text.replace(/\b\d{3}[\-\.]?\d{3}[\-\.]?\d{4}\b/g, (m) => tags.push({ kind: 'Phone', text: m, actions: ['Call', 'Add to contacts'] }));
+  return tags;
+}
+function showActionsMenu(word, x, y) {
+  const tags = detectSmartTags(word);
+  if (!tags.length) return false;
+  const m = document.getElementById('context-menu');
+  // build actions list
+  let html = '';
+  tags.forEach(t => {
+    t.actions.forEach(a => {
+      html += `<div class="actions-item" onclick="doAction('${jsEsc(t.text)}','${jsEsc(a)}')"><span class="ai-kind">${t.kind}</span>${t.text} → ${a}</div>`;
+    });
+  });
+  document.getElementById('cm-actions-list').innerHTML = html;
+  document.getElementById('cm-actions-sep').style.display = 'block';
+  document.getElementById('cm-actions-head').style.display = 'block';
+  document.getElementById('cm-actions-list').style.display = 'block';
+  // reposition context menu already done by caller; we just reveal
+  return true;
+}
+function hideActionsMenu() {
+  document.getElementById('cm-actions-sep').style.display = 'none';
+  document.getElementById('cm-actions-head').style.display = 'none';
+  document.getElementById('cm-actions-list').style.display = 'none';
+}
+function doAction(text, action) {
+  hideContextMenu();
+  showToast('Action: ' + action + ' for "' + text + '"', 'ok');
+}
+
+// ═══════ CONTEXT MENU INTEGRATION (spell) ═══════
+function cmSpellAction(act) {
+  const word = cmSpellWord;
+  if (act === 'ignoreOnce') { hideContextMenu(); showToast('Ignored "' + word + '" once', 'ok'); return; }
+  if (act === 'ignoreAll') { ignoreWord(word, 'all'); return; }
+  if (act === 'addDict') { addToDictionary(word); return; }
+  if (act === 'addAc') { AC_RULES.push({ find: word, replace: '', formatted: false }); saveAC(); hideContextMenu(); showToast('Added "' + word + '" to AutoCorrect (set replacement in dialog)', 'ok'); return; }
+}
+function getWordAtSelection() {
+  const sel = window.getSelection(); if (!sel.rangeCount) return null;
+  const range = sel.getRangeAt(0); let node = range.startContainer, off = range.startOffset;
+  // flagged words are wrapped in <span class="icw-spell">, so selecting one can leave the
+  // caret on that element instead of on a text node — descend when it holds exactly one
+  if (node && node.nodeType === 1) {
+    const texts = [...node.childNodes].filter(c => c.nodeType === 3);
+    if (texts.length !== 1) return null;
+    node = texts[0]; off = 0;
+  }
+  if (!node || node.nodeType !== 3) return null;
+  const text = node.textContent; let st = Math.min(off, text.length), en = st;
+  while (st > 0 && /[A-Za-z']/.test(text[st - 1])) st--;
+  while (en < text.length && /[A-Za-z']/.test(text[en])) en++;
+  const w = text.slice(st, en);
+  return w.length >= 3 ? w : null;
+}
+function showSpellMenu(word, x, y) {
+  const m = document.getElementById('context-menu');
+  cmSpellWord = word;
+  const sugs = getSuggestions(word);
+  let html = sugs.map(s => `<div class="spell-item" onclick="cmReplaceSpell('${jsEsc(word)}','${jsEsc(s)}')"><div class="spell-word">${escUser(s)}</div>${WORD_DEFS[s.toLowerCase()] ? '<div class="spell-def">' + escUser(WORD_DEFS[s.toLowerCase()]) + '</div>' : ''}</div>`).join('');
+  if (!sugs.length) html = '<div class="spell-item" style="color:var(--text-2)">No suggestions</div>';
+  document.getElementById('cm-spell-list').innerHTML = html;
+  document.getElementById('cm-spell-sep').style.display = 'block';
+  document.getElementById('cm-spell-head').style.display = 'block';
+  document.getElementById('cm-spell-list').style.display = 'block';
+  document.getElementById('cm-ignore-once').style.display = 'block';
+  document.getElementById('cm-ignore-all').style.display = 'block';
+  document.getElementById('cm-add-dict').style.display = 'block';
+  document.getElementById('cm-add-ac').style.display = 'block';
+  document.getElementById('cm-spell-sep2').style.display = 'block';
+  showContextMenu(x, y);
+}
+function cmReplaceSpell(orig, repl) {
+  editorReplaceSuggestion(orig, repl);
+  hideContextMenu();
+}
+// hide spell items when context menu hides
+const _origHide = hideContextMenu;
+hideContextMenu = function () {
+  _origHide();
+  document.getElementById('cm-spell-sep').style.display = 'none';
+  document.getElementById('cm-spell-head').style.display = 'none';
+  document.getElementById('cm-spell-list').style.display = 'none';
+  document.getElementById('cm-ignore-once').style.display = 'none';
+  document.getElementById('cm-ignore-all').style.display = 'none';
+  document.getElementById('cm-add-dict').style.display = 'none';
+  document.getElementById('cm-add-ac').style.display = 'none';
+  document.getElementById('cm-spell-sep2').style.display = 'none';
+  hideActionsMenu();
+  hideSmartBtn();
+};
+// add spell-word holder to context menu (element exists in markup via module 03)
+
+// wire contextmenu to show spell menu for misspelled words
+editor.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  const word = getWordAtSelection();
+  if (word && !isKnown(word) && word.length >= 4) {
+    showSpellMenu(word, e.clientX, e.clientY);
+    return;
+  }
+  hideActionsMenu();
+  showContextMenu(e.clientX, e.clientY);
+});
+
+// ═══════ AUTOCORRECT DIALOG ═══════
+function openAutoCorrectDialog() {
+  loadAC();
+  let rulesHtml = '';
+  AC_RULES.forEach((rule, i) => {
+    const chipClass = rule.formatted ? 'on' : '';
+    rulesHtml += `<tr>
+      <td><input type="text" class="ac-in-find" value="${escUser(rule.find)}" data-i="${i}" placeholder="Replace"></td>
+      <td><input type="text" class="ac-in-repl" value="${escUser(rule.replace)}" data-i="${i}" placeholder="With"></td>
+      <td style="width:110px"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" class="ac-in-fmt" data-i="${i}" ${rule.formatted ? 'checked' : ''}><span style="font-size:11px">Formatted text</span></label></td>
+      <td style="width:120px"><button class="btn" style="padding:4px 10px;font-size:11px" onclick="acDeleteRule(${i})">Delete</button></td>
+    </tr>`;
+  });
+  let excFirst = AC_EXC.firstLetter.map(w => `<span class="ac-chip"><span>${escUser(w)}</span><span class="ac-del" onclick="acRemoveExc('firstLetter','${jsEsc(w)}')">×</span></span>`).join(' ') || '<span style="color:var(--text-2);font-size:11px">none</span>';
+  let excInitial = AC_EXC.initialCaps.map(w => `<span class="ac-chip"><span>${escUser(w)}</span><span class="ac-del" onclick="acRemoveExc('initialCaps','${jsEsc(w)}')">×</span></span>`).join(' ') || '<span style="color:var(--text-2);font-size:11px">none</span>';
+  let excOther = AC_EXC.other.map(w => `<span class="ac-chip"><span>${escUser(w)}</span><span class="ac-del" onclick="acRemoveExc('other','${jsEsc(w)}')">×</span></span>`).join(' ') || '<span style="color:var(--text-2);font-size:11px">none</span>';
+  const html = `
+  <div class="ac-tabs">
+    <div class="ac-tab active" onclick="acSwitchTab(this,'autocorrect')">AutoCorrect</div>
+    <div class="ac-tab" onclick="acSwitchTab(this,'math')">Math AutoCorrect</div>
+    <div class="ac-tab" onclick="acSwitchTab(this,'afyt')">AutoFormat As You Type</div>
+    <div class="ac-tab" onclick="acSwitchTab(this,'aformat')">AutoFormat</div>
+    <div class="ac-tab" onclick="acSwitchTab(this,'actions')">Actions</div>
+  </div>
+  <div class="ac-tabpanel active" id="acp-autocorrect">
+    <div class="ac-row"><label><input type="checkbox" id="ac-enable" ${AC_SET.enabled ? 'checked' : ''}> Automatically correct spelling and formatting as you type</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="ac-smart" ${AC_SET.showSmartButton ? 'checked' : ''}> Show AutoCorrect Options buttons</label><span class="ac-desc">Shows the small drop-down action tag when Word makes an automatic change</span></div>
+    <hr style="margin:6px 0;border:none;border-top:1px solid var(--border)">
+    <div class="ac-row"><label><input type="checkbox" id="ac-two" ${AC_SET.twoInitialCaps ? 'checked' : ''}> Correct TWo INitial CApitals</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="ac-sentence" ${AC_SET.sentenceCase ? 'checked' : ''}> Capitalize first letter of sentences</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="ac-tablecell" ${AC_SET.tableCellCaps ? 'checked' : ''}> Capitalize first letter of table cells</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="ac-days" ${AC_SET.dayNames ? 'checked' : ''}> Capitalize names of days</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="ac-capslock" ${AC_SET.capsLock ? 'checked' : ''}> Correct accidental usage of cAPS LOCK key</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="ac-replace" ${AC_SET.replaceAsYouType ? 'checked' : ''}> Replace text as you type</label><span class="ac-desc">Replaces shorthand/misspelled words from the rule table below</span></div>
+    <div class="ac-row"><label><input type="checkbox" id="ac-autosuggest" ${AC_SET.autoSuggest ? 'checked' : ''}> Automatically use suggestions from the spelling checker</label></div>
+    <hr style="margin:6px 0;border:none;border-top:1px solid var(--border)">
+    <div class="ac-row" style="justify-content:flex-start"><label style="font-weight:700">Exceptions:</label></div>
+    <div class="ac-row"><label style="font-weight:600">First Letter:</label><div style="margin-left:10px">${excFirst}</div></div>
+    <div class="ac-row"><label style="font-weight:600">INitial CAps:</label><div style="margin-left:10px">${excInitial}</div></div>
+    <div class="ac-row"><label style="font-weight:600">Other Corrections:</label><div style="margin-left:10px">${excOther}</div></div>
+    <hr style="margin:6px 0;border:none;border-top:1px solid var(--border)">
+    <div class="ac-row" style="justify-content:flex-start"><label style="font-weight:700">Replace text as you type:</label></div>
+    <div class="ac-inputs"><input type="text" id="ac-new-find" placeholder="Replace..."><input type="text" id="ac-new-repl" placeholder="With..."><button class="btn" style="padding:4px 12px;font-size:12px" onclick="acAddRule()">Add</button></div>
+    <table class="ac-table"><thead><tr><th style="width:45%">Replace</th><th style="width:45%">With</th><th style="width:10%">Type</th></tr></thead><tbody id="ac-rules-body">${rulesHtml}</tbody></table>
+    <div class="ac-btns"><button class="btn" onclick="closeAutoCorrectDialog()">Cancel</button><button class="btn primary" onclick="saveAutoCorrectDialog()">OK</button></div>
+  </div>
+  <div class="ac-tabpanel" id="acp-math">
+    <div class="ac-row"><label><input type="checkbox" id="ac-mathout" ${AC_SET.mathOutside !== false ? 'checked' : ''}> Use Math AutoCorrect rules outside of math regions</label></div>
+    <div class="ac-row" style="justify-content:flex-start"><label style="font-weight:700">Replace text as you type (Math List):</label><span class="ac-desc">Converts \-commands into symbols (e.g. \\alpha → α, \\pm → ±, \\infty → ∞)</span></div>
+    <table class="ac-table"><thead><tr><th style="width:50%">Command</th><th style="width:50%">Symbol</th></tr></thead><tbody>${Object.entries(MATH_MAP).map(([k,v]) => `<tr><td><code>${escUser(k)}</code></td><td>${v || '(formatting)'}</td></tr>`).join('')}</tbody></table>
+    <div class="ac-row" style="justify-content:flex-start"><label style="font-weight:700">Exceptions:</label><div style="margin-left:10px" id="ac-math-exc">${(AC_EXC.math || []).map(w => `<span class="ac-chip"><span>${escUser(w)}</span><span class="ac-del" onclick="acRemoveExc('math','${jsEsc(w)}')">×</span></span>`).join(' ') || '<span style="color:var(--text-2);font-size:11px">none</span>'}</div></div>
+    <div class="ac-btns"><button class="btn" onclick="closeAutoCorrectDialog()">Cancel</button><button class="btn primary" onclick="saveAutoCorrectDialog()">OK</button></div>
+  </div>
+  <div class="ac-tabpanel" id="acp-afyt">
+    <div class="ac-row" style="justify-content:flex-start"><label style="font-weight:700">Replace as you type:</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="af-smartquotes" ${AF_SET.smartQuotes ? 'checked' : ''}> "Straight quotes" with “smart quotes”</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="af-fractions" ${AF_SET.fractions ? 'checked' : ''}> Fractions (1/2) with fraction character (½)</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="af-markdown" ${AF_SET.markdown ? 'checked' : ''}> Bold and italic with real formatting (Markdown-style markup)</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="af-hyperlinks" ${AF_SET.hyperlinks ? 'checked' : ''}> Internet and network paths with hyperlinks</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="af-ordinals" ${AF_SET.ordinals ? 'checked' : ''}> Ordinals (1st) with superscript (1<sup>st</sup>)</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="af-hyphens" ${AF_SET.hyphens ? 'checked' : ''}> Hyphens (--) with dash (– / —)</label></div>
+    <hr style="margin:6px 0;border:none;border-top:1px solid var(--border)">
+    <div class="ac-row" style="justify-content:flex-start"><label style="font-weight:700">Apply as you type:</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="af-bullets" ${AF_SET.autoBullets ? 'checked' : ''}> Automatic bulleted lists (*, -, > + Space/Tab)</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="af-numbered" ${AF_SET.autoNumbered ? 'checked' : ''}> Automatic numbered lists (1. or A. + Space/Tab)</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="af-borders" ${AF_SET.borderLines ? 'checked' : ''}> Border lines (---, ===, *** + Enter)</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="af-texttables" ${AF_SET.textTables ? 'checked' : ''}> Tables (+---+---+ + Enter)</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="af-headings" ${AF_SET.headingStyles ? 'checked' : ''}> Built-in Heading styles (# / ## / ###)</label></div>
+    <hr style="margin:6px 0;border:none;border-top:1px solid var(--border)">
+    <div class="ac-row" style="justify-content:flex-start"><label style="font-weight:700">Automatically as you type:</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="af-formatitem" ${AF_SET.formatListItem ? 'checked' : ''}> Format beginning of list item like the one before it</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="af-tabindent" ${AF_SET.tabIndent ? 'checked' : ''}> Set left-indent on tabs and backspaces</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="af-definestyle" ${AF_SET.defineStyles ? 'checked' : ''}> Define styles based on your formatting</label></div>
+    <div class="ac-btns"><button class="btn" onclick="closeAutoCorrectDialog()">Cancel</button><button class="btn primary" onclick="saveAutoCorrectDialog()">OK</button></div>
+  </div>
+  <div class="ac-tabpanel" id="acp-aformat">
+    <div class="ac-row" style="justify-content:flex-start"><label style="font-weight:700">Apply:</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="afmt-headings" checked> Headings</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="afmt-lists" checked> Lists</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="afmt-paras" checked> Other paragraphs</label></div>
+    <hr style="margin:6px 0;border:none;border-top:1px solid var(--border)">
+    <div class="ac-row" style="justify-content:flex-start"><label style="font-weight:700">Replace:</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="afmt-quotes" checked> "Straight quotes" with “smart quotes”</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="afmt-ordinals" checked> Ordinals (1st) with superscript</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="afmt-fractions" checked> Fractions (1/2) with fraction character</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="afmt-hyphens" checked> Hyphens (--) with dash</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="afmt-links" checked> Internet and network paths with hyperlinks</label></div>
+    <hr style="margin:6px 0;border:none;border-top:1px solid var(--border)">
+    <div class="ac-row" style="justify-content:flex-start"><label style="font-weight:700">Preserve:</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="afmt-preserve" checked> Styles (prevents existing style hierarchy from being overwritten)</label></div>
+    <hr style="margin:6px 0;border:none;border-top:1px solid var(--border)">
+    <div class="ac-row" style="justify-content:flex-start"><label style="font-weight:700">Always perform:</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="afmt-plain" checked> Plain text Word documents with standard formatting</label></div>
+    <div class="ac-btns"><button class="btn" onclick="closeAutoCorrectDialog()">Cancel</button><button class="btn primary" onclick="doAutoFormatDocument()">AutoFormat Document</button></div>
+  </div>
+  <div class="ac-tabpanel" id="acp-actions">
+    <div class="ac-row"><label><input type="checkbox" id="ac-actions" ${ACTIONS_SET.enabled ? 'checked' : ''}> Enable additional actions in the right-click menu</label><span class="ac-desc">Contextually flags dates, contacts, addresses to suggest associated tasks</span></div>
+    <div class="ac-row" style="justify-content:flex-start"><label style="font-weight:700">Detected entities (example):</label></div>
+    <table class="ac-table"><thead><tr><th style="width:30%">Entity</th><th style="width:40%">Text</th><th style="width:30%">Suggested action</th></tr></thead><tbody><tr><td>Date</td><td>Oct 15, 2026</td><td>Create calendar invite</td></tr><tr><td>Contact</td><td>Jane Doe</td><td>Email contact</td></tr><tr><td>Address</td><td>123 Main St</td><td>View on map</td></tr></tbody></table>
+    <div class="ac-btns"><button class="btn" onclick="closeAutoCorrectDialog()">Cancel</button><button class="btn primary" onclick="saveAutoCorrectDialog()">OK</button></div>
+  </div>
+  `;
+  showModal('AutoCorrect Options', html);
+  document.getElementById('ac-rules-body').innerHTML = rulesHtml;
+  // wire rule inputs live
+  document.getElementById('ac-rules-body').querySelectorAll('.ac-in-find,.ac-in-repl,.ac-in-fmt').forEach(inp => {
+    inp.addEventListener('change', () => { const i = +inp.dataset.i; if (inp.classList.contains('ac-in-fmt')) AC_RULES[i].formatted = inp.checked; else if (inp.classList.contains('ac-in-find')) AC_RULES[i].find = inp.value; else AC_RULES[i].replace = inp.value; });
+  });
+}
+function acSwitchTab(el, name) {
+  document.querySelectorAll('.ac-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.ac-tabpanel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('acp-' + name).classList.add('active');
+}
+function acAddRule() {
+  const f = document.getElementById('ac-new-find').value.trim(); const r = document.getElementById('ac-new-repl').value.trim();
+  if (!f) return;
+  AC_RULES.push({ find: f, replace: r, formatted: false });
+  saveAC();
+  document.getElementById('ac-new-find').value = ''; document.getElementById('ac-new-repl').value = '';
+  openAutoCorrectDialog(); // refresh
+}
+function acDeleteRule(i) { AC_RULES.splice(i, 1); saveAC(); openAutoCorrectDialog(); }
+function acRemoveExc(list, w) {
+  AC_EXC[list] = AC_EXC[list].filter(x => x !== decodeURIComponent(w.replace(/%5C/g,'\\')).replace(/\\'/g,"'"));
+  saveAC(); openAutoCorrectDialog();
+}
+function closeAutoCorrectDialog() { closeModal(); }
+function saveAutoCorrectDialog() {
+  AC_SET.enabled = document.getElementById('ac-enable').checked;
+  AC_SET.showSmartButton = document.getElementById('ac-smart').checked;
+  AC_SET.twoInitialCaps = document.getElementById('ac-two').checked;
+  AC_SET.sentenceCase = document.getElementById('ac-sentence').checked;
+  AC_SET.tableCellCaps = document.getElementById('ac-tablecell').checked;
+  AC_SET.dayNames = document.getElementById('ac-days').checked;
+  AC_SET.capsLock = document.getElementById('ac-capslock').checked;
+  AC_SET.replaceAsYouType = document.getElementById('ac-replace').checked;
+  AC_SET.autoSuggest = document.getElementById('ac-autosuggest').checked;
+  AC_SET.mathOutside = document.getElementById('ac-mathout').checked;
+  AF_SET.smartQuotes = document.getElementById('af-smartquotes').checked;
+  AF_SET.fractions = document.getElementById('af-fractions').checked;
+  AF_SET.markdown = document.getElementById('af-markdown').checked;
+  AF_SET.hyperlinks = document.getElementById('af-hyperlinks').checked;
+  AF_SET.ordinals = document.getElementById('af-ordinals').checked;
+  AF_SET.hyphens = document.getElementById('af-hyphens').checked;
+  AF_SET.autoBullets = document.getElementById('af-bullets').checked;
+  AF_SET.autoNumbered = document.getElementById('af-numbered').checked;
+  AF_SET.borderLines = document.getElementById('af-borders').checked;
+  AF_SET.textTables = document.getElementById('af-texttables').checked;
+  AF_SET.headingStyles = document.getElementById('af-headings').checked;
+  AF_SET.formatListItem = document.getElementById('af-formatitem').checked;
+  AF_SET.tabIndent = document.getElementById('af-tabindent').checked;
+  AF_SET.defineStyles = document.getElementById('af-definestyle').checked;
+  ACTIONS_SET.enabled = document.getElementById('ac-actions').checked;
+  saveAC();
+  closeModal();
+  showToast('AutoCorrect options saved', 'ok');
+}
+function doAutoFormatDocument() { closeModal(); autoFormatDocument(); }
+
+// ═══════ COLOR PALETTE PICKERS (Font Color & Highlighter) ═══════
+// Theme colours mirror Word's default palette (background/text 1-2 + six accents).
+const THEME_COLORS = [
+  { name: 'Background 1', hex: '#ffffff' },
+  { name: 'Text 1', hex: '#000000' },
+  { name: 'Background 2', hex: '#e7e6e6' },
+  { name: 'Text 2', hex: '#44546a' },
+  { name: 'Accent 1', hex: '#4472c4' },
+  { name: 'Accent 2', hex: '#ed7d31' },
+  { name: 'Accent 3', hex: '#a5a5a5' },
+  { name: 'Accent 4', hex: '#ffc000' },
+  { name: 'Accent 5', hex: '#5b9bd5' },
+  { name: 'Accent 6', hex: '#70ad47' }
+];
+const STANDARD_COLORS = [
+  { name: 'Dark Red', hex: '#c00000' },
+  { name: 'Red', hex: '#ff0000' },
+  { name: 'Orange', hex: '#ffc000' },
+  { name: 'Yellow', hex: '#ffff00' },
+  { name: 'Light Green', hex: '#92d050' },
+  { name: 'Green', hex: '#00b050' },
+  { name: 'Light Blue', hex: '#00b0f0' },
+  { name: 'Blue', hex: '#0070c0' },
+  { name: 'Dark Blue', hex: '#002060' },
+  { name: 'Purple', hex: '#7030a0' }
+];
+let currentColorType = null; // 'fontcolor' | 'highlight'
+
+const pickerId = (type) => type === 'fontcolor' ? 'fontcolor-picker' : 'highlighter-picker';
+
+function openColorPicker(btn, type) {
+  const picker = document.getElementById(pickerId(type));
+  if (!picker) return;
+  // toggle: clicking the same ribbon button again closes it
+  const alreadyOpen = picker.classList.contains('show');
+  closeDropdowns();
+  if (alreadyOpen) { currentColorType = null; return; }
+  currentColorType = type;
+  populateColorGrid(type);
+  openMenu(picker, btn); // position:fixed, placed from the button rect
+}
+function closeColorPickers() {
+  ['fontcolor', 'highlight'].forEach(t => closeMenu(document.getElementById(pickerId(t))));
+  currentColorType = null;
+}
+function populateColorGrid(type) {
+  const t = document.getElementById(type === 'fontcolor' ? 'fontcolor-theme-grid' : 'highlighter-theme-grid');
+  const s = document.getElementById(type === 'fontcolor' ? 'fontcolor-std-grid' : 'highlighter-std-grid');
+  const render = list => list.map(c => `<div class="cp-swatch" style="background:${c.hex}" title="${c.name}" onclick="applyColorSwatch('${c.hex}','${type}')"></div>`).join('');
+  if (t) t.innerHTML = render(THEME_COLORS);
+  if (s) s.innerHTML = render(STANDARD_COLORS);
+}
+// keep the little A preview on the ribbon button in sync with the last applied colour
+// (setRibbonSwatch lives in module 05; selection changes update it too)
+function applyColorSwatch(color, type) {
+  type === 'fontcolor' ? setFontColor(color) : setHighlight(color);
+}
+// 'Automatic' / 'No Color' pass 'inherit' / 'transparent' through the same path
+function setFontColor(color) {
+  closeColorPickers();
+  editor.focus();
+  document.execCommand('styleWithCSS', false, true);
+  document.execCommand('foreColor', false, color === 'inherit' ? 'inherit' : color);
+  document.execCommand('styleWithCSS', false, false);
+  saveUndo(); updateStatus();
+  setRibbonSwatch('fontcolor', color === 'inherit' ? '#c00000' : color);
+  showToast('Font color applied', 'ok');
+}
+function setHighlight(color) {
+  closeColorPickers();
+  editor.focus();
+  document.execCommand('styleWithCSS', false, true);
+  document.execCommand('hiliteColor', false, (!color || color === 'transparent') ? 'transparent' : color);
+  document.execCommand('styleWithCSS', false, false);
+  saveUndo(); updateStatus();
+  setRibbonSwatch('highlight', color === 'transparent' ? '#ffff00' : color);
+  showToast('Highlight color applied', 'ok');
+}
+function pickCustomColor(type) {
+  const input = document.getElementById(type === 'fontcolor' ? 'fontcolor-custom' : 'highlighter-custom');
+  if (!input) return;
+  input.onchange = () => applyColorSwatch(input.value, type);
+  // the picker stays open: closing it first would drop the user gesture and blank the dialog
+  input.click();
+}
+function showGradientMessage() {
+  closeColorPickers();
+  showModal('Gradient', '<p style="color:var(--text-2);font-size:11px">Gradient text color is not available in this edition.</p><div style="text-align:right;margin-top:10px"><button class="btn" onclick="closeModal()">OK</button></div>');
+}
+// close pickers on Escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeColorPickers();
+});
+// close pickers when clicking outside
+document.addEventListener('mousedown', (e) => {
+  if (!e.target.closest('.dropdown') && !e.target.closest('.color-picker')) closeColorPickers();
+});
+
+// ═══════ INIT ═══════
+loadDict();
+loadAC();
+// fill the palettes up front so the pickers are never blank when they open
+populateColorGrid('fontcolor');
+populateColorGrid('highlight');
+// wire AutoFormat-As-You-Type triggers on keydown (Enter for lists/borders/tables/headings; space for math/smart-quotes tail)
+editor.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { if (handleAutoFormatKey(e)) { e.preventDefault(); } }
+  if (e.key === ' ') { handleMathOnSpace(); }
+  // terminal punctuation sentence case: if user types . ! ? then a letter, handled on next input word boundary loosely
+});
+// initial spell mark after load
+setTimeout(markSpellingErrors, 800);
+console.log('Module 09 (spell/autocorrect/autofORMAT/actions) loaded OK');
+</script>

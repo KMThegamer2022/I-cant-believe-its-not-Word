@@ -64,12 +64,39 @@ editor.addEventListener('input', () => { updateStatus(); saveUndo(); scheduleAut
 updateStatus();
 saveUndo();
 
+// Keep the little colour preview on the Font Color / Highlight buttons in step with reality.
+function setRibbonSwatch(type, color) {
+  const btn = document.querySelector(type === 'fontcolor' ? '#dd-fontcolor > button' : '#dd-highlight > button');
+  const span = btn && btn.querySelector('span');
+  if (!span || !color) return;
+  if (type === 'fontcolor') span.style.color = color;
+  else span.style.background = color;
+}
+// Leading character's computed colour, or null when there is nothing to read.
+// Anchored on the first character so a mixed selection reports its first format.
+function selectionColor(prop) {
+  const sel = window.getSelection();
+  if (!sel.rangeCount || sel.isCollapsed) return null;
+  const node = sel.getRangeAt(0).startContainer;
+  const el = node.nodeType === 3 ? node.parentElement : node;
+  if (!el || !editor.contains(el)) return null;
+  const v = getComputedStyle(el)[prop];
+  return (!v || v === 'transparent' || v === 'rgba(0, 0, 0, 0)') ? null : v;
+}
+
 // Track active formatting buttons
 function checkActiveButtons() {
   const b = (id, cmdName) => { const el = document.getElementById(id); if (el) try { el.classList.toggle('active', document.queryCommandState(cmdName)); } catch (e) {} };
   b('btn-bold', 'bold'); b('btn-italic', 'italic'); b('btn-underline', 'underline');
+  // the colour buttons used to only remember the last colour clicked, so selecting text that
+  // already had a highlight showed the wrong colour
+  const hl = selectionColor('backgroundColor');
+  if (hl) setRibbonSwatch('highlight', hl);
+  const fc = selectionColor('color');
+  if (fc) setRibbonSwatch('fontcolor', fc);
 }
 document.addEventListener('selectionchange', checkActiveButtons);
+checkActiveButtons();
 
 // ═══════════════ THEME / PAGE MODE / SETTINGS ═══════════════
 const DEFAULT_SETTINGS = {

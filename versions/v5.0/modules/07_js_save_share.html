@@ -24,7 +24,7 @@ function standaloneHtml(name) {
     '<style>body{font-family:Georgia,serif;max-width:816px;margin:0 auto;padding:72px;line-height:1.5;color:#111;background:#fff}' +
     'img{max-width:100%}table{border-collapse:collapse;width:100%}td,th{border:1px solid #999;padding:6px 8px}' +
     'h1,h2,h3{color:#2b579a}blockquote{border-left:3px solid #ccc;margin-left:0;padding-left:12px;color:#555}</style>\n' +
-    '</head>\n<body>\n' + editor.innerHTML.replace(/<canvas[^>]*>[\s\S]*?<\/canvas>/gi, '') + '\n</body>\n</html>';
+    '</head>\n<body>\n' + cleanEditorHTML().replace(/<canvas[^>]*>[\s\S]*?<\/canvas>/gi, '') + '\n</body>\n</html>';
 }
 // Export any supported format; resolves after the download starts.
 function exportAs(type, name) {
@@ -34,11 +34,11 @@ function exportAs(type, name) {
       let blob = null, fname = name + '.' + type;
       switch (type) {
         case 'docx':
-          buildDocx(editor, name).then(b => { downloadBlob(b, fname); showToast('Saved <b>' + fname + '</b> — check your Downloads folder', 'ok'); resolve(true); })
+          buildDocx(cleanEditorNode(), name).then(b => { downloadBlob(b, fname); showToast('Saved <b>' + fname + '</b> — check your Downloads folder', 'ok'); resolve(true); })
             .catch(e => { console.error(e); showToast('DOCX export failed: ' + e.message, 'err'); resolve(false); });
           return;
         case 'doc':
-          blob = new Blob(['\ufeff<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>' + name + '</title></head><body>' + editor.innerHTML + '</body></html>'], { type: 'application/msword' });
+          blob = new Blob(['\ufeff<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>' + name + '</title></head><body>' + cleanEditorHTML() + '</body></html>'], { type: 'application/msword' });
           break;
         case 'rtf':
           blob = new Blob([buildRtf()], { type: 'application/rtf' });
@@ -57,7 +57,7 @@ function exportAs(type, name) {
       if (ok) {
         showToast('Saved <b>' + fname + '</b> — check your Downloads folder', 'ok');
         try {
-          localStorage.setItem('wordclone-lastdoc', editor.innerHTML);
+          localStorage.setItem('wordclone-lastdoc', cleanEditorHTML());
           localStorage.setItem('wordclone-lastname', name);
         } catch (e) {}
       }
@@ -184,7 +184,7 @@ function scheduleAutoSave() {
 function doAutoSave() {
   if (typeof SETTINGS === 'undefined' || !SETTINGS.autosave) return;
   try {
-    localStorage.setItem('wordclone-autosave', editor.innerHTML);
+    localStorage.setItem('wordclone-autosave', cleanEditorHTML());
     localStorage.setItem('wordclone-autosave-time', new Date().toISOString());
     localStorage.setItem('wordclone-autosave-name', docName());
     const st = document.getElementById('autosave-state');
@@ -211,7 +211,7 @@ function toggleAutoSave() {
 function maybeRestoreAutosave() {
   let saved = null;
   try { saved = localStorage.getItem('wordclone-autosave'); } catch (e) {}
-  if (!saved || saved === editor.innerHTML) return;
+  if (!saved || saved === cleanEditorHTML()) return;   // compare without transient spell markup
   const c = document.getElementById('toast-container');
   if (!c) return;
   const t = document.createElement('div');
@@ -275,7 +275,7 @@ async function shareDoc() {
 function shareByEmail() { return shareDoc(); }
 function shareAsLink() {
   try {
-    const data = btoa(unescape(encodeURIComponent(editor.innerHTML)));
+    const data = btoa(unescape(encodeURIComponent(cleanEditorHTML())));
     const url = window.location.href.split('#')[0] + '#doc=' + data;
     navigator.clipboard.writeText(url).then(() => showToast('Link copied to clipboard', 'ok'))
       .catch(() => showToast('Could not copy link — document may be too large', 'warn'));

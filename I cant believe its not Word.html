@@ -164,8 +164,9 @@ select,input{font-family:inherit;font-size:13px;color:var(--text);background:var
 .rselect{border:1px solid var(--input-border);border-radius:4px;padding:2px 4px;background:var(--input-bg);font-size:12px;height:24px;color:var(--text)}
 .rinput{border:1px solid var(--input-border);border-radius:4px;padding:2px 4px;width:48px;text-align:center;font-size:12px;height:24px;background:var(--input-bg);color:var(--text)}
 .dropdown{position:relative}
-.dropdown-menu{display:none;position:absolute;top:100%;left:0;background:var(--panel-bg);border:1px solid var(--border);border-radius:6px;box-shadow:var(--shadow);z-index:1000;min-width:180px;padding:4px 0;max-height:320px;overflow-y:auto}
-.dropdown-menu.show{display:block}
+.dropdown-menu{display:none;position:absolute;top:100%;left:0;background:var(--panel-bg);border:1px solid var(--border);border-radius:6px;box-shadow:var(--shadow);z-index:7000;min-width:180px;padding:4px 0;max-height:320px;overflow-y:auto}
+/* Open menus become position:fixed so they escape #ribbon's overflow clip (JS sets top/left from the trigger). */
+.dropdown-menu.show{display:block;position:fixed;top:0;left:0;max-height:calc(100vh - 16px)}
 .dropdown-menu button{display:block;width:100%;text-align:left;padding:6px 14px;font-size:12px;border:none;background:none;cursor:pointer;color:var(--text)}
 .dropdown-menu button:hover{background:var(--hover)}
 .dropdown-menu hr{border:none;border-top:1px solid var(--border);margin:4px 8px}
@@ -190,6 +191,8 @@ html[data-pagemode="light"] #editor-page .page-break::after{background:#fff}
 #editor-page.view-draft{width:100%!important;min-height:auto!important;padding:8px 48px}
 /* ── Default document typography ── */
 #editor-page p,#editor-page li{color:inherit}
+/* paragraphs created with Enter were flush against each other with no breathing room */
+#editor-page p{margin:0 0 .55em}
 #editor-page h1,#editor-page h2,#editor-page h3{color:var(--heading-color)}
 /* ── Panels / panes / dialogs share dark surfaces ── */
 .pane{background:var(--panel-bg);color:var(--text);border-color:var(--border)}
@@ -265,6 +268,87 @@ input[type=range]{accent-color:var(--blue)}
   .page-break{border-top:1px dashed #999!important}
   .page-break::after{display:none}
 }
+
+/* ═══════════════ SPELL CHECK MARKUP ═══════════════ */
+.icw-spell{position:relative;color:#c00}
+.icw-spell::after{content:'';position:absolute;left:0;right:0;bottom:0;height:1px;background:repeating-linear-gradient(#c00 0,#c00 1px,transparent 1px,transparent 2px);pointer-events:none}
+.icw-grammar{position:relative;color:#7b1fa2}
+.icw-grammar::after{content:'';position:absolute;left:0;right:0;bottom:1px;height:1px;background:repeating-linear-gradient(#7b1fa2 0,#7b1fa2 1px,transparent 1px,transparent 2px);pointer-events:none}
+.icw-ignore{text-decoration:none;color:inherit}
+
+/* ═══════════════ ENHANCED COLOR PALETTE PICKERS ═══════════════ */
+/* NB: must stay display:none until .show — otherwise it overrides .dropdown-menu{display:none} and is always visible */
+.dropdown-menu.color-picker{display:none;flex-direction:column;gap:6px;padding:8px;min-width:210px}
+.dropdown-menu.color-picker.show{display:flex}
+.color-picker .cp-row{display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:4px;cursor:pointer;font-size:12px;color:var(--text)}
+.color-picker .cp-row:hover{background:var(--hover)}
+.color-picker .cp-row .cp-chip{width:22px;height:22px;border-radius:3px;border:1px solid var(--input-border);flex-shrink:0;box-shadow:0 0 0 1px rgba(0,0,0,.15) inset}
+.color-picker .cp-row.auto .cp-chip{background-image:linear-gradient(45deg,#999 25%,transparent 25%,transparent 75%,#999 75%,#999),linear-gradient(45deg,#999 25%,transparent 25%,transparent 75%,#999 75%,#999);background-size:8px 8px;background-position:0 0,4px 4px;border-color:#999}
+.color-picker .cp-row.none .cp-chip{background:#fff;border:2px solid #c00}
+.color-picker .cp-label{font-size:11.5px;color:var(--text-2);white-space:nowrap;flex:1}
+.color-picker .cp-sep{border-top:1px solid var(--border);margin:5px 0}
+.color-picker .cp-head{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#e8c46a;font-weight:700;padding:2px 8px}
+.color-picker .cp-more{display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:4px;cursor:pointer;font-size:12px;color:var(--text)}
+.color-picker .cp-more:hover{background:var(--hover)}
+.color-picker .cp-grid{display:grid;grid-template-columns:repeat(5,20px);gap:4px;padding:2px 6px}
+.color-picker .cp-swatch{width:20px;height:20px;border:1px solid var(--input-border);border-radius:3px;cursor:pointer;box-shadow:0 0 0 1px rgba(0,0,0,.15) inset}
+.color-picker .cp-swatch:hover{transform:scale(1.3);z-index:2;position:relative}
+.color-picker .cp-swatch.active{box-shadow:0 0 0 2px var(--blue)}
+.color-picker .cp-ico{width:16px;text-align:center;flex-shrink:0;color:var(--text-2)}
+
+/* custom color input row */
+.color-picker .cp-custom{display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:4px;cursor:pointer}
+.color-picker .cp-custom:hover{background:var(--hover)}
+.color-picker input[type=color]{width:26px;height:22px;border:none;background:none;cursor:pointer;padding:0}
+
+/* ═══════════════ EDITOR ISSUE CARDS ═══════════════ */
+.ecard{border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-bottom:7px;background:var(--panel-bg2)}
+.ecard .etitle{font-size:11.5px;font-weight:700;display:flex;gap:6px;align-items:center;color:var(--text)}
+.ecard .ecount{color:var(--text-2);font-weight:600}
+.ecard .esub{font-size:11px;color:var(--text-2);margin:4px 0 6px}
+.ecard .ereplace{display:flex;gap:6px;flex-wrap:wrap}
+.ecard .ereplace button{font-size:11px;padding:3px 9px;border:1px solid var(--input-border);border-radius:4px;background:var(--input-bg);color:var(--text);cursor:pointer}
+.ecard .ereplace button:hover{background:var(--hover)}
+.ecard .ereplace button .earrow{color:var(--text-2);margin:0 1px}
+.ecard .enone{padding:3px 9px;font-size:11px;border:1px dashed var(--input-border);border-radius:4px;color:var(--text-2);opacity:.8}
+.ecard .ereplace .apply{background:var(--blue);color:#fff;border-color:var(--blue)}
+.ecard .ereplace .apply:hover{background:var(--blue-light)}
+.ecard .ecat{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-2);margin-bottom:4px}
+
+/* ═══════════════ AUTOCORRECT / AUTOFORMAT MODAL ═══════════════ */
+.ac-modal{width:820px;max-width:94vw;max-height:92vh}
+.ac-tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:8px}
+.ac-tab{padding:9px 16px;font-size:12.5px;color:var(--text-2);cursor:pointer;border-bottom:2px solid transparent}
+.ac-tab:hover{background:var(--hover)}
+.ac-tab.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:600}
+.ac-tabpanel{display:none;overflow-y:auto;max-height:64vh;padding-bottom:6px}
+.ac-tabpanel.active{display:block}
+.ac-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12.5px}
+.ac-row:last-child{border-bottom:none}
+.ac-row label{font-size:12px;color:var(--text);cursor:pointer;flex:1}
+.ac-row .ac-desc{font-size:11px;color:var(--text-2)}
+.ac-actions{display:flex;gap:6px}
+.ac-table{width:100%;border-collapse:collapse;font-size:12px;margin:6px 0}
+.ac-table th,.ac-table td{border:1px solid var(--border);padding:5px 8px;text-align:left}
+.ac-table th{background:var(--panel-bg2);font-weight:600;color:var(--text-2)}
+.ac-table tr:hover{background:var(--hover)}
+.ac-chip{display:inline-flex;align-items:center;gap:4px;padding:1px 7px;border-radius:9px;border:1px solid var(--border);font-size:10.5px;color:var(--text-2)}
+.ac-chip.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+.ac-chip .ac-del{margin-left:5px;cursor:pointer;color:var(--text-2);font-weight:700}
+.ac-chip .ac-del:hover{color:var(--danger)}
+.ac-inputs{display:flex;gap:8px;align-items:center}
+.ac-inputs input{flex:1;min-width:140px}
+.ac-hint{font-size:11px;color:var(--text-2);margin-top:4px}
+.ac-btns{display:flex;gap:8px;margin-top:10px}
+.spell-item{padding:6px 10px;border-bottom:1px solid var(--border);cursor:pointer;font-size:12px}
+.spell-item:last-child{border-bottom:none}
+.spell-item:hover{background:var(--hover)}
+.spell-word{font-weight:600;color:var(--text)}
+.spell-def{font-size:11px;color:var(--text-2);margin-top:2px}
+.actions-item{padding:6px 10px;border-bottom:1px solid var(--border);cursor:pointer;font-size:12px;display:flex;align-items:center;gap:8px}
+.actions-item:last-child{border-bottom:none}
+.actions-item:hover{background:var(--hover)}
+.actions-item .ai-kind{font-size:10px;color:#e8c46a;font-weight:700;min-width:70px}
 </style>
 </head>
 <body>
@@ -431,17 +515,41 @@ console.log('Backstage functions loaded OK');
           <button onclick="changeCase('toggle')">tOGGLE cASE</button>
         </div>
       </div>
-      <div class="dropdown">
-        <button class="rbtn small" title="Text Effects" style="font-weight:700;color:#7b1fa2">A&#9660;</button>
-        <div class="dropdown-menu"><div class="color-grid" id="text-effects-grid"></div></div>
+      <div class="dropdown" id="dd-textfx">
+        <button class="rbtn small" onclick="toggleDropdown(this,'dd-textfx-menu')" title="Text Effects" style="font-weight:700;color:#7b1fa2">A&#9660;</button>
+        <div class="dropdown-menu" id="dd-textfx-menu"><div class="color-grid" id="text-effects-grid"></div></div>
       </div>
-      <div class="dropdown">
-        <button class="rbtn small" title="Highlight Color"><span style="background:#ffff00;padding:0 4px;border-bottom:3px solid #c00">A</span>&#9660;</button>
-        <div class="dropdown-menu"><div class="color-grid" id="highlight-grid"></div></div>
+      <div class="dropdown" id="dd-highlight">
+        <button class="rbtn small" onclick="openColorPicker(this,'highlight')" title="Text Highlight Color"><span style="background:#ffff00;padding:0 4px;border-bottom:3px solid #c00">A</span>&#9660;</button>
+        <div class="dropdown-menu color-picker" id="highlighter-picker">
+          <div class="cp-head">Text Highlight Color</div>
+          <div class="cp-row none" onclick="setHighlight('transparent')"><span class="cp-chip none" style="background:#fff"></span><span class="cp-label">No Color</span></div>
+          <div class="cp-sep"></div>
+          <div class="cp-head">Theme Colors</div>
+          <div class="cp-grid" id="highlighter-theme-grid"></div>
+          <div class="cp-sep"></div>
+          <div class="cp-head">Standard Colors</div>
+          <div class="cp-grid" id="highlighter-std-grid"></div>
+          <div class="cp-sep"></div>
+          <div class="cp-custom" onclick="pickCustomColor('highlight')"><input type="color" id="highlighter-custom" value="#ffff00" onclick="event.stopPropagation()"><span class="cp-label">More Colors…</span></div>
+        </div>
       </div>
-      <div class="dropdown">
-        <button class="rbtn small" title="Font Color"><span style="color:#c00;font-weight:700">A</span>&#9660;</button>
-        <div class="dropdown-menu"><div class="color-grid" id="fontcolor-grid"></div></div>
+      <div class="dropdown" id="dd-fontcolor">
+        <button class="rbtn small" onclick="openColorPicker(this,'fontcolor')" title="Font Color"><span style="color:#c00;font-weight:700">A</span>&#9660;</button>
+        <div class="dropdown-menu color-picker" id="fontcolor-picker">
+          <div class="cp-head">Font Color</div>
+          <div class="cp-row auto" onclick="setFontColor('inherit')"><span class="cp-chip auto"></span><span class="cp-label">Automatic</span></div>
+          <div class="cp-sep"></div>
+          <div class="cp-head">Theme Colors</div>
+          <div class="cp-grid" id="fontcolor-theme-grid"></div>
+          <div class="cp-sep"></div>
+          <div class="cp-head">Standard Colors</div>
+          <div class="cp-grid" id="fontcolor-std-grid"></div>
+          <div class="cp-sep"></div>
+          <div class="cp-custom" onclick="pickCustomColor('fontcolor')"><input type="color" id="fontcolor-custom" value="#000000" onclick="event.stopPropagation()"><span class="cp-label">More Colors…</span></div>
+          <div class="cp-sep"></div>
+          <div class="cp-more" onclick="showGradientMessage()"><span class="cp-ico">&#9654;</span><span class="cp-label">Gradient</span></div>
+        </div>
       </div>
     </div>
     <div class="rgroup-label">Font</div>
@@ -476,9 +584,9 @@ console.log('Backstage functions loaded OK');
           <button onclick="setParaSpacing(0,0)">No Space Before/After</button>
         </div>
       </div>
-      <div class="dropdown">
-        <button class="rbtn small" title="Shading">&#9634;&#9660;</button>
-        <div class="dropdown-menu"><div class="color-grid" id="shading-grid"></div></div>
+      <div class="dropdown" id="dd-shading">
+        <button class="rbtn small" onclick="toggleDropdown(this,'dd-shading-menu')" title="Paragraph Shading">&#9634;&#9660;</button>
+        <div class="dropdown-menu" id="dd-shading-menu"><div class="color-grid" id="shading-grid"></div></div>
       </div>
       <button class="rbtn small" onclick="showBordersMenu(this)" title="Borders">&#9605;&#9660;</button>
     </div>
@@ -503,6 +611,7 @@ console.log('Backstage functions loaded OK');
     <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
       <button class="rbtn small" onclick="showFind()" title="Find (Ctrl+F)"><span class="icon">&#128269;</span><span class="lbl">Find</span></button>
       <button class="rbtn small" onclick="showReplace()" title="Replace (Ctrl+H)"><span class="icon">&#8644;</span><span class="lbl">Replace</span></button>
+      <button class="rbtn small" onclick="openAutoCorrectDialog()" title="AutoCorrect Options"><span class="icon">&#10003;</span><span class="lbl">AutoCorrect</span></button>
       <button class="rbtn small" onclick="showSelectMenu()" title="Select"><span class="icon">&#9634;</span><span class="lbl">Select</span></button>
     </div>
     <div class="rgroup-label">Editing</div>
@@ -832,6 +941,7 @@ console.log('Backstage functions loaded OK');
     <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
       <button class="rbtn small" onclick="showEditorPanel()"><span class="icon">&#9998;</span><span class="lbl">Editor</span></button>
       <button class="rbtn small" onclick="cmd('checkSpelling')"><span class="icon">&#10003;</span><span class="lbl">Spelling</span></button>
+      <button class="rbtn small" onclick="openAutoCorrectDialog()"><span class="icon">&#10003;</span><span class="lbl">AutoCorrect Options&hellip;</span></button>
       <button class="rbtn small" onclick="showThesaurus()"><span class="icon">&#128218;</span><span class="lbl">Thesaurus</span></button>
       <button class="rbtn small" onclick="showWordCount()"><span class="icon">&#9776;</span><span class="lbl">Word Count</span></button>
     </div>
@@ -1151,7 +1261,7 @@ console.log('Backstage functions loaded OK');
 </div>
 <!-- ═══════ TABLE GRID PICKER ═══════ -->
 <div id="table-picker" class="pane" style="display:none;position:fixed;background:var(--panel-bg);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow);padding:10px;z-index:2000">
-  <div id="table-grid" style="display:grid;grid-template-columns:repeat(10,24px);gap:2px"></div>
+  <div id="table-grid" style="display:grid;grid-template-columns:repeat(12,24px);gap:2px"></div>
   <div id="table-grid-label" style="text-align:center;margin-top:6px;font-size:12px">Insert Table</div>
 </div>
 <!-- ═══════ MODAL ═══════ -->
@@ -1202,7 +1312,15 @@ console.log('Backstage functions loaded OK');
   <div class="cm-item" onclick="cmAction('synonyms')"><span class="cm-ico">&#128218;</span>Synonyms</div>
   <div class="cm-item" onclick="cmAction('translate')"><span class="cm-ico">&#127760;</span>Translate selection</div>
   <div class="cm-item" onclick="cmAction('search')"><span class="cm-ico">&#128269;</span>Search</div>
-  <div class="cm-sep"></div>
+  <!-- spell check submenu (shown only when a misspelled word is targeted) -->
+  <div class="cm-sep" id="cm-spell-sep" style="display:none"></div>
+  <div class="cm-head" id="cm-spell-head" style="display:none">Spelling</div>
+  <div id="cm-spell-list" style="display:none"></div>
+  <div class="cm-item" id="cm-ignore-once" style="display:none" onclick="cmSpellAction('ignoreOnce')"><span class="cm-ico">&#9650;</span>Ignore Once</div>
+  <div class="cm-item" id="cm-ignore-all" style="display:none" onclick="cmSpellAction('ignoreAll')"><span class="cm-ico">&#9633;</span>Ignore All</div>
+  <div class="cm-item" id="cm-add-dict" style="display:none" onclick="cmSpellAction('addDict')"><span class="cm-ico">&#128221;</span>Add to Dictionary</div>
+  <div class="cm-item" id="cm-add-ac" style="display:none" onclick="cmSpellAction('addAc')"><span class="cm-ico">&#10003;</span>Add to AutoCorrect</div>
+  <div class="cm-sep" id="cm-spell-sep2" style="display:none"></div>
   <div class="cm-head">&#9855; Accessibility Assistant</div>
   <div class="cm-item" onclick="cmAction('access-run')"><span class="cm-ico">&#9881;</span>Run Accessibility Assistant</div>
   <div class="cm-item" onclick="cmAction('access-alt')"><span class="cm-ico">&#128444;</span>Check alt text</div>
@@ -1213,6 +1331,10 @@ console.log('Backstage functions loaded OK');
   <div class="cm-sep"></div>
   <div class="cm-item" onclick="cmAction('wordcount')"><span class="cm-ico">&#9776;</span>Word Count</div>
   <div class="cm-item" onclick="cmAction('translate-doc')"><span class="cm-ico">&#127760;</span>Translate Document</div>
+  <!-- Actions / Smart Tags submenu (shown when a date, contact or address is targeted) -->
+  <div class="cm-sep" id="cm-actions-sep" style="display:none"></div>
+  <div class="cm-head" id="cm-actions-head" style="display:none">Actions</div>
+  <div id="cm-actions-list" style="display:none"></div>
 </div>
 <!-- ═══════ MINI TOOLBAR (selection) ═══════ -->
 <div id="mini-toolbar">
@@ -1264,11 +1386,39 @@ console.log('Backstage functions loaded OK');
 <script>
 // ═══════════════ CORE EDITOR ═══════════════
 const editor = document.getElementById('editor-page');
-let undoStack = [], redoStack = [], savedRange = null;
+let undoStack = [], redoStack = [];
 
+// ── Selection tracking ────────────────────────────────────────────────────────
+// execCommand only does something when there is a live selection inside the editor.
+// Clicking a ribbon control moves focus off the contenteditable and the selection goes
+// with it, so commands run from the ribbon were silently no-ops on a fresh document.
+// Remember the last in-editor selection and put it back before running a command.
+let savedRange = null;
+function rememberEditorSelection() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  const r = sel.getRangeAt(0);
+  if (editor.contains(r.startContainer)) savedRange = r.cloneRange();
+}
+document.addEventListener('selectionchange', rememberEditorSelection);
+function selectionInEditor() {
+  const sel = window.getSelection();
+  return !!(sel.rangeCount && editor.contains(sel.getRangeAt(0).startContainer));
+}
+// Put the caret back where the user left it. Returns false if there is nothing to restore.
+function restoreEditorSelection() {
+  if (selectionInEditor()) return true;
+  if (!savedRange || !editor.contains(savedRange.startContainer)) { savedRange = null; return false; }
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(savedRange);
+  return true;
+}
 function cmd(c, v) {
-  document.execCommand(c, false, v || null);
   editor.focus();
+  restoreEditorSelection();
+  document.execCommand(c, false, v || null);
+  rememberEditorSelection();
   updateStatus();
   saveUndo();
 }
@@ -1299,31 +1449,52 @@ function doRedo() {
 // Font
 function applyFontFamily(f) { cmd('fontName', f); }
 function applyFontSize(s) {
-  // execCommand fontSize only takes 1-7, so wrap in span
+  // execCommand fontSize only takes 1-7, so wrap in span.
+  // extractContents()/insertNode() are Range methods — Selection has neither.
+  editor.focus();
+  if (!restoreEditorSelection()) { showToast('Click in the document first', 'warn'); return; }
   const sel = window.getSelection();
   if (!sel.rangeCount) return;
   const span = document.createElement('span');
   span.style.fontSize = s + 'pt';
-  try { span.appendChild(sel.extractContents()); sel.insertNode(span); } catch(e) {}
+  if (!wrapSelectionInSpan(sel, span)) return;
+  rememberEditorSelection();
+  updateStatus();
   saveUndo();
 }
-function growFont() {
-  const sel = window.getSelection();
-  if (!sel.rangeCount) return;
-  const el = sel.anchorNode.nodeType===1?sel.anchorNode:sel.anchorNode.parentElement;
-  const cur = parseFloat(getComputedStyle(el).fontSize);
-  el.style.fontSize = (cur + 2) + 'px';
-  saveUndo();
+// Replace the current selection with `span`, keeping the selection on the new node.
+function wrapSelectionInSpan(sel, span) {
+  try {
+    const range = sel.getRangeAt(0);
+    span.appendChild(range.extractContents());
+    range.insertNode(span);
+    range.setStart(span, 0);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+    return true;
+  } catch (e) { return false; }
 }
-function shrinkFont() {
+// Grow/Shrink Font should scale the selected text, not the whole block.
+function growFont() { stepFontSize(1); }
+function shrinkFont() { stepFontSize(-1); }
+function stepFontSize(steps) {
+  editor.focus();
+  if (!restoreEditorSelection()) { showToast('Click in the document first', 'warn'); return; }
   const sel = window.getSelection();
   if (!sel.rangeCount) return;
-  const el = sel.anchorNode.nodeType===1?sel.anchorNode:sel.anchorNode.parentElement;
-  const cur = parseFloat(getComputedStyle(el).fontSize);
-  el.style.fontSize = Math.max(6, cur - 2) + 'px';
-  saveUndo();
+  const el = sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement;
+  if (!el) return;
+  const curPx = parseFloat(getComputedStyle(el).fontSize) || 16;
+  const curPt = Math.max(6, Math.min(400, Math.round(curPx * 0.75) + steps));
+  const select = document.getElementById('font-size');
+  // the combo only lists discrete sizes; assigning an unlisted value blanks it
+  if (select && [...select.options].some(o => o.value === String(curPt))) select.value = String(curPt);
+  applyFontSize(curPt);
 }
 function changeCase(type) {
+  editor.focus();
+  restoreEditorSelection();
   const sel = window.getSelection();
   if (!sel.rangeCount || sel.isCollapsed) return;
   let text = sel.toString();
@@ -1334,8 +1505,10 @@ function changeCase(type) {
     case 'capitalize': text = text.replace(/\w\S*/g, w=>w[0].toUpperCase()+w.slice(1).toLowerCase()); break;
     case 'toggle': text = text.split('').map(c=>c===c.toUpperCase()?c.toLowerCase():c.toUpperCase()).join(''); break;
   }
-  sel.deleteContents();
-  sel.insertNode(document.createTextNode(text));
+  // deleteContents()/insertNode() are Range methods — Selection has neither
+  const range = sel.getRangeAt(0);
+  range.deleteContents();
+  range.insertNode(document.createTextNode(text));
   saveUndo();
 }
 
@@ -1363,11 +1536,14 @@ function formatPainter() {
   }
 }
 function applyFpStyles() {
+  editor.focus();
+  if (!restoreEditorSelection()) return;
   const sel = window.getSelection();
   if (!sel.rangeCount) return;
   const span = document.createElement('span');
   Object.assign(span.style, fpStyles);
-  try { span.appendChild(sel.extractContents()); sel.insertNode(span); } catch(e) {}
+  if (!wrapSelectionInSpan(sel, span)) return;
+  rememberEditorSelection();
   saveUndo();
 }
 
@@ -1603,30 +1779,45 @@ function insertOnlineVideo() {
 }
 
 // Tables
+const TABLE_GRID_COLS = 12, TABLE_GRID_ROWS = 10;
+function hideInsertTable() {
+  const picker = document.getElementById('table-picker');
+  if (picker) picker.style.display = 'none';
+}
 function showInsertTable() {
   const grid = document.getElementById('table-grid');
   const picker = document.getElementById('table-picker');
+  if (!grid || !picker) return;
+  const label = document.getElementById('table-grid-label');
+  const paint = (rows, cols) => grid.querySelectorAll('div').forEach(d => {
+    d.style.background = (+d.dataset.r <= rows && +d.dataset.c <= cols) ? 'var(--blue)' : 'transparent';
+  });
   grid.innerHTML = '';
-  for (let r = 0; r < 8; r++) {
-    for (let c = 0; c < 10; c++) {
+  for (let r = 0; r < TABLE_GRID_ROWS; r++) {
+    for (let c = 0; c < TABLE_GRID_COLS; c++) {
       const cell = document.createElement('div');
       cell.style.cssText = 'width:24px;height:24px;border:1px solid var(--input-border);cursor:pointer;transition:.1s';
-      cell.dataset.r = r+1; cell.dataset.c = c+1;
+      cell.dataset.r = r + 1; cell.dataset.c = c + 1;
       cell.onmouseenter = () => {
-        grid.querySelectorAll('div').forEach(d => {
-          d.style.background = (+d.dataset.r <= r+1 && +d.dataset.c <= c+1) ? 'var(--blue)' : 'transparent';
-        });
-        document.getElementById('table-grid-label').textContent = `${c+1} × ${r+1} Table`;
+        paint(r + 1, c + 1);
+        if (label) label.textContent = `${c + 1} \u00d7 ${r + 1} Table`;
       };
-      cell.onclick = () => { insertTable(r+1, c+1); picker.style.display = 'none'; };
+      cell.onclick = () => { hideInsertTable(); insertTable(r + 1, c + 1); };
       grid.appendChild(cell);
     }
   }
+  if (label) label.textContent = 'Insert Table';
   const btn = document.querySelector('[onclick="showInsertTable()"]');
+  if (!btn) return;
   const rect = btn.getBoundingClientRect();
-  picker.style.left = rect.left + 'px';
-  picker.style.top = (rect.bottom + 4) + 'px';
+  // position:fixed — clamp so the picker never hangs off the edge of the viewport
   picker.style.display = 'block';
+  const pr = picker.getBoundingClientRect();
+  let left = rect.left, top = rect.bottom + 4;
+  if (left + pr.width > window.innerWidth - 8) left = Math.max(8, window.innerWidth - pr.width - 8);
+  if (top + pr.height > window.innerHeight - 8) top = Math.max(8, rect.top - pr.height - 4);
+  picker.style.left = left + 'px';
+  picker.style.top = top + 'px';
 }
 function insertTable(rows, cols) {
   let html = '<table style="border-collapse:collapse;width:100%;margin:8px 0">';
@@ -1638,6 +1829,13 @@ function insertTable(rows, cols) {
   html += '</table><p><br></p>';
   cmd('insertHTML', html);
 }
+// Dismiss the grid the same way the other menus behave
+document.addEventListener('mousedown', (e) => {
+  if (!e.target.closest('#table-picker')) hideInsertTable();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') hideInsertTable();
+}, true);
 
 // SmartArt / Chart / Icons (simple representations)
 function insertSmartArt() {
@@ -1936,12 +2134,39 @@ editor.addEventListener('input', () => { updateStatus(); saveUndo(); scheduleAut
 updateStatus();
 saveUndo();
 
+// Keep the little colour preview on the Font Color / Highlight buttons in step with reality.
+function setRibbonSwatch(type, color) {
+  const btn = document.querySelector(type === 'fontcolor' ? '#dd-fontcolor > button' : '#dd-highlight > button');
+  const span = btn && btn.querySelector('span');
+  if (!span || !color) return;
+  if (type === 'fontcolor') span.style.color = color;
+  else span.style.background = color;
+}
+// Leading character's computed colour, or null when there is nothing to read.
+// Anchored on the first character so a mixed selection reports its first format.
+function selectionColor(prop) {
+  const sel = window.getSelection();
+  if (!sel.rangeCount || sel.isCollapsed) return null;
+  const node = sel.getRangeAt(0).startContainer;
+  const el = node.nodeType === 3 ? node.parentElement : node;
+  if (!el || !editor.contains(el)) return null;
+  const v = getComputedStyle(el)[prop];
+  return (!v || v === 'transparent' || v === 'rgba(0, 0, 0, 0)') ? null : v;
+}
+
 // Track active formatting buttons
 function checkActiveButtons() {
   const b = (id, cmdName) => { const el = document.getElementById(id); if (el) try { el.classList.toggle('active', document.queryCommandState(cmdName)); } catch (e) {} };
   b('btn-bold', 'bold'); b('btn-italic', 'italic'); b('btn-underline', 'underline');
+  // the colour buttons used to only remember the last colour clicked, so selecting text that
+  // already had a highlight showed the wrong colour
+  const hl = selectionColor('backgroundColor');
+  if (hl) setRibbonSwatch('highlight', hl);
+  const fc = selectionColor('color');
+  if (fc) setRibbonSwatch('fontcolor', fc);
 }
 document.addEventListener('selectionchange', checkActiveButtons);
+checkActiveButtons();
 
 // ═══════════════ THEME / PAGE MODE / SETTINGS ═══════════════
 const DEFAULT_SETTINGS = {
@@ -2247,6 +2472,306 @@ document.getElementById('zoom-slider').addEventListener('input', function () { s
 </script>
 
 <script>
+// ════════════════════════════════════════════════════════════════════════════
+// MODULE 05a — SPELL-CHECK DICTIONARY
+// Base list of common English + office/document vocabulary. Kept separate from
+// the feature code so the word data stays readable and easy to extend.
+// ════════════════════════════════════════════════════════════════════════════
+
+const DICT_BASE = `
+a able about above abroad accept access accident according account achieve acid across act action
+active actor actual add addition additional address adjust administration admire admit adopt adult advance advantage
+advice affair affect afford after again against age agency agenda agent ago agree agreement ahead
+air airport alarm album alcohol alert alike alive all allow almond almost alone along already
+also alter although always among amount analysis and anger angle animal ankle announce annual another
+answer anxiety any anyone anything apart apartment apologize appear appendix apple apply approach approval approve
+april arch area argue arise arm around arrange arrest arrive arrow art article artist as
+ashamed ask aspect assist assume at attach attachment attack attempt attend attendee attention attic audience
+august aunt author authority autumn available avenue average avoid awake award aware away awful awkward
+axis babies baby back backup bacon bad badge badly bag balance balcony ball ballot bamboo
+banana bandage bank banner bar bare bargain bark barrel base baseline basement basic basil basin
+basket basketball bath battery be beach beard beast beat beautiful beauty became because become bed
+bedroom beetle before beg begin beginning behalf behave behaviour behind belief bell belong below beneath
+benefit beside besides best bet betray better between beyond bibliography bicycle big bike bill billing
+billion bind biology birth biscuit bit bite bitter black blade blanket blast blaze bleach blend
+bless blind blink bliss block blond blood blossom blue blush board boast boat body boil
+bold bolt bomb bond bone bonus book boom boost boot border bore born borrow boss
+both bother bounce bound bowl box boy brain brake branch brass brave bread break breath
+breeze brick bride bridge brief bright brilliant bring broad broil bronze brook broom brother brown
+brush bubble bucket buckle budget buffet bug build builder building bulb bulk bull bullet bump
+bunch bundle burden burst bury bush business but butter button buy buzz by cabin cable
+cactus cage cake calendar call calm camel camera camp campaign campus can canal cancel candidate
+candle candy canoe canvas canyon cap capable capacity cape capital caption captive car carbon card
+care career cargo carpet carrier carrot carry cartoon carve case cash casino cast castle casual
+cat catalog catch category cattle cause caution cave ceiling celebrate cell cement cemetery census cent
+center central century certain certainly certificate chain chair chairman chalk challenge champion chance change channel
+chaos chapter character charge charm chart chase cheaper check checklist cheek cheer cheese chef cherry
+chess chest chicken child chill chimney chin chip chocolate choice choose chop chorus chrome chunk
+church cigarette cinema circle circuit circumstance citation citizen city civil claim clap clash clasp class
+classic classroom clause clay clean clear clearly clerk clever client cliff climate climb clinic clip
+clock close cloth clothes cloud clown club clue clump cluster clutch coach coal coast coat
+cobra cocoa code coffee coil coin cold collar colleague collect collection college colony color column
+comb combine come comfort comic command comment commercial commit committee common communicate community company compare
+compass compete complete complex compliance computer concept concern concert concrete condition conduct conference confess confidence
+confidential confirm conflict confuse congress connect conquer consent consider consist console constant consult consume consumer
+contact contain content contest context continue contract contrast contribute control convenience conversation convince cook cookie
+cool copper copy coral cord core cork corn corner correct corridor cost cottage cotton couch
+cough could council counsel count counter country countryside couple courage course court cousin cover crack
+cradle craft crash crawl cream create creature credit creek creep crew cricket crime criminal crimson
+crisis critic crop cross crowd crown crude cruise crumb crush crust cry crystal cube cuisine
+cultural culture cup cupboard cure curious curl currency current curse curtain curve cushion custom customer
+cut cycle daily dairy damage damp dance danger dare dark dash dashboard data daughter dawn
+day dead deadline deal dealer dear death debate debris debt decade decay deceive decide decision
+deck declare decline decorate decrease deep deer defeat defend defense define definite degree delay delegate
+delete delight deliver deliverable demand democracy democrat democratic demonstrate deny depart department depend deposit depth
+derive descend describe desert deserve design desire desk despair despite destroy detail detect determine develop
+development device devote diamond die diet differ difference different difficult difficulty dig dignity dilemma dimension
+dine dinner dinosaur dip diploma direct direction director directory dirt disable disagree disappear disappoint discard
+discipline disclose discount discover discuss discussion disease disgust dish dismiss disorder display dispute dissolve distance
+ditch dive divide dizzy do dock doctor document dog dollar dolphin domain donate donkey door
+dose dot double doubt dough dove down download dozen draft drag dragon drain drama draw
+drawer dread dream dress drift drill drink drive driver drop drought drown drug drum dry
+duck due dull dumb dump duplicate durable during dusk dust duty dwarf dwell dynamic each
+eager eagle ear early earn earth ease easel east eastern easy eat echo eclipse economic
+economy edge edit editor educate education effect effort egg eight either elbow elder elect election
+elegant element elephant elevate elite else email embark embrace emerge emergency emotion emphasis empire employ
+employee employer empty enable enact enchant encircle enclose encounter encourage end endorse endure enemy energy
+enforce engage engagement engine engineer english enhance enjoy enormous enough ensure enter enterprise entertain entertainment
+enthusiasm entire entrance entry envelope environment environmental envy epic equal equip equity erase errand error
+erupt escape escort especially essay essence establish estate estimate eternal evade even evening event ever
+every everybody everyone everything evidence evolution exact exactly exam example exceed excellent except excess exchange
+excite exclude excuse execute executive exercise exhaust exhibit exist exit expand expect expense experience experiment
+expert expire explain explode explore export expose express extend extra extreme eye fabric facade face
+fact factor fade fail failure faint fair fairly faith fall false fame familiar family famous
+fancy fantastic far farm fashion fast fasten fate father fatigue fault favor favorite fear feast
+feather feature federal fee feed feedback feel feeling fellow female fence fern ferry festival fetch
+fever few fiber fiction field fierce fifteen fifty fight figure file filename fill film filter
+final finally finance financial find fine finger finish fire firm first fish fist fit fitness
+five fix flag flame flash flat flavor flee flesh flex flight flip float flock flood
+floor flour flow flower fluid flush fly foam focus fog fold folder folk follow followup
+fond food fool foot football for forbid force forecast forehead foreign forest forever forget forgive
+fork form formal format formatting former formula fortune forum forward fossil foster found foundation fountain
+four fox fraction frame framework free freedom freeze frequent fresh friction fridge friend friendship fringe
+frog from front frost frown fruit fuel full fun function fund funding funeral funny furnace
+furniture further future gain galaxy gallery gallon game gang gap garage garbage garden garlic gas
+gate gather gauge gaze gear gem general generate generation generous gentle gentleman genuine geography gesture
+get ghost giant gift ginger giraffe girl give glad glance glare glass gleam glide glimpse
+globe gloom glory glossary glove glow glue go goal goat gold golf good goose gorge
+govern government gown grab grace grade grain gram grand grant graph grasp grass grave gravity
+gray graze grease great green greet grid grief grill grin grip grocery ground group grove
+grow growth guard guess guest guide guideline guilt guitar gulf gun gutter habit hail hair
+half hall hallway hammer hand handbook handle hang happen happy harbor harbour hard harm harmony
+harvest haste hat hatch hate haul have hawk hay hazard haze he head header heading
+heal health heap hear hearing heart heat heaven heavy hedge heel height helium hell hello
+helmet help helpful hemp hen her herb herd here heritage hero herself hesitate hide high
+highlight highway hike hill him himself hint hip hire his history hit hobby hockey hoe
+hold hole holiday hollow holy home honest honey honor honour hook hope horizon horn horror
+horse hospital host hot hotel hour house household housing hover how however huge human humble
+humid humor hundred hungry hunt hunter hunting hurdle hurry hurt husband hut hydrogen hyperlink i
+ice idea ideal identify idle if ignore ill illegal illness illustrate image imagine imitate immediate
+immediately immense immigrant impact imply import important impose impossible impress improve impulse inbox inch include
+including income increase indeed independence index indicate individual indoor industrial industry infant infect influence inform
+information inhale inherit initial inject injure injury ink inland inmate inn inner innocent input inquiry
+insect insert inside insight insist inspect inspire install instance instant instead instinct institute institution instruction
+instrument insult insurance insure intact intelligence intend intense intent interest interesting interfere interior internal international
+internet interpret interrupt interval interview into introduce invade invent invest investment invitation invite invoice involve
+iron island isolate issue it item its itself ivory jacket jade jail jam jar jaw
+jazz jealous jeans jelly jewel job join joint joke journal journey joy judge judgement judgment
+juice jump jungle junior junk jury just justice kale kangaroo keen keep kernel kettle key
+keyboard keynote kick kid kidney kill kind kindness king kingdom kiss kit kitchen kite kitten
+knee kneel knife knight knit knock knot know knowing knowledge label labor laboratory labour lace
+lack ladder lady lag lagoon lake lamb lamp lance land landscape lane language lantern lap
+large largely laser last late later laugh launch laundry lava law lawn lawyer lay layer
+layout lazy lead leader leadership leaf league lean leap learn learning lease least leather leave
+lecture ledge left leg legal legend leisure lemon lend lending length lens leopard less lesson
+let letter level lever liberty library licence license lid lie life lift light like likely
+lilac lily limb lime limit line linen link lion lip liquid list listen listener literal
+literally literary literature little live livestream living lizard load loaf loan lobby local location lock
+locking lodge loft log logic login lonely long look looking loop loose lord lose loss
+lot loud loudly lounge love lovely low loyalty luck lucky luggage lump lunar lunch lung
+luxury machine mad magazine magic magnet maid mail mailing main mainly maintain maintenance major majority
+make maker mammal man manage management manager manner mansion manual manufacturer many map marble march
+margin marine mark market marriage married marry mask mass massive master match material math mathematics
+matter mature maximum may maybe maze me meadow meal mean meaning meanwhile measure measurement meat
+mechanic mechanism medal media medical medicine medium meet meeting melody melt member membership memo memorandum
+memory mend mention menu merchant mercy mere merely merge merit mess message metal method middle
+midnight might mild mile milestone military milk mill million mind mine mineral minimum minister minor
+minute minutes mirror mischief miss missing mission mistake mix mixture mobile model modern modest modify
+moist moment money monitor monkey month monthly monument mood moon moral more morning mortgage most
+mostly mother motion motor mountain mouse mouth move movement movie much mud multiple murder muscle
+museum mushroom music musician must mutual my myself mystery myth nail naked name narrative narrow
+nation national native natural naturally nature navy near nearby nearly neat neatly necessary neck need
+needle negative neglect negotiate neighbor neighborhood neighbour nerve nervous nest net network neutral never nevertheless
+new news newspaper next nice niche niece night nine no noble nobody nod noise nominate
+none noodle noon nor normal normally north northern nose not note nothing notice notify notion
+nourish novel now nowadays nowhere nuclear number numerous nurse nut nutrition oak oath obey object
+objective obligation observe obtain obvious obviously occasion occasionally occupation occupy occur ocean odd odor off
+offboarding offence offend offer office officer official officially often oil ok old olive omit on
+onboarding once one onion only onto open opera operate operation operator opinion opponent opportunity oppose
+opposition option or orange orbit orchard order ordinary org organ organise organization organize orientation origin
+original originally other others otherwise ought ounce our ourselves out outcome outdoor outline output outside
+oven over overall overcome overlap overlook owe owl own owner ownership oxygen oyster pace pack
+package paddle page pain painful paint painting pair palace pale palm pan panel panic pant
+paper parade paragraph parallel parcel pardon parent park parliament parrot part participant particular particularly partly
+partner partnership party pass passage passenger passion password past paste pastry patch path patience patient
+patrol pattern pause paw pay payment payroll peace peaceful peach peak peanut pear pearl peasant
+peculiar pedal pedestrian peel peer pen penalty pencil pension people pepper per perceive percent percentage
+perfect perfectly perform performance perhaps period permanent permission permit person personal personality personally personnel perspective
+persuade pest pet petrol pharmacy phase phenomenon philosophy phone photo photograph photographer phrase physical physically
+physician piano pick picture pie piece pier pig pigeon pile pilot pin pinch pine pink
+pint pioneer pipe pipeline pit pitch pity place plague plain plan plane planet plank planning
+plant plaster plastic plate platform play player pleasant please pleasure plenty plot plug plum plunge
+plus pocket podcast poem poet poetry point poison polar pole police policy polish polite political
+politician politics poll pollution pond pool poor pop popular population porch pork port portfolio portion
+portrait pose position positive possess possibility possible possibly post pot potato potential potentially pottery poultry
+pound pour poverty powder power powerful practical practice practise praise pray prayer precise precisely predict
+prefer preference pregnancy pregnant prejudice premise preparation prepare prescribe prescription presence present presentation preserve president
+press pressure presumably pretend pretty prevent prevention previous previously price pride priest primarily primary prime
+prince principle print printer prior priority prism prison prisoner privacy private privately prize probably probe
+problem procedure proceed process produce producer product production profession professional professor profile profit program progress
+project promise promote promotion prompt proof proper properly property proportion proposal propose prose prospect protect
+protection protein protest prototype proud prove provide province provision psychological psychology public publication publish pudding
+pull pulse pump punch punish punishment pupil puppy purchase pure purely purple purpose pursue push
+put puzzle quaint quake qualify quality quantity quarrel quarter queen queer quench query question queue
+quick quickly quiet quietly quilt quit quite quiver quiz quota quote rabbit race racial rack
+radar radical radio raft rage raid rail rain raise rake rally random range rank ransom
+rapid rare rarely rash rate rather rating ratio rattle raw ray razor reach react reaction
+read reader readily ready real realistic reality realize really reason reasonable rebel recall receipt receive
+recent recently reception recipe recipient recite reckon recognize recommend recommendation record recover recovery recruit red
+reduce reduction refer reference reflect reflection reform refuge refuse regard regarding regardless regime region regional
+register registration regret regular regularly regulation rehearse reimburse reimbursement reject rejoice relate relation relationship relative
+relatively relax release relevant relief religion religious rely remain remaining remark remarkable remedy remember remind
+reminder remote removal remove render renew rent repair repeat repeatedly replace replacement reply report reporter
+represent representation republic republican reputation request require requirement rescue research researcher resemble reservation reserve reside
+resident resist resistance resolution resolve resort resource respect respond response responsibility responsible rest restaurant restore
+restrict restriction result retain retire retirement retrospective return reveal revenue reverse review revise revision revive
+revolution reward rhythm rice rich rid ride ridge ridiculous rifle right rigid rim ring rinse
+riot ripe rise risk rival river road roadmap roast rob rock rocket rod role roll
+romantic roof room root rope rose rot rotate rough round route routine row royal rub
+rubber rubbish rude rug ruin rule run runner rural rush rust sack sacred sacrifice sad
+saddle safe safety sail salad salary sale sales salt same sample sand sandwich satellite satisfy
+sauce save saving say scale scan scandal scar scare scatter scenario scene schedule scheme scholar
+scholarship school science scientific scientist scissors scold scoop scope score scorn scrap scratch scream screen
+screenshot screw script scroll scrub sculpture sea seal search season seat second secret secretary section
+sector secure security see seed seek seem segment seize seldom select selection self sell senate
+send senior sense sensitive sentence separate sequence series serious seriously servant serve service session set
+setting settle settlement seven several severe sew sex sexual shade shadow shaft shake shall shallow
+shame shape share sharp shave she shed sheep sheer sheet shelf shell shelter shift shine
+ship shirt shock shoe shoot shop shore short shortly shot should shoulder shout shove show
+shower shrink shut shy sibling sick side siege sigh sight sign signal signature significance significant
+significantly silence silent silk silver similar similarly simple simply sin since sing singer single sink
+sir sister sit site situation six size skate sketch ski skill skin skip skirt skull
+sky slave sleep sleeve slender slice slide slight slightly slim slip slope slot slow slowly
+small smart smash smell smile smoke smooth snake snap snow so soak soap soccer social
+society sock socket sofa soft software soil solar soldier sole solid solve some somebody somehow
+someone something sometimes somewhat somewhere son song soon sophisticated sore sorry sort soul sound soup
+source south southern space spare spark speak speaker special specialist species specific specify spectrum speech
+speed spell spend spending sphere spice spider spike spill spin spine spiral spirit spiritual split
+spoil spokesman sponsor spoon sport spot spouse spray spread spreadsheet spring sprint square squeeze stab
+stability stable stack staff stage stain stair stake stakeholder stall stamp stand standard star stare
+start state statement station statistic statue status stay steady steal steam steel steep steer stem
+step stereo stick stiff still stimulate sting stir stock stomach stone stool stop storage store
+storm story stove straight strain strand strange strategic strategy straw stream street strength stress stretch
+strict strike string strip stripe stroke strong strongly structure struggle student studio study stuff stumble
+stupid style stylesheet subject submission submit subsequent subsidy substance substantial succeed success successful successfully such
+sudden suddenly sue suffer sufficient sugar suggest suggestion suit suitable sum summary summer summit sun
+super supplier supply support supporter suppose supposedly sure surely surface surgeon surgery surname surplus surprise
+surround survey survival survive suspect sustain swallow swamp swan swear sweat sweep sweet swell swift
+swim swing switch sword symbol sympathy symptom system table tail tailor take tale talent talk
+tall tank tape target task taste tax taxi taxpayer tea teach teacher team tear teaspoon
+technical technique technology teen teenager teeth telephone telescope television tell temper temperature template temple temporary
+tempt ten tenant tend tendency tennis tension tent term terminal terms terrible territory terror test
+testify text texture than thank thanks that the theater theatre theft their them theme themselves
+then theory therapy there therefore thermal these they thick thief thin thing think thinking third
+thirst thirty this thorough those though thought thousand thread threat threaten three thresh threshold throat
+throne through throughout throw thumb thunder thus ticket tide tie tight tile till timber time
+timeline timid tin tiny tip tire tired tissue title to toad toast tobacco today toe
+together toilet token tolerate toll tomato tomorrow tone tongue tonight too tool tooth top topic
+torch tornado torture toss total totally touch tough tour tourist toward towards towel tower town
+toy trace track tracker trade tradition traditional traffic trail train training tram transfer transform transition
+translate transport trap travel tray treasure treat treatment treaty tree tremble trench trend trespass trial
+triangle tribe trick trigger trip triumph troop trophy trouble trousers truck true truly trumpet trunk
+trust truth try tube tunnel turkey turn turtle twelve twenty twice twig twin twist two
+type typical typically ugly ultimate ultimately umbrella unable uncle under undergo underground understand understanding undertake
+underwear unemployment unfortunately uniform union unique unit unite universe university unknown unless unlike unlock until
+unusual up update upgrade upload upon upper upset urban urge urgent url us usage use
+useful user usual usually utility vacant vacation vaccine vacuum vague valid valley valuable value van
+vanish vapor variable variation variety various vary vase vast vegetable vehicle veil vein velvet vendor
+venture venue verb verdict verify verse version versus very vessel veteran via victim victory video
+view viewer village vine vinegar violate violation violence violin virtual virtue virus visible vision visit
+visitor visual vital vivid vocabulary voice void volcano volume vote voucher voyage wafer wage wagon
+waist wait waiter wake walk wall wallet walnut wander want war warm warn warning warrant
+wash waste watch water wave wax way we weak wealth weapon wear weather weave web
+webinar website wedding weed week weekend weep weigh weight weird welcome weld welfare well west
+western wet whale wharf what whatever wheat wheel when whenever where whereas whether which while
+whip whisper whistle white who whole whom whose why wide widely widespread widow width wife
+wiki wild will willing willow win wind window wine wing wink winner winter wipe wire
+wisdom wise wish wit witch with withdraw within without witness wolf woman wonder wonderful wood
+wooden wool word work worker workflow workshop workspace world worm worried worry worse worst worth
+would wound wrap wrist write writer writing wrong yard yawn yeah year yell yellow yes
+yesterday yet yield yoke yolk you young your yourself youth zebra zero zigzag zinc zip
+zone zoo
+`.split(/\s+/).filter(Boolean);
+
+// Business / finance / project-management vocabulary that everyday word lists skip.
+const DICT_BUSINESS = `
+quarterly annually weekly daily fiscal year over year totals subtotal gross net margin
+revenue costs expenses spend spending savings budget forecast actual variance utilization
+headcount attrition turnover shareholders directors board audit compliance regulatory
+governance workflows deliverables milestones logistics procurement suppliers inventory
+shipment warehouse tactical operational scalable draft drafts memo memos agenda agendas
+invoice invoices receipt receipts reimbursement stakeholder stakeholders appendix appendices
+`.split(/\s+/).filter(Boolean);
+
+// Irregular plurals and verb forms that plain suffix rules cannot produce.
+const DICT_IRREGULAR = [
+  'children', 'men', 'women', 'feet', 'teeth', 'mice', 'geese', 'people', 'indices', 'matrices',
+  'vertices', 'appendices', 'criteria', 'phenomena', 'analyses', 'crises', 'theses', 'diagnoses',
+  'parentheses', 'bases', 'better', 'best', 'worse', 'worst', 'older', 'oldest', 'wrote', 'written',
+  'seen', 'saw', 'been', 'was', 'were', 'gone', 'went', 'done', 'did', 'said', 'told', 'made',
+  'took', 'taken', 'came', 'gave', 'given', 'found', 'thought', 'brought', 'bought', 'caught',
+  'taught', 'kept', 'left', 'felt', 'fought', 'got', 'gotten', 'grew', 'grown', 'knew', 'known',
+  'lost', 'met', 'paid', 'ran', 'rose', 'risen', 'sat', 'slept', 'spoke', 'spoken', 'stood',
+  'swam', 'threw', 'thrown', 'wore', 'worn', 'won', 'drawn', 'drew', 'drunk', 'begun', 'began',
+  'chose', 'chosen', 'fell', 'fallen', 'flew', 'flown', 'froze', 'frozen', 'hid', 'hidden', 'rode',
+  'ridden', 'rang', 'rung', 'sank', 'sunk', 'shot', 'shut', 'slid', 'spent', 'spread', 'stole',
+  'stolen', 'struck', 'swore', 'sworn', 'wept', 'woke', 'wound', 'tore', 'torn', 'laid', 'built',
+  'burnt', 'dealt', 'bent', 'fed', 'fled', 'lent', 'lit', 'meant', 'quit', 'shone', 'shook',
+  'smelt', 'sped', 'spun', 'stuck', 'stung', 'swung', 'withdrew', 'arose', 'arisen', 'awoke',
+  'began', 'bit', 'blew', 'bred', 'burned', 'dug', 'fed', 'flung', 'knelt', 'leapt', 'lit',
+  'clung', 'crept', 'dove', 'dreamt', 'drunk', 'forbade', 'forgot', 'forbidden', 'ground', 'hewn',
+  'lain', 'mistook', 'proven', 'proven', 'rewound', 'shrunk', 'slept', 'slung', 'sown', 'sped',
+  'spun', 'stuck', 'stung', 'stridden', 'sworn', 'thrust', 'trodden', 'upset', 'withheld', 'wrung'
+];
+
+// Words whose spelling changes before -s / -ed / -ing (y -> i, doubling, e-drop).
+function dictInflections(w) {
+  const out = new Set();
+  if (/[^aeiou]y$/.test(w)) out.add(w.slice(0, -1) + 'ies');
+  else if (/(s|x|z|ch|sh)$/.test(w)) out.add(w + 'es');
+  else out.add(w + 's');
+  if (/e$/.test(w)) { out.add(w + 'd'); out.add(w.slice(0, -1) + 'ing'); }
+  else if (/[^aeiou][aeiou][^aeiouwxy]$/.test(w)) { out.add(w + 'ed'); out.add(w + 'ing'); }
+  else { out.add(w + 'ed'); out.add(w + 'ing'); }
+  return out;
+}
+
+// Build the live dictionary once: base words + regular inflections + irregular forms.
+const COMMON_WORDS = (() => {
+  const dict = new Set(DICT_BASE);
+  for (const w of DICT_BUSINESS) dict.add(w);
+  for (const w of [...dict]) for (const f of dictInflections(w)) dict.add(f);
+  for (const w of DICT_IRREGULAR) {
+    if (dict.has(w)) continue;
+    dict.add(w);
+    for (const f of dictInflections(w)) dict.add(f);
+  }
+  return dict;
+})();
+console.log('Dictionary loaded: ' + COMMON_WORDS.size + ' words');
+</script>
+
+<script>
 // ═══════════════ FIND / REPLACE ═══════════════
 function showFind() { document.getElementById('find-replace-bar').style.display = 'block'; document.getElementById('find-input').focus(); }
 function showReplace() { showFind(); }
@@ -2260,10 +2785,13 @@ function doFindPrev() { /* basic: just search again */ doFindNext(); }
 function doReplace() {
   const find = document.getElementById('find-input').value;
   const repl = document.getElementById('replace-input').value;
+  if (!find) { doFindNext(); return; }
   const sel = window.getSelection();
-  if (sel.toString().toLowerCase() === find.toLowerCase()) {
-    sel.deleteContents();
-    sel.insertNode(document.createTextNode(repl));
+  // deleteContents()/insertNode() are Range methods — Selection has neither
+  if (sel.rangeCount && sel.toString().toLowerCase() === find.toLowerCase()) {
+    const range = sel.getRangeAt(0);
+    range.deleteContents();
+    range.insertNode(document.createTextNode(repl));
     saveUndo();
   } else { doFindNext(); }
 }
@@ -2325,33 +2853,142 @@ function toggleDictate() {
 }
 
 // ═══════════════ EDITOR / PROOFING ═══════════════
+// small JS-string escaper for inline onclick handlers
+function jsEsc(s) { return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"'); }
+// A detached copy of the editor with spell-check markup (module 09) stripped. Every
+// export/persistence path must go through this — writing editor.innerHTML directly bakes
+// the red squiggle wrappers and their #c00 text colour into saved files and autosaves.
+function cleanEditorNode() {
+  const clone = editor.cloneNode(true);
+  clone.querySelectorAll('.icw-spell, .icw-grammar, .icw-ignore')
+    .forEach(s => s.replaceWith(document.createTextNode(s.textContent)));
+  return clone;
+}
+function cleanEditorHTML() { return cleanEditorNode().innerHTML; }
+// Character offset of a (container, offset) point within the editor's text stream, or -1.
+function nodeOffset(root, container, offset) {
+  if (!container || !root.contains(container)) return -1;
+  let total = 0;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let n;
+  while ((n = walker.nextNode())) {
+    if (n === container) return total + Math.min(offset, n.length);
+    total += n.length;
+  }
+  return total;
+}
+// Locate a whole-word occurrence of `word`. With fromCaret, the first match at or after the
+// caret wins so clicking a suggestion fixes the instance the user is looking at.
+function findWordOccurrence(word, fromCaret) {
+  // global flag: a text node can hold several occurrences and we must see them all
+  const re = new RegExp('\\b' + word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'g');
+  const sel = window.getSelection();
+  const caretAt = sel.rangeCount ? nodeOffset(editor, sel.anchorNode, sel.anchorOffset) : -1;
+  const walk = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+  let acc = 0, first = null, n;
+  while ((n = walk.nextNode())) {
+    const text = n.textContent;
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      const hit = { node: n, start: m.index, abs: acc + m.index };
+      if (!first) first = hit;
+      // caret unknown (-1) or this match sits at/after the caret: this is the one
+      if (!fromCaret || caretAt < 0 || hit.abs >= caretAt) return hit;
+    }
+    acc += text.length;
+  }
+  return first; // wrap around to the first match, like Find & Replace
+}
+function editorReplaceSuggestion(word, replacement) {
+  hideContextMenu();
+  if (!word || !replacement) { showToast('No replacement available', 'warn'); return; }
+  editor.focus();
+  const sel = window.getSelection();
+  if (sel.rangeCount && sel.toString() === word) {
+    // insertText replaces the selection itself. Deleting the range first looked equivalent
+    // but makes Chrome swallow the character after the insertion point.
+    document.execCommand('insertText', false, replacement);
+  } else {
+    const hit = findWordOccurrence(word, true) || findWordOccurrence(word, false);
+    if (!hit) { showToast('Could not find "' + word + '" in the document', 'warn'); return; }
+    const r = document.createRange();
+    r.setStart(hit.node, hit.start); r.setEnd(hit.node, hit.start + word.length);
+    sel.removeAllRanges(); sel.addRange(r);
+    document.execCommand('insertText', false, replacement);
+  }
+  saveUndo(); updateStatus();
+  showToast('Replaced "' + word + '" with "' + replacement + '"', 'ok');
+  // re-run the spell pass so the squiggle clears, then refresh the panel
+  try { markSpellingErrors(); showEditorPanel(); } catch (e) {}
+}
 function showEditorPanel() {
   const pane = document.getElementById('editor-pane');
   pane.style.display = 'flex'; pane.style.flexDirection = 'column';
-  const text = editor.innerText;
+  const text = editor.innerText || '';
   const words = text.trim() ? text.trim().split(/\s+/) : [];
-  let issues = 0, html = '';
-  // Basic spell check
-  const misspelled = [];
-  words.forEach(w => {
-    const clean = w.replace(/[^a-zA-Z']/g, '');
-    if (clean.length > 3 && !COMMON_WORDS.has(clean.toLowerCase())) {
-      issues++;
-      misspelled.push(clean);
-    }
-  });
-  html += `<div style="margin-bottom:12px"><b>Editor Score:</b> <span style="color:${issues>5?'#c00':issues>0?'#f5a623':'#2e7d32'};font-size:16pt;font-weight:700">${Math.max(0, 100 - issues * 3)}%</span></div>`;
-  html += `<p style="color:#666;margin-bottom:8px">${words.length} words, ${issues} potential issues</p>`;
-  if (misspelled.length) {
-    html += `<b>Suggestions:</b><ul style="padding-left:16px;margin-top:4px">`;
-    misspelled.slice(0, 10).forEach(w => { html += `<li style="margin:4px 0;color:#c00">${w}</li>`; });
-    html += '</ul>';
-  } else {
-    html += '<p style="color:#2e7d32">&#10003; No major issues found!</p>';
-  }
+  const spellRes = (typeof spellCheckWords === 'function') ? spellCheckWords(text) : { misspelled: [] };
+  const grammarRes = (typeof checkGrammarIssues === 'function') ? checkGrammarIssues(text) : [];
+  const conciseRes = (typeof checkConcisenessIssues === 'function') ? checkConcisenessIssues(text) : [];
+  const total = spellRes.misspelled.length + grammarRes.length + conciseRes.length;
+  const score = Math.max(0, 100 - total * 3);
+  const scol = score >= 90 ? '#2e7d32' : score >= 60 ? '#f5a623' : '#c00';
+  let html = `<div style="margin-bottom:10px"><b>Editor Score</b><div style="font-size:17pt;font-weight:800;color:${scol}">${score}%</div><div style="font-size:11px;color:var(--text-2);margin-top:2px">Calculated at ${words.length} words</div></div>`;
+  html += `<div class="ecat">Corrections</div>`;
+  html += ecard('Spelling', spellRes.misspelled.length, spellRes.misspelled.slice(0, 8));
+  html += ecard('Grammar', grammarRes.length, grammarRes.slice(0, 8));
+  html += `<div class="ecat">Refinements</div>`;
+  html += ecard('Conciseness', conciseRes.length, conciseRes.slice(0, 8));
+  if (!total) html += '<p class="ap-ok" style="margin-top:6px">&#10003; No major issues found!</p>';
+  html += '<div style="margin-top:10px;display:flex;gap:8px"><button class="btn" style="flex:1" onclick="runAccessibilityChecks();toggleAccessibilityPane(true)">Accessibility</button><button class="btn" style="flex:1" onclick="document.getElementById(\'editor-pane\').style.display=\'none\'">Close</button></div>';
   document.getElementById('editor-results').innerHTML = html;
 }
-const COMMON_WORDS = new Set('the be to of and a in that have i it for not on with he as you do at this but his by from they we say her she or an will my one all would there their what so up out if about who get which go me when make can like time no just him know take people into year your good some could them see other than then now look only come its over think also back after use two how our work first well way even new want because any these give day most us is are was were been has had did does said says got make made going went gone came saw seen took taken gave given told asked seemed felt put set let run ran sing sang drink drank eat ate sleep slept wake woke drive drove ride rode fly flew swim swam write wrote read draw drew throw threw catch caught break broke speak spoke hear heard understand understood learn learned teach taught think thought know knew grow grew win won lose lost find found leave left keep kept hold held stand stood sit sat pay paid meet met bring brought begin began start stop stopped help helped play played watch looked listen try tried need wanted use used find felt move moved live lived believe turn turned ask asked answer called worked looked seemed felt became left put mean meant keep let begin started showed heard run ran lost paid met included continued set learned changed lead walked won offered kept closing dealing opening ending starting running going coming making taking getting giving putting bringing turning keeping holding letting beginning adding ending moving living walking working playing watching listening reading writing drawing throwing catching breaking speaking hearing understanding learning teaching thinking knowing growing winning losing finding leaving keeping holding standing sitting paying meeting bringing starting stopping helping using trying needing wanting asking answering calling working believing turning moving living'.split(' '));
+function ecard(title, count, items) {
+  const have = items && items.length > 0;
+  let chips = '';
+  if (have) {
+    chips = items.map(it => {
+      const w = it.word || it.text || String(it);
+      const r = firstReplacement(it);
+      // no usable suggestion: show the word as inert text rather than a button that would
+      // replace it with itself
+      if (!r) return `<span class="enone" title="No suggestion available">${escUser(w)}</span>`;
+      return `<button class="ereplace" title="Replace with ${escUser(r)}" onclick="editorReplaceSuggestion('${jsEsc(w)}','${jsEsc(r)}')">${escUser(w)} <span class="earrow">&#8594;</span> ${escUser(r)}</button>`;
+    }).join(' ');
+  }
+  const empty = have ? '' : '<div class="ap-ok">&#10003; None detected</div>';
+  const sub = have ? `<div class="esub">Click a suggestion to replace the flagged text.</div>` : '';
+  return `<div class="ecard"><div class="etitle">${title}<span class="ecount">${count}</span></div>${sub}<div class="ereplace">${chips}${empty}</div></div>`;
+}
+// Spelling issues carry a `suggest` ARRAY and an empty `replace`; grammar/conciseness issues
+// carry a real `replace` string. Falling through from an empty `replace` to `suggest` used to
+// stringify the whole array, so one word was replaced by "a,b,c,d,e".
+function firstReplacement(it) {
+  if (typeof it.replace === 'string' && it.replace) return it.replace;
+  if (Array.isArray(it.suggest)) return it.suggest.length ? String(it.suggest[0]) : '';
+  if (typeof it.suggest === 'string') return it.suggest;
+  return '';
+}
+// simple heuristics used until the full spell engine (module 09) supplies detailed results
+function checkGrammarIssues(text) {
+  const out = [];
+  // repeated words
+  text.replace(/\b(\w+)\s+\1\b/gi, (m, w) => { out.push({ word: w + ' ' + w, replace: w, text: 'Repeated word' }); return m; });
+  // sentence not capitalised after terminal punctuation (very rough)
+  text.replace(/([.!?])\s+([a-z])/g, (m, p, l) => { out.push({ word: p + ' ' + l, replace: p + ' ' + l.toUpperCase(), text: 'Capitalize after terminal punctuation' }); return m; });
+  return out.slice(0, 8);
+}
+function checkConcisenessIssues(text) {
+  const wordy = [ ['in order to','to'], ['due to the fact that','because'], ['at this point in time','now'], ['for the purpose of','to'], ['make use of','use'] ];
+  const out = [];
+  wordy.forEach(([a,b]) => {
+    const re = new RegExp('\\b'+a.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b','gi');
+    if (re.test(text)) out.push({ word: a, replace: b, text: 'Wordy phrase' });
+  });
+  return out.slice(0, 8);
+}
+// COMMON_WORDS now lives in module 05a (05a_js_dictionary.html) — bigger base list
+// plus runtime inflection expansion.
 
 function showThesaurus() {
   const sel = window.getSelection().toString() || prompt('Enter a word:');
@@ -2849,12 +3486,27 @@ const COLORS = [
 function generateColorSwatches(fnName) {
   return COLORS.map(c => `<div class="swatch" style="background:${c}" onclick="${fnName}('${c}')" title="${c}"></div>`).join('');
 }
-// Initialize all color grids
-['highlight-grid','fontcolor-grid','shading-grid','text-effects-grid'].forEach(id => {
+// Paragraph shading tints the paragraph block, not the text inside it (unlike Highlight).
+function applyShading(color) {
+  closeDropdowns();
+  const sel = window.getSelection();
+  if (!sel.rangeCount || sel.isCollapsed) { showToast('Select a paragraph to shade', 'warn'); return; }
+  editor.focus();
+  let node = sel.getRangeAt(0).startContainer;
+  while (node && node !== editor && node.nodeType !== 1) node = node.parentNode;
+  while (node && node !== editor && !['P', 'DIV', 'LI', 'TD', 'H1', 'H2', 'H3'].includes(node.tagName)) node = node.parentNode;
+  if (!node || node === editor) { showToast('Select a paragraph to shade', 'warn'); return; }
+  if (color) node.style.background = color; else node.style.removeProperty('background');
+  saveUndo(); updateStatus();
+  showToast('Paragraph shaded', 'ok');
+}
+// Text Effects applies the colour to the selected characters
+function cmdForeColor(c) { cmd('foreColor', c); closeDropdowns(); }
+// Initialize all color grids (Text Effects applies font colour; Shading shades the paragraph)
+[['shading-grid', 'applyShading'], ['text-effects-grid', "cmdForeColor"]].forEach(([id, fn]) => {
   const el = document.getElementById(id);
   if (!el) return;
-  const cmdName = id === 'highlight-grid' ? 'hiliteColor' : id === 'shading-grid' ? 'hiliteColor' : 'foreColor';
-  el.innerHTML = COLORS.map(c => `<div class="swatch" style="background:${c}" onclick="cmd('${cmdName}','${c}')" title="${c}"></div>`).join('');
+  el.innerHTML = COLORS.map(c => `<div class="swatch" style="background:${c}" onclick="${fn}('${c}')" title="${c}"></div>`).join('');
 });
 
 // Borders menu
@@ -2886,13 +3538,52 @@ function showModal(title, html) {
 function closeModal() { document.getElementById('modal-overlay').style.display = 'none'; }
 document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
 
-// Dropdown helpers
-function toggleDropdown(btn, menuId) {
-  closeDropdowns();
-  document.getElementById(menuId)?.classList.toggle('show');
+// Dropdown helpers.
+// #ribbon is a horizontal scroll container (overflow-x:auto), which also clips overflow-y —
+// so an open menu is switched to position:fixed and placed with viewport coordinates from its trigger.
+function positionMenu(menu, btn) {
+  const b = btn.getBoundingClientRect();
+  menu.style.top = '0px'; menu.style.left = '0px';
+  const m = menu.getBoundingClientRect();
+  const gap = 2, edge = 6;
+  let top = b.bottom + gap;
+  if (top + m.height > window.innerHeight - edge) {
+    const above = b.top - m.height - gap;
+    top = above >= edge ? above : Math.max(edge, window.innerHeight - m.height - edge);
+  }
+  let left = b.left;
+  if (left + m.width > window.innerWidth - edge) left = window.innerWidth - m.width - edge;
+  menu.style.top = top + 'px';
+  menu.style.left = Math.max(edge, left) + 'px';
 }
-function closeDropdowns() { document.querySelectorAll('.dropdown-menu.show').forEach(m => m.classList.remove('show')); }
+function openMenu(menu, btn) {
+  if (!menu) return;
+  menu.classList.add('show');
+  menu._trigger = btn || null;
+  if (btn) positionMenu(menu, btn);
+  else menu.style.top = menu.style.left = '';
+}
+function closeMenu(menu) {
+  if (!menu) return;
+  menu.classList.remove('show');
+  menu.style.top = '';
+  menu.style.left = '';
+  menu._trigger = null;
+}
+function toggleDropdown(btn, menuId) {
+  const menu = document.getElementById(menuId);
+  const alreadyOpen = menu && menu.classList.contains('show');
+  closeDropdowns();
+  if (!alreadyOpen && menu) openMenu(menu, btn);
+}
+function closeDropdowns() { document.querySelectorAll('.dropdown-menu.show').forEach(closeMenu); }
+// a fixed menu is positioned from viewport coordinates, so keep it glued to its trigger
+function repositionOpenMenus() {
+  document.querySelectorAll('.dropdown-menu.show').forEach(m => m._trigger ? positionMenu(m, m._trigger) : closeMenu(m));
+}
 document.addEventListener('click', (e) => { if (!e.target.closest('.dropdown')) closeDropdowns(); });
+document.getElementById('ribbon')?.addEventListener('scroll', repositionOpenMenus, { passive: true });
+window.addEventListener('resize', repositionOpenMenus);
 
 // ═══════════════ TOAST NOTIFICATIONS ═══════════════
 function showToast(msg, type, ttl) {
@@ -2914,7 +3605,7 @@ function showContextMenu(x, y) {
   m.style.top = Math.max(4, Math.min(y, window.innerHeight - r.height - 8)) + 'px';
 }
 function hideContextMenu() { document.getElementById('context-menu').style.display = 'none'; }
-editor.addEventListener('contextmenu', (e) => { e.preventDefault(); showContextMenu(e.clientX, e.clientY); });
+editor.addEventListener('contextmenu', (e) => { e.preventDefault(); /* spell/auto-correct-aware menu is handled in module 09 */ });
 document.addEventListener('mousedown', (e) => { if (!e.target.closest('#context-menu')) hideContextMenu(); });
 function cmAction(a) {
   hideContextMenu();
@@ -3577,7 +4268,7 @@ function standaloneHtml(name) {
     '<style>body{font-family:Georgia,serif;max-width:816px;margin:0 auto;padding:72px;line-height:1.5;color:#111;background:#fff}' +
     'img{max-width:100%}table{border-collapse:collapse;width:100%}td,th{border:1px solid #999;padding:6px 8px}' +
     'h1,h2,h3{color:#2b579a}blockquote{border-left:3px solid #ccc;margin-left:0;padding-left:12px;color:#555}</style>\n' +
-    '</head>\n<body>\n' + editor.innerHTML.replace(/<canvas[^>]*>[\s\S]*?<\/canvas>/gi, '') + '\n</body>\n</html>';
+    '</head>\n<body>\n' + cleanEditorHTML().replace(/<canvas[^>]*>[\s\S]*?<\/canvas>/gi, '') + '\n</body>\n</html>';
 }
 // Export any supported format; resolves after the download starts.
 function exportAs(type, name) {
@@ -3587,11 +4278,11 @@ function exportAs(type, name) {
       let blob = null, fname = name + '.' + type;
       switch (type) {
         case 'docx':
-          buildDocx(editor, name).then(b => { downloadBlob(b, fname); showToast('Saved <b>' + fname + '</b> — check your Downloads folder', 'ok'); resolve(true); })
+          buildDocx(cleanEditorNode(), name).then(b => { downloadBlob(b, fname); showToast('Saved <b>' + fname + '</b> — check your Downloads folder', 'ok'); resolve(true); })
             .catch(e => { console.error(e); showToast('DOCX export failed: ' + e.message, 'err'); resolve(false); });
           return;
         case 'doc':
-          blob = new Blob(['\ufeff<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>' + name + '</title></head><body>' + editor.innerHTML + '</body></html>'], { type: 'application/msword' });
+          blob = new Blob(['\ufeff<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>' + name + '</title></head><body>' + cleanEditorHTML() + '</body></html>'], { type: 'application/msword' });
           break;
         case 'rtf':
           blob = new Blob([buildRtf()], { type: 'application/rtf' });
@@ -3610,7 +4301,7 @@ function exportAs(type, name) {
       if (ok) {
         showToast('Saved <b>' + fname + '</b> — check your Downloads folder', 'ok');
         try {
-          localStorage.setItem('wordclone-lastdoc', editor.innerHTML);
+          localStorage.setItem('wordclone-lastdoc', cleanEditorHTML());
           localStorage.setItem('wordclone-lastname', name);
         } catch (e) {}
       }
@@ -3737,7 +4428,7 @@ function scheduleAutoSave() {
 function doAutoSave() {
   if (typeof SETTINGS === 'undefined' || !SETTINGS.autosave) return;
   try {
-    localStorage.setItem('wordclone-autosave', editor.innerHTML);
+    localStorage.setItem('wordclone-autosave', cleanEditorHTML());
     localStorage.setItem('wordclone-autosave-time', new Date().toISOString());
     localStorage.setItem('wordclone-autosave-name', docName());
     const st = document.getElementById('autosave-state');
@@ -3764,7 +4455,7 @@ function toggleAutoSave() {
 function maybeRestoreAutosave() {
   let saved = null;
   try { saved = localStorage.getItem('wordclone-autosave'); } catch (e) {}
-  if (!saved || saved === editor.innerHTML) return;
+  if (!saved || saved === cleanEditorHTML()) return;   // compare without transient spell markup
   const c = document.getElementById('toast-container');
   if (!c) return;
   const t = document.createElement('div');
@@ -3828,7 +4519,7 @@ async function shareDoc() {
 function shareByEmail() { return shareDoc(); }
 function shareAsLink() {
   try {
-    const data = btoa(unescape(encodeURIComponent(editor.innerHTML)));
+    const data = btoa(unescape(encodeURIComponent(cleanEditorHTML())));
     const url = window.location.href.split('#')[0] + '#doc=' + data;
     navigator.clipboard.writeText(url).then(() => showToast('Link copied to clipboard', 'ok'))
       .catch(() => showToast('Could not copy link — document may be too large', 'warn'));
@@ -4632,3 +5323,913 @@ setTimeout(function () { try { maybeRestoreAutosave(); } catch (e) {} }, 600);
 </script>
 </body>
 </html>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════════
+// MODULE 09 — SPELL CHECK, AUTOCORRECT, MATH AUTOCORRECT, AUTOFORMAT, ACTIONS
+// Loads last (build.py sorts modules), so everything from modules 00-08 is
+// available (editor, cmd, saveUndo, showModal, showToast, SETTINGS, COMMON_WORDS...)
+// ════════════════════════════════════════════════════════════════════════════
+
+// ═══════ DICTIONARY / SPELL ENGINE ═══════
+let DICT_CUSTOM = new Set(), DICT_IGNORE = new Set();
+let spellMarkTimer = null, spellMarking = false;
+let cmSpellWord = '';
+const WORD_DEFS = {
+  anim: 'spirits', anima: 'soul, animating principle', animi: 'personalities, dispositions, spirits',
+  teh: 'the', accomodate: 'accommodate', recieve: 'receive', seperate: 'separate',
+  definately: 'definitely', occurence: 'occurrence', embarass: 'embarrass',
+  librery: 'library', februrary: 'february', goverment: 'government'
+};
+function loadDict() {
+  try {
+    (JSON.parse(localStorage.getItem('icbimw-dict') || '[]') || []).forEach(w => DICT_CUSTOM.add(String(w).toLowerCase()));
+    (JSON.parse(localStorage.getItem('icbimw-ignore') || '[]') || []).forEach(w => DICT_IGNORE.add(String(w).toLowerCase()));
+  } catch (e) {}
+}
+function saveDict() {
+  try { localStorage.setItem('icbimw-dict', JSON.stringify([...DICT_CUSTOM])); localStorage.setItem('icbimw-ignore', JSON.stringify([...DICT_IGNORE])); } catch (e) {}
+}
+function isKnown(w) { const l = w.toLowerCase(); return COMMON_WORDS.has(l) || DICT_CUSTOM.has(l) || DICT_IGNORE.has(l); }
+function addToDictionary(w) { if (!w) return; DICT_CUSTOM.add(w.toLowerCase()); DICT_IGNORE.delete(w.toLowerCase()); saveDict(); showToast('Added "' + w + '" to dictionary', 'ok'); try { markSpellingErrors(); showEditorPanel(); } catch (e) {} }
+function ignoreWord(w, scope) { if (!w) return; if (scope === 'all') DICT_IGNORE.add(w.toLowerCase()); saveDict(); try { markSpellingErrors(); showEditorPanel(); } catch (e) {} hideContextMenu(); }
+function edits1(w) {
+  const letters = 'abcdefghijklmnopqrstuvwxyz', splits = [], lc = letters.split('');
+  for (let i = 0; i <= w.length; i++) splits.push([w.slice(0, i), w.slice(i)]);
+  const del = splits.map(s => s[1] ? s[0] + s[1].slice(1) : '').filter(Boolean);
+  const trans = splits.map(s => s[1].length > 1 ? s[0] + s[1][1] + s[1][0] + s[1].slice(2) : '').filter(Boolean);
+  const rep = [], ins = [];
+  splits.forEach(s => { if (s[1]) lc.forEach(c => rep.push(s[0] + c + s[1].slice(1))); lc.forEach(c => ins.push(s[0] + c + s[1])); });
+  return [...new Set([...del, ...trans, ...rep, ...ins])];
+}
+// Damerau-Levenshtein distance (adjacent transposition counts as one edit).
+function editDistance(a, b) {
+  if (a === b) return 0;
+  const la = a.length, lb = b.length;
+  if (!la) return lb;
+  if (!lb) return la;
+  let prev2 = null, prev = [], cur = [];
+  for (let j = 0; j <= lb; j++) prev[j] = j;
+  for (let i = 1; i <= la; i++) {
+    cur[0] = i;
+    for (let j = 1; j <= lb; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      let v = Math.min(cur[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) v = Math.min(v, prev2[j - 2] + 1);
+      cur[j] = v;
+    }
+    prev2 = prev; prev = cur; cur = [];
+  }
+  return prev[lb];
+}
+function getSuggestions(word) {
+  const l = word.toLowerCase(), cands = new Set();
+  const add = (c) => { if (c && c !== l && !cands.has(c) && (COMMON_WORDS.has(c) || DICT_CUSTOM.has(c))) cands.add(c); };
+  edits1(l).forEach(add);
+  // distance-2 search is edits1() applied to every edit-1 candidate, so it only stays
+  // affordable for short words — long ones get their (usually sufficient) edit-1 hits
+  if (l.length <= 6) [...cands].forEach(c1 => edits1(c1).forEach(add));
+  // rank by actual distance, not alphabetically, or "deceive" outranks "receive"
+  return [...cands]
+    .sort((a, b) => editDistance(l, a) - editDistance(l, b) || a.localeCompare(b))
+    .slice(0, 6);
+}
+function spellCheckWords(text) {
+  const misspelled = [], seen = new Set();
+  const tokens = text.match(/[A-Za-z'][A-Za-z'-]*/g) || [];
+  tokens.forEach(w => {
+    const l = w.toLowerCase();
+    if (w.length < 4 || isKnown(w) || seen.has(l)) return;
+    seen.add(l);
+    misspelled.push({ word: w, replace: '', suggest: getSuggestions(w), def: WORD_DEFS[l] || '' });
+  });
+  return { misspelled, score: Math.max(0, 100 - misspelled.length * 3) };
+}
+
+// Place the caret `offset` characters into the given root nodes. Used to follow the caret
+// across the text-node rewrites in markSpellingErrors().
+function setCaretIn(roots, offset) {
+  let acc = 0;
+  for (const root of roots) {
+    if (!root) continue;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let n;
+    while ((n = walker.nextNode())) {
+      if (offset <= acc + n.length) {
+        const r = document.createRange();
+        r.setStart(n, offset - acc); r.collapse(true);
+        const sel = window.getSelection();
+        sel.removeAllRanges(); sel.addRange(r);
+        return true;
+      }
+      acc += n.length;
+    }
+  }
+  return false;
+}
+// Strip squiggle wrappers, re-parenting the EXISTING text node (not a fresh copy) so a
+// selection anchored inside a flagged word survives and keeps pointing at the same node.
+function unwrapSpell(root) {
+  root.querySelectorAll('.icw-spell').forEach(s => { if (s.firstChild) s.replaceWith(s.firstChild); });
+}
+// Mark misspelled words with red squiggles.
+//
+// The caret is tracked as (text node, character offset) rather than as a document-wide
+// character offset: an empty paragraph contains no text node, so a global offset cannot
+// tell "end of paragraph 1" from "start of paragraph 2". Restoring that offset after
+// pressing Enter put the caret back at the top of the previous paragraph.
+function markSpellingErrors() {
+  if (spellMarking) return;
+  spellMarking = true;
+  try {
+    const sel = window.getSelection();
+    let caret = null;
+    if (sel.rangeCount && sel.anchorNode && sel.anchorNode.nodeType === 3 && editor.contains(sel.anchorNode)) {
+      caret = { node: sel.anchorNode, offset: sel.anchorOffset };
+    }
+    // start from a clean slate: unwrap first, then re-wrap whatever is still wrong, so a
+    // word fixed by a suggestion does not keep its (now wrong) squiggle
+    unwrapSpell(editor);
+    const text = editor.innerText || '';
+    const res = spellCheckWords(text);
+    const miss = new Set(res.misspelled.map(m => m.word));
+    // wrap misspelled words; skip nodes already inside a fresh .icw-spell from this pass
+    const walk = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+    const nodes = []; let n;
+    while ((n = walk.nextNode())) nodes.push(n);
+    for (const node of nodes) {
+      if (!node.parentNode) continue;
+      if (node.parentElement && node.parentElement.classList.contains('icw-spell')) continue;
+      const t = node.textContent;
+      let idx = 0, html = '';
+      t.replace(/\b([A-Za-z'][A-Za-z'-]*)\b/g, (m, w) => {
+        const start = t.indexOf(w, idx);
+        html += t.slice(idx, start);
+        if (miss.has(w) && w.length >= 4) html += '<span class="icw-spell">' + w + '</span>';
+        else html += w;
+        idx = start + w.length;
+        return m;
+      });
+      html += t.slice(idx);
+      // node is untouched -> any selection inside it stays valid, nothing to restore
+      if (html === t) continue;
+      const frag = document.createRange();
+      frag.selectNodeContents(node);
+      const parts = frag.createContextualFragment(html);
+      const roots = [...parts.childNodes];
+      const caretHere = caret && caret.node === node ? caret.offset : null;
+      node.replaceWith(parts);
+      if (caretHere !== null) {
+        setCaretIn(roots, caretHere);
+        caret = null; // re-anchored to a fresh node; later rewrites cannot move it
+      }
+    }
+    return res;
+  } finally {
+    spellMarking = false;
+  }
+}
+function toggleSpellMarking(on) {
+  if (on) { markSpellingErrors(); }
+  else { editor.focus(); unwrapSpell(editor); }
+}
+editor.addEventListener('input', () => {
+  clearTimeout(spellMarkTimer);
+  if (typeof SETTINGS !== 'undefined' && SETTINGS.spellcheck !== false) {
+    spellMarkTimer = setTimeout(markSpellingErrors, 250);
+  }
+  handleAutoCorrectOnInput();
+});
+
+// ═══════ AUTOCORRECT RULES ═══════
+let AC_RULES = [
+  { find: '(c)', replace: '©', formatted: false },
+  { find: '(r)', replace: '®', formatted: false },
+  { find: '(tm)', replace: '™', formatted: false },
+  { find: 'teh', replace: 'the', formatted: false },
+  { find: 'recieve', replace: 'receive', formatted: false },
+  { find: 'seperate', replace: 'separate', formatted: false },
+  { find: 'definately', replace: 'definitely', formatted: false },
+  { find: 'occurence', replace: 'occurrence', formatted: false },
+  { find: 'accomodate', replace: 'accommodate', formatted: false },
+  { find: 'embarass', replace: 'embarrass', formatted: false }
+];
+let AC_EXC = { firstLetter: ['e.g.', 'etc.', 'approx.', 'vs.', 'inc.', 'ltd.', 'no.'], initialCaps: ['IDs', 'GHz', 'PhD', 'McAfee'], other: [] };
+let AC_SET = {
+  enabled: true, showSmartButton: true, twoInitialCaps: true, sentenceCase: true,
+  tableCellCaps: true, dayNames: true, capsLock: true, replaceAsYouType: true, autoSuggest: true
+};
+function loadAC() {
+  try {
+    const s = JSON.parse(localStorage.getItem('icbimw-ac') || 'null');
+    if (s) AC_SET = Object.assign({}, AC_SET, s);
+    const r = JSON.parse(localStorage.getItem('icbimw-ac-rules') || 'null');
+    if (r) AC_RULES = r;
+    const e = JSON.parse(localStorage.getItem('icbimw-ac-exc') || 'null');
+    if (e) AC_EXC = Object.assign({ firstLetter: [], initialCaps: [], other: [] }, e);
+  } catch (e) {}
+}
+function saveAC() {
+  try { localStorage.setItem('icbimw-ac', JSON.stringify(AC_SET)); localStorage.setItem('icbimw-ac-rules', JSON.stringify(AC_RULES)); localStorage.setItem('icbimw-ac-exc', JSON.stringify(AC_EXC)); } catch (e) {}
+}
+function isFirstLetterExc(w) { return AC_EXC.firstLetter.some(x => w.toLowerCase() === x.toLowerCase()); }
+function isInitialCapsExc(w) { return AC_EXC.initialCaps.some(x => w === x); }
+function isOtherCorrectionExc(w) { return AC_EXC.other.some(x => w === x); }
+const DAYS = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+function fixDayName(w) { const d = DAYS.indexOf(w.toLowerCase()); return d >= 0 ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : null; }
+function fixTwoInitialCaps(w) {
+  if (w.length < 3) return null;
+  if (/^[A-Z]{2}[a-z]/.test(w) && !isInitialCapsExc(w)) return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+  return null;
+}
+function fixCapsLock(w) {
+  // accidental caps lock: all caps, length>1, not all-caps exception
+  if (w.length > 1 && /^[A-Z]+$/.test(w) && !isInitialCapsExc(w)) return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+  return null;
+}
+function replaceAsYouType(w) {
+  if (isOtherCorrectionExc(w)) return null;
+  const rule = AC_RULES.find(r => r.find.toLowerCase() === w.toLowerCase());
+  return rule ? rule.replace : null;
+}
+
+// Apply autocorrect to a completed word. Returns replacement string or null.
+function autocorrectWord(word, prevChar, nextChar) {
+  if (!AC_SET.enabled || !word || word.length < 2 || isOtherCorrectionExc(word)) return null;
+  let l = word.toLowerCase();
+  // two initial capitals
+  if (AC_SET.twoInitialCaps) { const f = fixTwoInitialCaps(word); if (f) return f; }
+  // days of week
+  if (AC_SET.dayNames) { const f = fixDayName(word); if (f) return f; }
+  // accidental caps lock
+  if (AC_SET.capsLock) { const f = fixCapsLock(word); if (f) return f; }
+  // replace-as-you-type
+  if (AC_SET.replaceAsYouType) { const f = replaceAsYouType(word); if (f) return f; }
+  return null;
+}
+
+// ═══════ HANDLE AUTOCORRECT AS YOU TYPE ═══════
+let acTyping = false;
+function handleAutoCorrectOnInput() {
+  if (acTyping || !AC_SET.enabled) return;
+  acTyping = true;
+  setTimeout(() => {
+    acTyping = false;
+    try { doAutoCorrectReplace(); } catch (e) {}
+  }, 120);
+}
+function doAutoCorrectReplace() {
+  const sel = window.getSelection(); if (!sel.rangeCount || !sel.isCollapsed) return;
+  const range = sel.getRangeAt(0);
+  const start = range.startContainer;
+  if (start.nodeType !== 3) return;
+  const text = start.textContent;
+  let endOff = range.startOffset;
+  // skip trailing non-word chars (e.g. the space just typed) to locate the end of the last word
+  let probe = endOff;
+  while (probe > 0 && !/[A-Za-z0-9']/.test(text[probe - 1])) probe--;
+  let wordStart = probe;
+  while (wordStart > 0 && /[A-Za-z0-9']/.test(text[wordStart - 1])) wordStart--;
+  const word = text.slice(wordStart, probe);
+  if (!word || word.length < 2) return;
+  // only auto-correct completed words (followed by whitespace) to avoid mid-word edits
+  if (probe < text.length && !/\s/.test(text[probe])) return;
+  const prevChar = wordStart > 0 ? text[wordStart - 1] : '';
+  const replacement = autocorrectWord(word, prevChar, text[probe] || '');
+  if (!replacement) return;
+  const r = document.createRange(); r.setStart(start, wordStart); r.setEnd(start, probe);
+  sel.removeAllRanges(); sel.addRange(r);
+  document.execCommand('insertText', false, replacement);
+  saveUndo(); updateStatus();
+  setCaretOffset(getCaretOffset());
+  if (AC_SET.showSmartButton) showAutoCorrectSmartButton(word, replacement);
+}
+let smartBtnTimer = null;
+function showAutoCorrectSmartButton(orig, repl) {
+  if (smartBtnTimer) clearTimeout(smartBtnTimer);
+  const btn = document.getElementById('ac-smart-btn');
+  if (!btn) {
+    const b = document.createElement('button');
+    b.id = 'ac-smart-btn';
+    b.style.cssText = 'position:fixed;background:#fff;border:1px solid #999;border-radius:12px;padding:4px 10px;font-size:12px;color:#111;z-index:10000;box-shadow:0 2px 8px rgba(0,0,0,.25);cursor:pointer;pointer-events:auto';
+    b.onclick = (e) => { e.stopPropagation(); undoLastAC(); hideSmartBtn(); };
+    b.title = 'Undo AutoCorrect / stop rule';
+    document.body.appendChild(b);
+  }
+  const rect = editor.getBoundingClientRect();
+  btn.style.left = (rect.left + 8) + 'px'; btn.style.top = (rect.top + 8) + 'px';
+  btn.textContent = orig + ' → ' + repl + '  ↶';
+  btn.style.display = 'inline-block';
+  smartBtnTimer = setTimeout(hideSmartBtn, 3500);
+}
+function hideSmartBtn() { const b = document.getElementById('ac-smart-btn'); if (b) b.style.display = 'none'; }
+function undoLastAC() { doUndo(); hideSmartBtn(); showToast('AutoCorrect undone', 'ok'); }
+
+// ═══════ SENTENCE CASE & TABLE CELL CAPS (on terminal punctuation / cell entry) ═══════
+function capitalizeSentenceAfter(text, pos) {
+  // pos is index of terminal punctuation . ! ?
+  let i = pos + 1;
+  while (i < text.length && /\s/.test(text[i])) i++;
+  if (i < text.length && /[a-z]/.test(text[i])) return { at: i, to: text[i].toUpperCase() };
+  return null;
+}
+// Triggered when user types . ! ? followed by a letter — handled in handleAutoCorrectOnInput via word boundaries is weak;
+// instead handle on keydown for terminal punctuation + space below.
+
+// ═══════ MATH AUTOCORRECT ═══════
+const MATH_MAP = {
+  '\\alpha':'α','\\beta':'β','\\gamma':'γ','\\delta':'δ','\\epsilon':'ε','\\zeta':'ζ','\\eta':'η','\\theta':'θ','\\iota':'ι','\\kappa':'κ','\\lambda':'λ','\\mu':'μ','\\nu':'ν','\\xi':'ξ','\\omicron':'ο','\\pi':'π','\\rho':'ρ','\\sigma':'σ','\\tau':'τ','\\upsilon':'υ','\\phi':'φ','\\chi':'χ','\\psi':'ψ','\\omega':'ω','\\Omega':'Ω',
+  '\\pm':'±','\\mp':'∓','\\times':'×','\\div':'÷','\\cdot':'⋅','\\infty':'∞','\\approx':'≈','\\neq':'≠','\\leq':'≤','\\geq':'≥','\\lt':'<','\\gt':'>',
+  '\\sum':'∑','\\prod':'∏','\\int':'∫','\\partial':'∂','\\nabla':'∇','\\in':'∈','\\notin':'∉','\\subset':'⊂','\\subseteq':'⊆','\\cup':'∪','\\cap':'∩','\\emptyset':'∅',
+  '\\rightarrow':'→','\\leftarrow':'←','\\Rightarrow':'⇒','\\Leftrightarrow':'⇔','\\forall':'∀','\\exists':'∃','\\neg':'¬','\\land':'∧','\\lor':'∨',
+  '\\pi':'π','\\degree':'°','\\frac':'','\\sqrt':'√'
+};
+function convertMath(tok) {
+  if (AC_SET.mathOutside !== false && tok) {
+    const r = MATH_MAP[tok];
+    if (r !== undefined) return r;
+  }
+  return null;
+}
+function handleMathOnSpace() {
+  if (!AC_SET.mathOutside) return;
+  const sel = window.getSelection(); if (!sel.rangeCount || sel.isCollapsed) return;
+  const start = sel.getRangeAt(0).startContainer;
+  if (start.nodeType !== 3) return;
+  const text = start.textContent; const off = sel.getRangeAt(0).startOffset;
+  let wordStart = off;
+  while (wordStart > 0 && /[A-Za-z\\]/.test(text[wordStart - 1])) wordStart--;
+  const tok = text.slice(wordStart, off);
+  if (!tok.startsWith('\\') || tok.length < 2) return;
+  const sym = convertMath(tok);
+  if (!sym) return;
+  const r = document.createRange(); r.setStart(start, wordStart); r.setEnd(start, off);
+  sel.removeAllRanges(); sel.addRange(r);
+  document.execCommand('insertText', false, sym);
+  saveUndo(); updateStatus();
+}
+
+// ═══════ AUTOFORMAT AS YOU TYPE ═══════
+let AF_SET = {
+  smartQuotes: true, fractions: true, markdown: true, hyperlinks: true, ordinals: true,
+  hyphens: true, autoBullets: true, autoNumbered: true, borderLines: true, textTables: true,
+  headingStyles: true, formatListItem: true, tabIndent: true, defineStyles: true
+};
+const SMART_OPEN = '“', SMART_CLOSE = '”', SMART_OPEN_S = '‘', SMART_CLOSE_S = '’';
+let quoteOpen = true;
+function autoFormatOnType() {
+  if (!AF_SET.smartQuotes && !AF_SET.fractions && !AF_SET.markdown && !AF_SET.hyperlinks && !AF_SET.ordinals && !AF_SET.hyphens && !AF_SET.autoBullets && !AF_SET.autoNumbered && !AF_SET.borderLines && !AF_SET.textTables && !AF_SET.headingStyles) return;
+  const sel = window.getSelection(); if (!sel.rangeCount || sel.isCollapsed) return;
+  const start = sel.getRangeAt(0).startContainer;
+  if (start.nodeType !== 3) return;
+  const text = start.textContent; const off = sel.getRangeAt(0).startOffset;
+  // look at the line/paragraph text before caret
+  let lineStart = off;
+  while (lineStart > 0 && text[lineStart - 1] !== '\n') lineStart--;
+  const line = text.slice(lineStart, off);
+  // --- border lines: --- === ___ then Enter handled on keydown, skip here
+  // --- smart quotes
+  if (AF_SET.smartQuotes) {
+    // replace trailing straight quotes
+    if (line.endsWith('"')) {
+      const q = quoteOpen ? SMART_OPEN : SMART_CLOSE;
+      quoteOpen = !quoteOpen;
+      applyTrailingReplace(start, off, '"', q);
+    } else if (line.endsWith("'")) {
+      const q = /[\w]$/.test(line.slice(0, -1)) ? SMART_CLOSE_S : SMART_OPEN_S;
+      applyTrailingReplace(start, off, "'", q);
+    }
+  }
+  // --- fractions
+  if (AF_SET.fractions) {
+    const m = line.match(/(\d+)\/(\d+)$/);
+    if (m) {
+      const frac = { '1/2':'½','1/4':'¼','3/4':'¾','1/3':'⅓','2/3':'⅔' }[m[1] + '/' + m[2]];
+      if (frac) applyTrailingReplace(start, off, m[0], frac);
+    }
+  }
+  // --- ordinals
+  if (AF_SET.ordinals) {
+    const m = line.match(/(\d+)(st|nd|rd|th)$/);
+    if (m) {
+      const sup = { st:'ˢᵗ', nd:'ⁿᵈ', rd:'ʳᵈ', th:'ᵗʰ' }[m[2]];
+      if (sup) applyTrailingReplace(start, off, m[2], sup);
+    }
+  }
+  // --- hyphens to dashes
+  if (AF_SET.hyphens) {
+    if (line.endsWith('---')) { applyTrailingReplace(start, off, '---', '—'); }
+    else if (line.endsWith('--')) { applyTrailingReplace(start, off, '--', '–'); }
+  }
+  // --- markdown bold *...* / **...**
+  if (AF_SET.markdown) {
+    const m = line.match(/\*\*([^*]+)\*\*$/);
+    if (m) { applyTrailingReplaceStartEnd(start, off, m[0], '<b>' + m[1] + '</b>', true); return; }
+    const m2 = line.match(/\*([^*]+)\*$/);
+    if (m2 && !m2[1].includes(' ')) { applyTrailingReplaceStartEnd(start, off, m2[0], '<i>' + m2[1] + '</i>', true); return; }
+  }
+  // --- URLs to hyperlinks (very narrow: www. or http at end of word)
+  if (AF_SET.hyperlinks) {
+    const m = line.match(/(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)$/);
+    if (m) {
+      const url = m[0];
+      applyTrailingReplaceStartEnd(start, off, url, '<a href="' + (url.startsWith('www') ? 'http://' + url : url) + '" target="_blank">' + url + '</a>', true);
+    }
+  }
+}
+function applyTrailingReplace(node, off, oldTxt, newTxt) {
+  const r = document.createRange(); r.setStart(node, off - oldTxt.length); r.setEnd(node, off);
+  const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+  document.execCommand('insertText', false, newTxt);
+  saveUndo(); updateStatus();
+}
+function applyTrailingReplaceStartEnd(node, off, oldTxt, newHtml, isHtml) {
+  const r = document.createRange(); r.setStart(node, off - oldTxt.length); r.setEnd(node, off);
+  const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+  if (isHtml) document.execCommand('insertHTML', false, newHtml);
+  else document.execCommand('insertText', false, newHtml);
+  saveUndo(); updateStatus();
+}
+
+// AutoFormat As You Type structural triggers handled on keydown (Enter/Space/Tab)
+function handleAutoFormatKey(e) {
+  const sel = window.getSelection(); if (!sel.rangeCount || sel.isCollapsed) return;
+  const start = sel.getRangeAt(0).startContainer;
+  if (start.nodeType !== 3) return;
+  const text = start.textContent; const off = sel.getRangeAt(0).startOffset;
+  let lineStart = off;
+  while (lineStart > 0 && text[lineStart - 1] !== '\n') lineStart--;
+  const line = text.slice(lineStart, off);
+  let handled = false;
+  if (e.key === 'Enter') {
+    // border lines
+    if (AF_SET.borderLines && (/^---+$/.test(line) || /^===+$/.test(line) || /^\*\*\*+$/.test(line) || /^___+$/.test(line))) {
+      e.preventDefault();
+      // replace the line with a horizontal rule paragraph
+      replaceLineWith(start, lineStart, off, '<hr style="border:none;border-top:1px solid #000;margin:12px 0">');
+      handled = true;
+    }
+    // text tables +---+---+
+    if (!handled && AF_SET.textTables && /^\+[-: ]+\+([-: ]+\+)+$/.test(line)) {
+      e.preventDefault();
+      const tableHtml = buildTableFromLine(line);
+      replaceLineWith(start, lineStart, off, tableHtml + '<p><br></p>');
+      handled = true;
+    }
+    // auto lists
+    if (!handled && AF_SET.autoBullets && /^[\*\-\–]\s$/.test(line.trim())) {
+      e.preventDefault();
+      replaceLineWith(start, lineStart, off, '<ul><li></li></ul><p><br></p>');
+      const li = editor.querySelector('li'); if (li) { const r = document.createRange(); r.selectNodeContents(li); r.collapse(true); sel.removeAllRanges(); sel.addRange(r); editor.focus(); }
+      handled = true;
+    }
+    if (!handled && AF_SET.autoNumbered && /^(\d+)\.\s$/.test(line.trim())) {
+      e.preventDefault();
+      replaceLineWith(start, lineStart, off, '<ol><li></li></ol><p><br></p>');
+      handled = true;
+    }
+    // heading styles
+    if (!handled && AF_SET.headingStyles) {
+      const m = line.match(/^(#{1,3})\s+$/);
+      if (m) {
+        e.preventDefault();
+        const tag = 'h' + m[1].length;
+        replaceLineWith(start, lineStart, off, '<' + tag + '></' + tag + '><p><br></p>');
+        handled = true;
+      }
+    }
+  } else if (e.key === 'Tab' || e.key === 'Backspace') {
+    if (AF_SET.tabIndent && e.key === 'Tab') { /* leave to default; indentation handled by browser */ }
+  }
+  return handled;
+}
+function replaceLineWith(node, lineStart, off, html) {
+  const r = document.createRange(); r.setStart(node, lineStart); r.setEnd(node, off);
+  const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+  document.execCommand('insertHTML', false, html);
+  saveUndo(); updateStatus();
+}
+function buildTableFromLine(line) {
+  const cells = line.split('+').filter(Boolean);
+  const cols = cells.length;
+  let html = '<table style="border-collapse:collapse;width:100%;margin:8px 0"><tr>';
+  for (let i = 0; i < cols; i++) html += '<td style="border:1px solid #999;padding:6px;min-width:60px;min-height:24px"><br></td>';
+  html += '</tr><tr>';
+  for (let i = 0; i < cols; i++) html += '<td style="border:1px solid #999;padding:6px;min-width:60px;min-height:24px"><br></td>';
+  html += '</tr></table>';
+  return html;
+}
+
+// ═══════ DOCUMENT-WIDE AUTOFORMAT ═══════
+function autoFormatDocument() {
+  if (!confirm('Apply AutoFormat to the whole document? This cannot be undone with a single click (use Undo).')) return;
+  const walk = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+  const nodes = []; let n;
+  while ((n = walk.nextNode())) nodes.push(n);
+  nodes.forEach(node => {
+    let t = node.textContent;
+    if (AF_SET.smartQuotes) { t = t.replace(/"/g, quoteOpen ? '“' : '”'); quoteOpen = !quoteOpen; } // rough
+    if (AF_SET.fractions) t = t.replace(/\b(\d)\/(\d)\b/g, (m,a,b) => { const f={'1/2':'½','1/4':'¼','3/4':'¾'}[a+'/'+b]; return f||m; });
+    if (AF_SET.ordinals) t = t.replace(/\b(\d+)(st|nd|rd|th)\b/g, (m,n,s) => n + {'st':'ˢᵗ','nd':'ⁿᵈ','rd':'ʳᵈ','th':'ᵗʰ'}[s]);
+    if (AF_SET.hyphens) t = t.replace(/---/g,'—').replace(/--/g,'–');
+    if (AF_SET.hyperlinks) t = t.replace(/\b(https?:\/\/[^\s<>"']+)/g, '<a href="$1" target="_blank">$1</a>');
+    if (t !== node.textContent) {
+      const frag = document.createRange(); frag.selectNodeContents(node);
+      node.replaceWith(frag.createContextualFragment(t));
+    }
+  });
+  saveUndo(); updateStatus();
+  showToast('AutoFormat applied to document', 'ok');
+}
+
+// ═══════ ACTIONS / SMART TAGS ═══════
+const ACTIONS_SET = { enabled: true };
+function detectSmartTags(text) {
+  const tags = [];
+  // dates
+  const dateRe = /\b(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}|(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]* \d{1,2}(st|nd|rd|th)?,? \d{4})/gi;
+  text.replace(dateRe, (m) => tags.push({ kind: 'Date', text: m, actions: ['Create calendar event', 'Add to calendar'] }));
+  // emails
+  text.replace(/\b[\w.+-]+@[\w-]+\.[\w.-]+\b/g, (m) => tags.push({ kind: 'Email', text: m, actions: ['Send email', 'Add to contacts'] }));
+  // phones (rough)
+  text.replace(/\b\d{3}[\-\.]?\d{3}[\-\.]?\d{4}\b/g, (m) => tags.push({ kind: 'Phone', text: m, actions: ['Call', 'Add to contacts'] }));
+  return tags;
+}
+function showActionsMenu(word, x, y) {
+  const tags = detectSmartTags(word);
+  if (!tags.length) return false;
+  const m = document.getElementById('context-menu');
+  // build actions list
+  let html = '';
+  tags.forEach(t => {
+    t.actions.forEach(a => {
+      html += `<div class="actions-item" onclick="doAction('${jsEsc(t.text)}','${jsEsc(a)}')"><span class="ai-kind">${t.kind}</span>${t.text} → ${a}</div>`;
+    });
+  });
+  document.getElementById('cm-actions-list').innerHTML = html;
+  document.getElementById('cm-actions-sep').style.display = 'block';
+  document.getElementById('cm-actions-head').style.display = 'block';
+  document.getElementById('cm-actions-list').style.display = 'block';
+  // reposition context menu already done by caller; we just reveal
+  return true;
+}
+function hideActionsMenu() {
+  document.getElementById('cm-actions-sep').style.display = 'none';
+  document.getElementById('cm-actions-head').style.display = 'none';
+  document.getElementById('cm-actions-list').style.display = 'none';
+}
+function doAction(text, action) {
+  hideContextMenu();
+  showToast('Action: ' + action + ' for "' + text + '"', 'ok');
+}
+
+// ═══════ CONTEXT MENU INTEGRATION (spell) ═══════
+function cmSpellAction(act) {
+  const word = cmSpellWord;
+  if (act === 'ignoreOnce') { hideContextMenu(); showToast('Ignored "' + word + '" once', 'ok'); return; }
+  if (act === 'ignoreAll') { ignoreWord(word, 'all'); return; }
+  if (act === 'addDict') { addToDictionary(word); return; }
+  if (act === 'addAc') { AC_RULES.push({ find: word, replace: '', formatted: false }); saveAC(); hideContextMenu(); showToast('Added "' + word + '" to AutoCorrect (set replacement in dialog)', 'ok'); return; }
+}
+function getWordAtSelection() {
+  const sel = window.getSelection(); if (!sel.rangeCount) return null;
+  const range = sel.getRangeAt(0); let node = range.startContainer, off = range.startOffset;
+  // flagged words are wrapped in <span class="icw-spell">, so selecting one can leave the
+  // caret on that element instead of on a text node — descend when it holds exactly one
+  if (node && node.nodeType === 1) {
+    const texts = [...node.childNodes].filter(c => c.nodeType === 3);
+    if (texts.length !== 1) return null;
+    node = texts[0]; off = 0;
+  }
+  if (!node || node.nodeType !== 3) return null;
+  const text = node.textContent; let st = Math.min(off, text.length), en = st;
+  while (st > 0 && /[A-Za-z']/.test(text[st - 1])) st--;
+  while (en < text.length && /[A-Za-z']/.test(text[en])) en++;
+  const w = text.slice(st, en);
+  return w.length >= 3 ? w : null;
+}
+function showSpellMenu(word, x, y) {
+  const m = document.getElementById('context-menu');
+  cmSpellWord = word;
+  const sugs = getSuggestions(word);
+  let html = sugs.map(s => `<div class="spell-item" onclick="cmReplaceSpell('${jsEsc(word)}','${jsEsc(s)}')"><div class="spell-word">${escUser(s)}</div>${WORD_DEFS[s.toLowerCase()] ? '<div class="spell-def">' + escUser(WORD_DEFS[s.toLowerCase()]) + '</div>' : ''}</div>`).join('');
+  if (!sugs.length) html = '<div class="spell-item" style="color:var(--text-2)">No suggestions</div>';
+  document.getElementById('cm-spell-list').innerHTML = html;
+  document.getElementById('cm-spell-sep').style.display = 'block';
+  document.getElementById('cm-spell-head').style.display = 'block';
+  document.getElementById('cm-spell-list').style.display = 'block';
+  document.getElementById('cm-ignore-once').style.display = 'block';
+  document.getElementById('cm-ignore-all').style.display = 'block';
+  document.getElementById('cm-add-dict').style.display = 'block';
+  document.getElementById('cm-add-ac').style.display = 'block';
+  document.getElementById('cm-spell-sep2').style.display = 'block';
+  showContextMenu(x, y);
+}
+function cmReplaceSpell(orig, repl) {
+  editorReplaceSuggestion(orig, repl);
+  hideContextMenu();
+}
+// hide spell items when context menu hides
+const _origHide = hideContextMenu;
+hideContextMenu = function () {
+  _origHide();
+  document.getElementById('cm-spell-sep').style.display = 'none';
+  document.getElementById('cm-spell-head').style.display = 'none';
+  document.getElementById('cm-spell-list').style.display = 'none';
+  document.getElementById('cm-ignore-once').style.display = 'none';
+  document.getElementById('cm-ignore-all').style.display = 'none';
+  document.getElementById('cm-add-dict').style.display = 'none';
+  document.getElementById('cm-add-ac').style.display = 'none';
+  document.getElementById('cm-spell-sep2').style.display = 'none';
+  hideActionsMenu();
+  hideSmartBtn();
+};
+// add spell-word holder to context menu (element exists in markup via module 03)
+
+// wire contextmenu to show spell menu for misspelled words
+editor.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  const word = getWordAtSelection();
+  if (word && !isKnown(word) && word.length >= 4) {
+    showSpellMenu(word, e.clientX, e.clientY);
+    return;
+  }
+  hideActionsMenu();
+  showContextMenu(e.clientX, e.clientY);
+});
+
+// ═══════ AUTOCORRECT DIALOG ═══════
+function openAutoCorrectDialog() {
+  loadAC();
+  let rulesHtml = '';
+  AC_RULES.forEach((rule, i) => {
+    const chipClass = rule.formatted ? 'on' : '';
+    rulesHtml += `<tr>
+      <td><input type="text" class="ac-in-find" value="${escUser(rule.find)}" data-i="${i}" placeholder="Replace"></td>
+      <td><input type="text" class="ac-in-repl" value="${escUser(rule.replace)}" data-i="${i}" placeholder="With"></td>
+      <td style="width:110px"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" class="ac-in-fmt" data-i="${i}" ${rule.formatted ? 'checked' : ''}><span style="font-size:11px">Formatted text</span></label></td>
+      <td style="width:120px"><button class="btn" style="padding:4px 10px;font-size:11px" onclick="acDeleteRule(${i})">Delete</button></td>
+    </tr>`;
+  });
+  let excFirst = AC_EXC.firstLetter.map(w => `<span class="ac-chip"><span>${escUser(w)}</span><span class="ac-del" onclick="acRemoveExc('firstLetter','${jsEsc(w)}')">×</span></span>`).join(' ') || '<span style="color:var(--text-2);font-size:11px">none</span>';
+  let excInitial = AC_EXC.initialCaps.map(w => `<span class="ac-chip"><span>${escUser(w)}</span><span class="ac-del" onclick="acRemoveExc('initialCaps','${jsEsc(w)}')">×</span></span>`).join(' ') || '<span style="color:var(--text-2);font-size:11px">none</span>';
+  let excOther = AC_EXC.other.map(w => `<span class="ac-chip"><span>${escUser(w)}</span><span class="ac-del" onclick="acRemoveExc('other','${jsEsc(w)}')">×</span></span>`).join(' ') || '<span style="color:var(--text-2);font-size:11px">none</span>';
+  const html = `
+  <div class="ac-tabs">
+    <div class="ac-tab active" onclick="acSwitchTab(this,'autocorrect')">AutoCorrect</div>
+    <div class="ac-tab" onclick="acSwitchTab(this,'math')">Math AutoCorrect</div>
+    <div class="ac-tab" onclick="acSwitchTab(this,'afyt')">AutoFormat As You Type</div>
+    <div class="ac-tab" onclick="acSwitchTab(this,'aformat')">AutoFormat</div>
+    <div class="ac-tab" onclick="acSwitchTab(this,'actions')">Actions</div>
+  </div>
+  <div class="ac-tabpanel active" id="acp-autocorrect">
+    <div class="ac-row"><label><input type="checkbox" id="ac-enable" ${AC_SET.enabled ? 'checked' : ''}> Automatically correct spelling and formatting as you type</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="ac-smart" ${AC_SET.showSmartButton ? 'checked' : ''}> Show AutoCorrect Options buttons</label><span class="ac-desc">Shows the small drop-down action tag when Word makes an automatic change</span></div>
+    <hr style="margin:6px 0;border:none;border-top:1px solid var(--border)">
+    <div class="ac-row"><label><input type="checkbox" id="ac-two" ${AC_SET.twoInitialCaps ? 'checked' : ''}> Correct TWo INitial CApitals</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="ac-sentence" ${AC_SET.sentenceCase ? 'checked' : ''}> Capitalize first letter of sentences</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="ac-tablecell" ${AC_SET.tableCellCaps ? 'checked' : ''}> Capitalize first letter of table cells</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="ac-days" ${AC_SET.dayNames ? 'checked' : ''}> Capitalize names of days</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="ac-capslock" ${AC_SET.capsLock ? 'checked' : ''}> Correct accidental usage of cAPS LOCK key</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="ac-replace" ${AC_SET.replaceAsYouType ? 'checked' : ''}> Replace text as you type</label><span class="ac-desc">Replaces shorthand/misspelled words from the rule table below</span></div>
+    <div class="ac-row"><label><input type="checkbox" id="ac-autosuggest" ${AC_SET.autoSuggest ? 'checked' : ''}> Automatically use suggestions from the spelling checker</label></div>
+    <hr style="margin:6px 0;border:none;border-top:1px solid var(--border)">
+    <div class="ac-row" style="justify-content:flex-start"><label style="font-weight:700">Exceptions:</label></div>
+    <div class="ac-row"><label style="font-weight:600">First Letter:</label><div style="margin-left:10px">${excFirst}</div></div>
+    <div class="ac-row"><label style="font-weight:600">INitial CAps:</label><div style="margin-left:10px">${excInitial}</div></div>
+    <div class="ac-row"><label style="font-weight:600">Other Corrections:</label><div style="margin-left:10px">${excOther}</div></div>
+    <hr style="margin:6px 0;border:none;border-top:1px solid var(--border)">
+    <div class="ac-row" style="justify-content:flex-start"><label style="font-weight:700">Replace text as you type:</label></div>
+    <div class="ac-inputs"><input type="text" id="ac-new-find" placeholder="Replace..."><input type="text" id="ac-new-repl" placeholder="With..."><button class="btn" style="padding:4px 12px;font-size:12px" onclick="acAddRule()">Add</button></div>
+    <table class="ac-table"><thead><tr><th style="width:45%">Replace</th><th style="width:45%">With</th><th style="width:10%">Type</th></tr></thead><tbody id="ac-rules-body">${rulesHtml}</tbody></table>
+    <div class="ac-btns"><button class="btn" onclick="closeAutoCorrectDialog()">Cancel</button><button class="btn primary" onclick="saveAutoCorrectDialog()">OK</button></div>
+  </div>
+  <div class="ac-tabpanel" id="acp-math">
+    <div class="ac-row"><label><input type="checkbox" id="ac-mathout" ${AC_SET.mathOutside !== false ? 'checked' : ''}> Use Math AutoCorrect rules outside of math regions</label></div>
+    <div class="ac-row" style="justify-content:flex-start"><label style="font-weight:700">Replace text as you type (Math List):</label><span class="ac-desc">Converts \-commands into symbols (e.g. \\alpha → α, \\pm → ±, \\infty → ∞)</span></div>
+    <table class="ac-table"><thead><tr><th style="width:50%">Command</th><th style="width:50%">Symbol</th></tr></thead><tbody>${Object.entries(MATH_MAP).map(([k,v]) => `<tr><td><code>${escUser(k)}</code></td><td>${v || '(formatting)'}</td></tr>`).join('')}</tbody></table>
+    <div class="ac-row" style="justify-content:flex-start"><label style="font-weight:700">Exceptions:</label><div style="margin-left:10px" id="ac-math-exc">${(AC_EXC.math || []).map(w => `<span class="ac-chip"><span>${escUser(w)}</span><span class="ac-del" onclick="acRemoveExc('math','${jsEsc(w)}')">×</span></span>`).join(' ') || '<span style="color:var(--text-2);font-size:11px">none</span>'}</div></div>
+    <div class="ac-btns"><button class="btn" onclick="closeAutoCorrectDialog()">Cancel</button><button class="btn primary" onclick="saveAutoCorrectDialog()">OK</button></div>
+  </div>
+  <div class="ac-tabpanel" id="acp-afyt">
+    <div class="ac-row" style="justify-content:flex-start"><label style="font-weight:700">Replace as you type:</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="af-smartquotes" ${AF_SET.smartQuotes ? 'checked' : ''}> "Straight quotes" with “smart quotes”</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="af-fractions" ${AF_SET.fractions ? 'checked' : ''}> Fractions (1/2) with fraction character (½)</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="af-markdown" ${AF_SET.markdown ? 'checked' : ''}> Bold and italic with real formatting (Markdown-style markup)</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="af-hyperlinks" ${AF_SET.hyperlinks ? 'checked' : ''}> Internet and network paths with hyperlinks</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="af-ordinals" ${AF_SET.ordinals ? 'checked' : ''}> Ordinals (1st) with superscript (1<sup>st</sup>)</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="af-hyphens" ${AF_SET.hyphens ? 'checked' : ''}> Hyphens (--) with dash (– / —)</label></div>
+    <hr style="margin:6px 0;border:none;border-top:1px solid var(--border)">
+    <div class="ac-row" style="justify-content:flex-start"><label style="font-weight:700">Apply as you type:</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="af-bullets" ${AF_SET.autoBullets ? 'checked' : ''}> Automatic bulleted lists (*, -, > + Space/Tab)</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="af-numbered" ${AF_SET.autoNumbered ? 'checked' : ''}> Automatic numbered lists (1. or A. + Space/Tab)</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="af-borders" ${AF_SET.borderLines ? 'checked' : ''}> Border lines (---, ===, *** + Enter)</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="af-texttables" ${AF_SET.textTables ? 'checked' : ''}> Tables (+---+---+ + Enter)</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="af-headings" ${AF_SET.headingStyles ? 'checked' : ''}> Built-in Heading styles (# / ## / ###)</label></div>
+    <hr style="margin:6px 0;border:none;border-top:1px solid var(--border)">
+    <div class="ac-row" style="justify-content:flex-start"><label style="font-weight:700">Automatically as you type:</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="af-formatitem" ${AF_SET.formatListItem ? 'checked' : ''}> Format beginning of list item like the one before it</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="af-tabindent" ${AF_SET.tabIndent ? 'checked' : ''}> Set left-indent on tabs and backspaces</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="af-definestyle" ${AF_SET.defineStyles ? 'checked' : ''}> Define styles based on your formatting</label></div>
+    <div class="ac-btns"><button class="btn" onclick="closeAutoCorrectDialog()">Cancel</button><button class="btn primary" onclick="saveAutoCorrectDialog()">OK</button></div>
+  </div>
+  <div class="ac-tabpanel" id="acp-aformat">
+    <div class="ac-row" style="justify-content:flex-start"><label style="font-weight:700">Apply:</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="afmt-headings" checked> Headings</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="afmt-lists" checked> Lists</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="afmt-paras" checked> Other paragraphs</label></div>
+    <hr style="margin:6px 0;border:none;border-top:1px solid var(--border)">
+    <div class="ac-row" style="justify-content:flex-start"><label style="font-weight:700">Replace:</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="afmt-quotes" checked> "Straight quotes" with “smart quotes”</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="afmt-ordinals" checked> Ordinals (1st) with superscript</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="afmt-fractions" checked> Fractions (1/2) with fraction character</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="afmt-hyphens" checked> Hyphens (--) with dash</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="afmt-links" checked> Internet and network paths with hyperlinks</label></div>
+    <hr style="margin:6px 0;border:none;border-top:1px solid var(--border)">
+    <div class="ac-row" style="justify-content:flex-start"><label style="font-weight:700">Preserve:</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="afmt-preserve" checked> Styles (prevents existing style hierarchy from being overwritten)</label></div>
+    <hr style="margin:6px 0;border:none;border-top:1px solid var(--border)">
+    <div class="ac-row" style="justify-content:flex-start"><label style="font-weight:700">Always perform:</label></div>
+    <div class="ac-row"><label><input type="checkbox" id="afmt-plain" checked> Plain text Word documents with standard formatting</label></div>
+    <div class="ac-btns"><button class="btn" onclick="closeAutoCorrectDialog()">Cancel</button><button class="btn primary" onclick="doAutoFormatDocument()">AutoFormat Document</button></div>
+  </div>
+  <div class="ac-tabpanel" id="acp-actions">
+    <div class="ac-row"><label><input type="checkbox" id="ac-actions" ${ACTIONS_SET.enabled ? 'checked' : ''}> Enable additional actions in the right-click menu</label><span class="ac-desc">Contextually flags dates, contacts, addresses to suggest associated tasks</span></div>
+    <div class="ac-row" style="justify-content:flex-start"><label style="font-weight:700">Detected entities (example):</label></div>
+    <table class="ac-table"><thead><tr><th style="width:30%">Entity</th><th style="width:40%">Text</th><th style="width:30%">Suggested action</th></tr></thead><tbody><tr><td>Date</td><td>Oct 15, 2026</td><td>Create calendar invite</td></tr><tr><td>Contact</td><td>Jane Doe</td><td>Email contact</td></tr><tr><td>Address</td><td>123 Main St</td><td>View on map</td></tr></tbody></table>
+    <div class="ac-btns"><button class="btn" onclick="closeAutoCorrectDialog()">Cancel</button><button class="btn primary" onclick="saveAutoCorrectDialog()">OK</button></div>
+  </div>
+  `;
+  showModal('AutoCorrect Options', html);
+  document.getElementById('ac-rules-body').innerHTML = rulesHtml;
+  // wire rule inputs live
+  document.getElementById('ac-rules-body').querySelectorAll('.ac-in-find,.ac-in-repl,.ac-in-fmt').forEach(inp => {
+    inp.addEventListener('change', () => { const i = +inp.dataset.i; if (inp.classList.contains('ac-in-fmt')) AC_RULES[i].formatted = inp.checked; else if (inp.classList.contains('ac-in-find')) AC_RULES[i].find = inp.value; else AC_RULES[i].replace = inp.value; });
+  });
+}
+function acSwitchTab(el, name) {
+  document.querySelectorAll('.ac-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.ac-tabpanel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('acp-' + name).classList.add('active');
+}
+function acAddRule() {
+  const f = document.getElementById('ac-new-find').value.trim(); const r = document.getElementById('ac-new-repl').value.trim();
+  if (!f) return;
+  AC_RULES.push({ find: f, replace: r, formatted: false });
+  saveAC();
+  document.getElementById('ac-new-find').value = ''; document.getElementById('ac-new-repl').value = '';
+  openAutoCorrectDialog(); // refresh
+}
+function acDeleteRule(i) { AC_RULES.splice(i, 1); saveAC(); openAutoCorrectDialog(); }
+function acRemoveExc(list, w) {
+  AC_EXC[list] = AC_EXC[list].filter(x => x !== decodeURIComponent(w.replace(/%5C/g,'\\')).replace(/\\'/g,"'"));
+  saveAC(); openAutoCorrectDialog();
+}
+function closeAutoCorrectDialog() { closeModal(); }
+function saveAutoCorrectDialog() {
+  AC_SET.enabled = document.getElementById('ac-enable').checked;
+  AC_SET.showSmartButton = document.getElementById('ac-smart').checked;
+  AC_SET.twoInitialCaps = document.getElementById('ac-two').checked;
+  AC_SET.sentenceCase = document.getElementById('ac-sentence').checked;
+  AC_SET.tableCellCaps = document.getElementById('ac-tablecell').checked;
+  AC_SET.dayNames = document.getElementById('ac-days').checked;
+  AC_SET.capsLock = document.getElementById('ac-capslock').checked;
+  AC_SET.replaceAsYouType = document.getElementById('ac-replace').checked;
+  AC_SET.autoSuggest = document.getElementById('ac-autosuggest').checked;
+  AC_SET.mathOutside = document.getElementById('ac-mathout').checked;
+  AF_SET.smartQuotes = document.getElementById('af-smartquotes').checked;
+  AF_SET.fractions = document.getElementById('af-fractions').checked;
+  AF_SET.markdown = document.getElementById('af-markdown').checked;
+  AF_SET.hyperlinks = document.getElementById('af-hyperlinks').checked;
+  AF_SET.ordinals = document.getElementById('af-ordinals').checked;
+  AF_SET.hyphens = document.getElementById('af-hyphens').checked;
+  AF_SET.autoBullets = document.getElementById('af-bullets').checked;
+  AF_SET.autoNumbered = document.getElementById('af-numbered').checked;
+  AF_SET.borderLines = document.getElementById('af-borders').checked;
+  AF_SET.textTables = document.getElementById('af-texttables').checked;
+  AF_SET.headingStyles = document.getElementById('af-headings').checked;
+  AF_SET.formatListItem = document.getElementById('af-formatitem').checked;
+  AF_SET.tabIndent = document.getElementById('af-tabindent').checked;
+  AF_SET.defineStyles = document.getElementById('af-definestyle').checked;
+  ACTIONS_SET.enabled = document.getElementById('ac-actions').checked;
+  saveAC();
+  closeModal();
+  showToast('AutoCorrect options saved', 'ok');
+}
+function doAutoFormatDocument() { closeModal(); autoFormatDocument(); }
+
+// ═══════ COLOR PALETTE PICKERS (Font Color & Highlighter) ═══════
+// Theme colours mirror Word's default palette (background/text 1-2 + six accents).
+const THEME_COLORS = [
+  { name: 'Background 1', hex: '#ffffff' },
+  { name: 'Text 1', hex: '#000000' },
+  { name: 'Background 2', hex: '#e7e6e6' },
+  { name: 'Text 2', hex: '#44546a' },
+  { name: 'Accent 1', hex: '#4472c4' },
+  { name: 'Accent 2', hex: '#ed7d31' },
+  { name: 'Accent 3', hex: '#a5a5a5' },
+  { name: 'Accent 4', hex: '#ffc000' },
+  { name: 'Accent 5', hex: '#5b9bd5' },
+  { name: 'Accent 6', hex: '#70ad47' }
+];
+const STANDARD_COLORS = [
+  { name: 'Dark Red', hex: '#c00000' },
+  { name: 'Red', hex: '#ff0000' },
+  { name: 'Orange', hex: '#ffc000' },
+  { name: 'Yellow', hex: '#ffff00' },
+  { name: 'Light Green', hex: '#92d050' },
+  { name: 'Green', hex: '#00b050' },
+  { name: 'Light Blue', hex: '#00b0f0' },
+  { name: 'Blue', hex: '#0070c0' },
+  { name: 'Dark Blue', hex: '#002060' },
+  { name: 'Purple', hex: '#7030a0' }
+];
+let currentColorType = null; // 'fontcolor' | 'highlight'
+
+const pickerId = (type) => type === 'fontcolor' ? 'fontcolor-picker' : 'highlighter-picker';
+
+function openColorPicker(btn, type) {
+  const picker = document.getElementById(pickerId(type));
+  if (!picker) return;
+  // toggle: clicking the same ribbon button again closes it
+  const alreadyOpen = picker.classList.contains('show');
+  closeDropdowns();
+  if (alreadyOpen) { currentColorType = null; return; }
+  currentColorType = type;
+  populateColorGrid(type);
+  openMenu(picker, btn); // position:fixed, placed from the button rect
+}
+function closeColorPickers() {
+  ['fontcolor', 'highlight'].forEach(t => closeMenu(document.getElementById(pickerId(t))));
+  currentColorType = null;
+}
+function populateColorGrid(type) {
+  const t = document.getElementById(type === 'fontcolor' ? 'fontcolor-theme-grid' : 'highlighter-theme-grid');
+  const s = document.getElementById(type === 'fontcolor' ? 'fontcolor-std-grid' : 'highlighter-std-grid');
+  const render = list => list.map(c => `<div class="cp-swatch" style="background:${c.hex}" title="${c.name}" onclick="applyColorSwatch('${c.hex}','${type}')"></div>`).join('');
+  if (t) t.innerHTML = render(THEME_COLORS);
+  if (s) s.innerHTML = render(STANDARD_COLORS);
+}
+// keep the little A preview on the ribbon button in sync with the last applied colour
+// (setRibbonSwatch lives in module 05; selection changes update it too)
+function applyColorSwatch(color, type) {
+  type === 'fontcolor' ? setFontColor(color) : setHighlight(color);
+}
+// 'Automatic' / 'No Color' pass 'inherit' / 'transparent' through the same path
+function setFontColor(color) {
+  closeColorPickers();
+  editor.focus();
+  document.execCommand('styleWithCSS', false, true);
+  document.execCommand('foreColor', false, color === 'inherit' ? 'inherit' : color);
+  document.execCommand('styleWithCSS', false, false);
+  saveUndo(); updateStatus();
+  setRibbonSwatch('fontcolor', color === 'inherit' ? '#c00000' : color);
+  showToast('Font color applied', 'ok');
+}
+function setHighlight(color) {
+  closeColorPickers();
+  editor.focus();
+  document.execCommand('styleWithCSS', false, true);
+  document.execCommand('hiliteColor', false, (!color || color === 'transparent') ? 'transparent' : color);
+  document.execCommand('styleWithCSS', false, false);
+  saveUndo(); updateStatus();
+  setRibbonSwatch('highlight', color === 'transparent' ? '#ffff00' : color);
+  showToast('Highlight color applied', 'ok');
+}
+function pickCustomColor(type) {
+  const input = document.getElementById(type === 'fontcolor' ? 'fontcolor-custom' : 'highlighter-custom');
+  if (!input) return;
+  input.onchange = () => applyColorSwatch(input.value, type);
+  // the picker stays open: closing it first would drop the user gesture and blank the dialog
+  input.click();
+}
+function showGradientMessage() {
+  closeColorPickers();
+  showModal('Gradient', '<p style="color:var(--text-2);font-size:11px">Gradient text color is not available in this edition.</p><div style="text-align:right;margin-top:10px"><button class="btn" onclick="closeModal()">OK</button></div>');
+}
+// close pickers on Escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeColorPickers();
+});
+// close pickers when clicking outside
+document.addEventListener('mousedown', (e) => {
+  if (!e.target.closest('.dropdown') && !e.target.closest('.color-picker')) closeColorPickers();
+});
+
+// ═══════ INIT ═══════
+loadDict();
+loadAC();
+// fill the palettes up front so the pickers are never blank when they open
+populateColorGrid('fontcolor');
+populateColorGrid('highlight');
+// wire AutoFormat-As-You-Type triggers on keydown (Enter for lists/borders/tables/headings; space for math/smart-quotes tail)
+editor.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { if (handleAutoFormatKey(e)) { e.preventDefault(); } }
+  if (e.key === ' ') { handleMathOnSpace(); }
+  // terminal punctuation sentence case: if user types . ! ? then a letter, handled on next input word boundary loosely
+});
+// initial spell mark after load
+setTimeout(markSpellingErrors, 800);
+console.log('Module 09 (spell/autocorrect/autofORMAT/actions) loaded OK');
+</script>

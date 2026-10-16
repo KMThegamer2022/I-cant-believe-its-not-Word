@@ -94,7 +94,7 @@
 </div>
 <!-- ═══════ TABLE GRID PICKER ═══════ -->
 <div id="table-picker" class="pane" style="display:none;position:fixed;background:var(--panel-bg);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow);padding:10px;z-index:2000">
-  <div id="table-grid" style="display:grid;grid-template-columns:repeat(10,24px);gap:2px"></div>
+  <div id="table-grid" style="display:grid;grid-template-columns:repeat(12,24px);gap:2px"></div>
   <div id="table-grid-label" style="text-align:center;margin-top:6px;font-size:12px">Insert Table</div>
 </div>
 <!-- ═══════ MODAL ═══════ -->
@@ -145,7 +145,15 @@
   <div class="cm-item" onclick="cmAction('synonyms')"><span class="cm-ico">&#128218;</span>Synonyms</div>
   <div class="cm-item" onclick="cmAction('translate')"><span class="cm-ico">&#127760;</span>Translate selection</div>
   <div class="cm-item" onclick="cmAction('search')"><span class="cm-ico">&#128269;</span>Search</div>
-  <div class="cm-sep"></div>
+  <!-- spell check submenu (shown only when a misspelled word is targeted) -->
+  <div class="cm-sep" id="cm-spell-sep" style="display:none"></div>
+  <div class="cm-head" id="cm-spell-head" style="display:none">Spelling</div>
+  <div id="cm-spell-list" style="display:none"></div>
+  <div class="cm-item" id="cm-ignore-once" style="display:none" onclick="cmSpellAction('ignoreOnce')"><span class="cm-ico">&#9650;</span>Ignore Once</div>
+  <div class="cm-item" id="cm-ignore-all" style="display:none" onclick="cmSpellAction('ignoreAll')"><span class="cm-ico">&#9633;</span>Ignore All</div>
+  <div class="cm-item" id="cm-add-dict" style="display:none" onclick="cmSpellAction('addDict')"><span class="cm-ico">&#128221;</span>Add to Dictionary</div>
+  <div class="cm-item" id="cm-add-ac" style="display:none" onclick="cmSpellAction('addAc')"><span class="cm-ico">&#10003;</span>Add to AutoCorrect</div>
+  <div class="cm-sep" id="cm-spell-sep2" style="display:none"></div>
   <div class="cm-head">&#9855; Accessibility Assistant</div>
   <div class="cm-item" onclick="cmAction('access-run')"><span class="cm-ico">&#9881;</span>Run Accessibility Assistant</div>
   <div class="cm-item" onclick="cmAction('access-alt')"><span class="cm-ico">&#128444;</span>Check alt text</div>
@@ -156,6 +164,10 @@
   <div class="cm-sep"></div>
   <div class="cm-item" onclick="cmAction('wordcount')"><span class="cm-ico">&#9776;</span>Word Count</div>
   <div class="cm-item" onclick="cmAction('translate-doc')"><span class="cm-ico">&#127760;</span>Translate Document</div>
+  <!-- Actions / Smart Tags submenu (shown when a date, contact or address is targeted) -->
+  <div class="cm-sep" id="cm-actions-sep" style="display:none"></div>
+  <div class="cm-head" id="cm-actions-head" style="display:none">Actions</div>
+  <div id="cm-actions-list" style="display:none"></div>
 </div>
 <!-- ═══════ MINI TOOLBAR (selection) ═══════ -->
 <div id="mini-toolbar">

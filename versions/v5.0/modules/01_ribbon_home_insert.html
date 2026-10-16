@@ -55,17 +55,41 @@
           <button onclick="changeCase('toggle')">tOGGLE cASE</button>
         </div>
       </div>
-      <div class="dropdown">
-        <button class="rbtn small" title="Text Effects" style="font-weight:700;color:#7b1fa2">A&#9660;</button>
-        <div class="dropdown-menu"><div class="color-grid" id="text-effects-grid"></div></div>
+      <div class="dropdown" id="dd-textfx">
+        <button class="rbtn small" onclick="toggleDropdown(this,'dd-textfx-menu')" title="Text Effects" style="font-weight:700;color:#7b1fa2">A&#9660;</button>
+        <div class="dropdown-menu" id="dd-textfx-menu"><div class="color-grid" id="text-effects-grid"></div></div>
       </div>
-      <div class="dropdown">
-        <button class="rbtn small" title="Highlight Color"><span style="background:#ffff00;padding:0 4px;border-bottom:3px solid #c00">A</span>&#9660;</button>
-        <div class="dropdown-menu"><div class="color-grid" id="highlight-grid"></div></div>
+      <div class="dropdown" id="dd-highlight">
+        <button class="rbtn small" onclick="openColorPicker(this,'highlight')" title="Text Highlight Color"><span style="background:#ffff00;padding:0 4px;border-bottom:3px solid #c00">A</span>&#9660;</button>
+        <div class="dropdown-menu color-picker" id="highlighter-picker">
+          <div class="cp-head">Text Highlight Color</div>
+          <div class="cp-row none" onclick="setHighlight('transparent')"><span class="cp-chip none" style="background:#fff"></span><span class="cp-label">No Color</span></div>
+          <div class="cp-sep"></div>
+          <div class="cp-head">Theme Colors</div>
+          <div class="cp-grid" id="highlighter-theme-grid"></div>
+          <div class="cp-sep"></div>
+          <div class="cp-head">Standard Colors</div>
+          <div class="cp-grid" id="highlighter-std-grid"></div>
+          <div class="cp-sep"></div>
+          <div class="cp-custom" onclick="pickCustomColor('highlight')"><input type="color" id="highlighter-custom" value="#ffff00" onclick="event.stopPropagation()"><span class="cp-label">More Colors…</span></div>
+        </div>
       </div>
-      <div class="dropdown">
-        <button class="rbtn small" title="Font Color"><span style="color:#c00;font-weight:700">A</span>&#9660;</button>
-        <div class="dropdown-menu"><div class="color-grid" id="fontcolor-grid"></div></div>
+      <div class="dropdown" id="dd-fontcolor">
+        <button class="rbtn small" onclick="openColorPicker(this,'fontcolor')" title="Font Color"><span style="color:#c00;font-weight:700">A</span>&#9660;</button>
+        <div class="dropdown-menu color-picker" id="fontcolor-picker">
+          <div class="cp-head">Font Color</div>
+          <div class="cp-row auto" onclick="setFontColor('inherit')"><span class="cp-chip auto"></span><span class="cp-label">Automatic</span></div>
+          <div class="cp-sep"></div>
+          <div class="cp-head">Theme Colors</div>
+          <div class="cp-grid" id="fontcolor-theme-grid"></div>
+          <div class="cp-sep"></div>
+          <div class="cp-head">Standard Colors</div>
+          <div class="cp-grid" id="fontcolor-std-grid"></div>
+          <div class="cp-sep"></div>
+          <div class="cp-custom" onclick="pickCustomColor('fontcolor')"><input type="color" id="fontcolor-custom" value="#000000" onclick="event.stopPropagation()"><span class="cp-label">More Colors…</span></div>
+          <div class="cp-sep"></div>
+          <div class="cp-more" onclick="showGradientMessage()"><span class="cp-ico">&#9654;</span><span class="cp-label">Gradient</span></div>
+        </div>
       </div>
     </div>
     <div class="rgroup-label">Font</div>
@@ -100,9 +124,9 @@
           <button onclick="setParaSpacing(0,0)">No Space Before/After</button>
         </div>
       </div>
-      <div class="dropdown">
-        <button class="rbtn small" title="Shading">&#9634;&#9660;</button>
-        <div class="dropdown-menu"><div class="color-grid" id="shading-grid"></div></div>
+      <div class="dropdown" id="dd-shading">
+        <button class="rbtn small" onclick="toggleDropdown(this,'dd-shading-menu')" title="Paragraph Shading">&#9634;&#9660;</button>
+        <div class="dropdown-menu" id="dd-shading-menu"><div class="color-grid" id="shading-grid"></div></div>
       </div>
       <button class="rbtn small" onclick="showBordersMenu(this)" title="Borders">&#9605;&#9660;</button>
     </div>
@@ -127,6 +151,7 @@
     <div class="rgroup-btns" style="flex-direction:column;align-items:flex-start">
       <button class="rbtn small" onclick="showFind()" title="Find (Ctrl+F)"><span class="icon">&#128269;</span><span class="lbl">Find</span></button>
       <button class="rbtn small" onclick="showReplace()" title="Replace (Ctrl+H)"><span class="icon">&#8644;</span><span class="lbl">Replace</span></button>
+      <button class="rbtn small" onclick="openAutoCorrectDialog()" title="AutoCorrect Options"><span class="icon">&#10003;</span><span class="lbl">AutoCorrect</span></button>
       <button class="rbtn small" onclick="showSelectMenu()" title="Select"><span class="icon">&#9634;</span><span class="lbl">Select</span></button>
     </div>
     <div class="rgroup-label">Editing</div>

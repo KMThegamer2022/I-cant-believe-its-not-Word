@@ -1,11 +1,39 @@
 <script>
 // ═══════════════ CORE EDITOR ═══════════════
 const editor = document.getElementById('editor-page');
-let undoStack = [], redoStack = [], savedRange = null;
+let undoStack = [], redoStack = [];
 
+// ── Selection tracking ────────────────────────────────────────────────────────
+// execCommand only does something when there is a live selection inside the editor.
+// Clicking a ribbon control moves focus off the contenteditable and the selection goes
+// with it, so commands run from the ribbon were silently no-ops on a fresh document.
+// Remember the last in-editor selection and put it back before running a command.
+let savedRange = null;
+function rememberEditorSelection() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  const r = sel.getRangeAt(0);
+  if (editor.contains(r.startContainer)) savedRange = r.cloneRange();
+}
+document.addEventListener('selectionchange', rememberEditorSelection);
+function selectionInEditor() {
+  const sel = window.getSelection();
+  return !!(sel.rangeCount && editor.contains(sel.getRangeAt(0).startContainer));
+}
+// Put the caret back where the user left it. Returns false if there is nothing to restore.
+function restoreEditorSelection() {
+  if (selectionInEditor()) return true;
+  if (!savedRange || !editor.contains(savedRange.startContainer)) { savedRange = null; return false; }
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(savedRange);
+  return true;
+}
 function cmd(c, v) {
-  document.execCommand(c, false, v || null);
   editor.focus();
+  restoreEditorSelection();
+  document.execCommand(c, false, v || null);
+  rememberEditorSelection();
   updateStatus();
   saveUndo();
 }
@@ -36,31 +64,52 @@ function doRedo() {
 // Font
 function applyFontFamily(f) { cmd('fontName', f); }
 function applyFontSize(s) {
-  // execCommand fontSize only takes 1-7, so wrap in span
+  // execCommand fontSize only takes 1-7, so wrap in span.
+  // extractContents()/insertNode() are Range methods — Selection has neither.
+  editor.focus();
+  if (!restoreEditorSelection()) { showToast('Click in the document first', 'warn'); return; }
   const sel = window.getSelection();
   if (!sel.rangeCount) return;
   const span = document.createElement('span');
   span.style.fontSize = s + 'pt';
-  try { span.appendChild(sel.extractContents()); sel.insertNode(span); } catch(e) {}
+  if (!wrapSelectionInSpan(sel, span)) return;
+  rememberEditorSelection();
+  updateStatus();
   saveUndo();
 }
-function growFont() {
-  const sel = window.getSelection();
-  if (!sel.rangeCount) return;
-  const el = sel.anchorNode.nodeType===1?sel.anchorNode:sel.anchorNode.parentElement;
-  const cur = parseFloat(getComputedStyle(el).fontSize);
-  el.style.fontSize = (cur + 2) + 'px';
-  saveUndo();
+// Replace the current selection with `span`, keeping the selection on the new node.
+function wrapSelectionInSpan(sel, span) {
+  try {
+    const range = sel.getRangeAt(0);
+    span.appendChild(range.extractContents());
+    range.insertNode(span);
+    range.setStart(span, 0);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+    return true;
+  } catch (e) { return false; }
 }
-function shrinkFont() {
+// Grow/Shrink Font should scale the selected text, not the whole block.
+function growFont() { stepFontSize(1); }
+function shrinkFont() { stepFontSize(-1); }
+function stepFontSize(steps) {
+  editor.focus();
+  if (!restoreEditorSelection()) { showToast('Click in the document first', 'warn'); return; }
   const sel = window.getSelection();
   if (!sel.rangeCount) return;
-  const el = sel.anchorNode.nodeType===1?sel.anchorNode:sel.anchorNode.parentElement;
-  const cur = parseFloat(getComputedStyle(el).fontSize);
-  el.style.fontSize = Math.max(6, cur - 2) + 'px';
-  saveUndo();
+  const el = sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement;
+  if (!el) return;
+  const curPx = parseFloat(getComputedStyle(el).fontSize) || 16;
+  const curPt = Math.max(6, Math.min(400, Math.round(curPx * 0.75) + steps));
+  const select = document.getElementById('font-size');
+  // the combo only lists discrete sizes; assigning an unlisted value blanks it
+  if (select && [...select.options].some(o => o.value === String(curPt))) select.value = String(curPt);
+  applyFontSize(curPt);
 }
 function changeCase(type) {
+  editor.focus();
+  restoreEditorSelection();
   const sel = window.getSelection();
   if (!sel.rangeCount || sel.isCollapsed) return;
   let text = sel.toString();
@@ -71,8 +120,10 @@ function changeCase(type) {
     case 'capitalize': text = text.replace(/\w\S*/g, w=>w[0].toUpperCase()+w.slice(1).toLowerCase()); break;
     case 'toggle': text = text.split('').map(c=>c===c.toUpperCase()?c.toLowerCase():c.toUpperCase()).join(''); break;
   }
-  sel.deleteContents();
-  sel.insertNode(document.createTextNode(text));
+  // deleteContents()/insertNode() are Range methods — Selection has neither
+  const range = sel.getRangeAt(0);
+  range.deleteContents();
+  range.insertNode(document.createTextNode(text));
   saveUndo();
 }
 
@@ -100,11 +151,14 @@ function formatPainter() {
   }
 }
 function applyFpStyles() {
+  editor.focus();
+  if (!restoreEditorSelection()) return;
   const sel = window.getSelection();
   if (!sel.rangeCount) return;
   const span = document.createElement('span');
   Object.assign(span.style, fpStyles);
-  try { span.appendChild(sel.extractContents()); sel.insertNode(span); } catch(e) {}
+  if (!wrapSelectionInSpan(sel, span)) return;
+  rememberEditorSelection();
   saveUndo();
 }
 
@@ -340,30 +394,45 @@ function insertOnlineVideo() {
 }
 
 // Tables
+const TABLE_GRID_COLS = 12, TABLE_GRID_ROWS = 10;
+function hideInsertTable() {
+  const picker = document.getElementById('table-picker');
+  if (picker) picker.style.display = 'none';
+}
 function showInsertTable() {
   const grid = document.getElementById('table-grid');
   const picker = document.getElementById('table-picker');
+  if (!grid || !picker) return;
+  const label = document.getElementById('table-grid-label');
+  const paint = (rows, cols) => grid.querySelectorAll('div').forEach(d => {
+    d.style.background = (+d.dataset.r <= rows && +d.dataset.c <= cols) ? 'var(--blue)' : 'transparent';
+  });
   grid.innerHTML = '';
-  for (let r = 0; r < 8; r++) {
-    for (let c = 0; c < 10; c++) {
+  for (let r = 0; r < TABLE_GRID_ROWS; r++) {
+    for (let c = 0; c < TABLE_GRID_COLS; c++) {
       const cell = document.createElement('div');
       cell.style.cssText = 'width:24px;height:24px;border:1px solid var(--input-border);cursor:pointer;transition:.1s';
-      cell.dataset.r = r+1; cell.dataset.c = c+1;
+      cell.dataset.r = r + 1; cell.dataset.c = c + 1;
       cell.onmouseenter = () => {
-        grid.querySelectorAll('div').forEach(d => {
-          d.style.background = (+d.dataset.r <= r+1 && +d.dataset.c <= c+1) ? 'var(--blue)' : 'transparent';
-        });
-        document.getElementById('table-grid-label').textContent = `${c+1} × ${r+1} Table`;
+        paint(r + 1, c + 1);
+        if (label) label.textContent = `${c + 1} \u00d7 ${r + 1} Table`;
       };
-      cell.onclick = () => { insertTable(r+1, c+1); picker.style.display = 'none'; };
+      cell.onclick = () => { hideInsertTable(); insertTable(r + 1, c + 1); };
       grid.appendChild(cell);
     }
   }
+  if (label) label.textContent = 'Insert Table';
   const btn = document.querySelector('[onclick="showInsertTable()"]');
+  if (!btn) return;
   const rect = btn.getBoundingClientRect();
-  picker.style.left = rect.left + 'px';
-  picker.style.top = (rect.bottom + 4) + 'px';
+  // position:fixed — clamp so the picker never hangs off the edge of the viewport
   picker.style.display = 'block';
+  const pr = picker.getBoundingClientRect();
+  let left = rect.left, top = rect.bottom + 4;
+  if (left + pr.width > window.innerWidth - 8) left = Math.max(8, window.innerWidth - pr.width - 8);
+  if (top + pr.height > window.innerHeight - 8) top = Math.max(8, rect.top - pr.height - 4);
+  picker.style.left = left + 'px';
+  picker.style.top = top + 'px';
 }
 function insertTable(rows, cols) {
   let html = '<table style="border-collapse:collapse;width:100%;margin:8px 0">';
@@ -375,6 +444,13 @@ function insertTable(rows, cols) {
   html += '</table><p><br></p>';
   cmd('insertHTML', html);
 }
+// Dismiss the grid the same way the other menus behave
+document.addEventListener('mousedown', (e) => {
+  if (!e.target.closest('#table-picker')) hideInsertTable();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') hideInsertTable();
+}, true);
 
 // SmartArt / Chart / Icons (simple representations)
 function insertSmartArt() {

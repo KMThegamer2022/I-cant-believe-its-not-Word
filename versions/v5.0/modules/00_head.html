@@ -164,8 +164,9 @@ select,input{font-family:inherit;font-size:13px;color:var(--text);background:var
 .rselect{border:1px solid var(--input-border);border-radius:4px;padding:2px 4px;background:var(--input-bg);font-size:12px;height:24px;color:var(--text)}
 .rinput{border:1px solid var(--input-border);border-radius:4px;padding:2px 4px;width:48px;text-align:center;font-size:12px;height:24px;background:var(--input-bg);color:var(--text)}
 .dropdown{position:relative}
-.dropdown-menu{display:none;position:absolute;top:100%;left:0;background:var(--panel-bg);border:1px solid var(--border);border-radius:6px;box-shadow:var(--shadow);z-index:1000;min-width:180px;padding:4px 0;max-height:320px;overflow-y:auto}
-.dropdown-menu.show{display:block}
+.dropdown-menu{display:none;position:absolute;top:100%;left:0;background:var(--panel-bg);border:1px solid var(--border);border-radius:6px;box-shadow:var(--shadow);z-index:7000;min-width:180px;padding:4px 0;max-height:320px;overflow-y:auto}
+/* Open menus become position:fixed so they escape #ribbon's overflow clip (JS sets top/left from the trigger). */
+.dropdown-menu.show{display:block;position:fixed;top:0;left:0;max-height:calc(100vh - 16px)}
 .dropdown-menu button{display:block;width:100%;text-align:left;padding:6px 14px;font-size:12px;border:none;background:none;cursor:pointer;color:var(--text)}
 .dropdown-menu button:hover{background:var(--hover)}
 .dropdown-menu hr{border:none;border-top:1px solid var(--border);margin:4px 8px}
@@ -190,6 +191,8 @@ html[data-pagemode="light"] #editor-page .page-break::after{background:#fff}
 #editor-page.view-draft{width:100%!important;min-height:auto!important;padding:8px 48px}
 /* ── Default document typography ── */
 #editor-page p,#editor-page li{color:inherit}
+/* paragraphs created with Enter were flush against each other with no breathing room */
+#editor-page p{margin:0 0 .55em}
 #editor-page h1,#editor-page h2,#editor-page h3{color:var(--heading-color)}
 /* ── Panels / panes / dialogs share dark surfaces ── */
 .pane{background:var(--panel-bg);color:var(--text);border-color:var(--border)}
@@ -265,6 +268,87 @@ input[type=range]{accent-color:var(--blue)}
   .page-break{border-top:1px dashed #999!important}
   .page-break::after{display:none}
 }
+
+/* ═══════════════ SPELL CHECK MARKUP ═══════════════ */
+.icw-spell{position:relative;color:#c00}
+.icw-spell::after{content:'';position:absolute;left:0;right:0;bottom:0;height:1px;background:repeating-linear-gradient(#c00 0,#c00 1px,transparent 1px,transparent 2px);pointer-events:none}
+.icw-grammar{position:relative;color:#7b1fa2}
+.icw-grammar::after{content:'';position:absolute;left:0;right:0;bottom:1px;height:1px;background:repeating-linear-gradient(#7b1fa2 0,#7b1fa2 1px,transparent 1px,transparent 2px);pointer-events:none}
+.icw-ignore{text-decoration:none;color:inherit}
+
+/* ═══════════════ ENHANCED COLOR PALETTE PICKERS ═══════════════ */
+/* NB: must stay display:none until .show — otherwise it overrides .dropdown-menu{display:none} and is always visible */
+.dropdown-menu.color-picker{display:none;flex-direction:column;gap:6px;padding:8px;min-width:210px}
+.dropdown-menu.color-picker.show{display:flex}
+.color-picker .cp-row{display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:4px;cursor:pointer;font-size:12px;color:var(--text)}
+.color-picker .cp-row:hover{background:var(--hover)}
+.color-picker .cp-row .cp-chip{width:22px;height:22px;border-radius:3px;border:1px solid var(--input-border);flex-shrink:0;box-shadow:0 0 0 1px rgba(0,0,0,.15) inset}
+.color-picker .cp-row.auto .cp-chip{background-image:linear-gradient(45deg,#999 25%,transparent 25%,transparent 75%,#999 75%,#999),linear-gradient(45deg,#999 25%,transparent 25%,transparent 75%,#999 75%,#999);background-size:8px 8px;background-position:0 0,4px 4px;border-color:#999}
+.color-picker .cp-row.none .cp-chip{background:#fff;border:2px solid #c00}
+.color-picker .cp-label{font-size:11.5px;color:var(--text-2);white-space:nowrap;flex:1}
+.color-picker .cp-sep{border-top:1px solid var(--border);margin:5px 0}
+.color-picker .cp-head{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#e8c46a;font-weight:700;padding:2px 8px}
+.color-picker .cp-more{display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:4px;cursor:pointer;font-size:12px;color:var(--text)}
+.color-picker .cp-more:hover{background:var(--hover)}
+.color-picker .cp-grid{display:grid;grid-template-columns:repeat(5,20px);gap:4px;padding:2px 6px}
+.color-picker .cp-swatch{width:20px;height:20px;border:1px solid var(--input-border);border-radius:3px;cursor:pointer;box-shadow:0 0 0 1px rgba(0,0,0,.15) inset}
+.color-picker .cp-swatch:hover{transform:scale(1.3);z-index:2;position:relative}
+.color-picker .cp-swatch.active{box-shadow:0 0 0 2px var(--blue)}
+.color-picker .cp-ico{width:16px;text-align:center;flex-shrink:0;color:var(--text-2)}
+
+/* custom color input row */
+.color-picker .cp-custom{display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:4px;cursor:pointer}
+.color-picker .cp-custom:hover{background:var(--hover)}
+.color-picker input[type=color]{width:26px;height:22px;border:none;background:none;cursor:pointer;padding:0}
+
+/* ═══════════════ EDITOR ISSUE CARDS ═══════════════ */
+.ecard{border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-bottom:7px;background:var(--panel-bg2)}
+.ecard .etitle{font-size:11.5px;font-weight:700;display:flex;gap:6px;align-items:center;color:var(--text)}
+.ecard .ecount{color:var(--text-2);font-weight:600}
+.ecard .esub{font-size:11px;color:var(--text-2);margin:4px 0 6px}
+.ecard .ereplace{display:flex;gap:6px;flex-wrap:wrap}
+.ecard .ereplace button{font-size:11px;padding:3px 9px;border:1px solid var(--input-border);border-radius:4px;background:var(--input-bg);color:var(--text);cursor:pointer}
+.ecard .ereplace button:hover{background:var(--hover)}
+.ecard .ereplace button .earrow{color:var(--text-2);margin:0 1px}
+.ecard .enone{padding:3px 9px;font-size:11px;border:1px dashed var(--input-border);border-radius:4px;color:var(--text-2);opacity:.8}
+.ecard .ereplace .apply{background:var(--blue);color:#fff;border-color:var(--blue)}
+.ecard .ereplace .apply:hover{background:var(--blue-light)}
+.ecard .ecat{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-2);margin-bottom:4px}
+
+/* ═══════════════ AUTOCORRECT / AUTOFORMAT MODAL ═══════════════ */
+.ac-modal{width:820px;max-width:94vw;max-height:92vh}
+.ac-tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:8px}
+.ac-tab{padding:9px 16px;font-size:12.5px;color:var(--text-2);cursor:pointer;border-bottom:2px solid transparent}
+.ac-tab:hover{background:var(--hover)}
+.ac-tab.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:600}
+.ac-tabpanel{display:none;overflow-y:auto;max-height:64vh;padding-bottom:6px}
+.ac-tabpanel.active{display:block}
+.ac-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12.5px}
+.ac-row:last-child{border-bottom:none}
+.ac-row label{font-size:12px;color:var(--text);cursor:pointer;flex:1}
+.ac-row .ac-desc{font-size:11px;color:var(--text-2)}
+.ac-actions{display:flex;gap:6px}
+.ac-table{width:100%;border-collapse:collapse;font-size:12px;margin:6px 0}
+.ac-table th,.ac-table td{border:1px solid var(--border);padding:5px 8px;text-align:left}
+.ac-table th{background:var(--panel-bg2);font-weight:600;color:var(--text-2)}
+.ac-table tr:hover{background:var(--hover)}
+.ac-chip{display:inline-flex;align-items:center;gap:4px;padding:1px 7px;border-radius:9px;border:1px solid var(--border);font-size:10.5px;color:var(--text-2)}
+.ac-chip.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+.ac-chip .ac-del{margin-left:5px;cursor:pointer;color:var(--text-2);font-weight:700}
+.ac-chip .ac-del:hover{color:var(--danger)}
+.ac-inputs{display:flex;gap:8px;align-items:center}
+.ac-inputs input{flex:1;min-width:140px}
+.ac-hint{font-size:11px;color:var(--text-2);margin-top:4px}
+.ac-btns{display:flex;gap:8px;margin-top:10px}
+.spell-item{padding:6px 10px;border-bottom:1px solid var(--border);cursor:pointer;font-size:12px}
+.spell-item:last-child{border-bottom:none}
+.spell-item:hover{background:var(--hover)}
+.spell-word{font-weight:600;color:var(--text)}
+.spell-def{font-size:11px;color:var(--text-2);margin-top:2px}
+.actions-item{padding:6px 10px;border-bottom:1px solid var(--border);cursor:pointer;font-size:12px;display:flex;align-items:center;gap:8px}
+.actions-item:last-child{border-bottom:none}
+.actions-item:hover{background:var(--hover)}
+.actions-item .ai-kind{font-size:10px;color:#e8c46a;font-weight:700;min-width:70px}
 </style>
 </head>
 <body>
