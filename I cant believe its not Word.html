@@ -5631,26 +5631,30 @@ function spellCheckWords(text) {
   return { misspelled, score: Math.max(0, 100 - misspelled.length * 3) };
 }
 
-// Place the caret `offset` characters into the given root nodes. Used to follow the caret
-// across the text-node rewrites in markSpellingErrors().
-function setCaretIn(roots, offset) {
-  let acc = 0;
-  for (const root of roots) {
-    if (!root) continue;
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-    let n;
-    while ((n = walker.nextNode())) {
-      if (offset <= acc + n.length) {
-        const r = document.createRange();
-        r.setStart(n, offset - acc); r.collapse(true);
-        const sel = window.getSelection();
-        sel.removeAllRanges(); sel.addRange(r);
-        return true;
-      }
-      acc += n.length;
+// Resolve `offset` characters into the given root nodes to a {node, offset} position. Used
+// to follow the selection across the text-node rewrites in markSpellingErrors().
+//
+// This walks the tree by hand rather than with createTreeWalker: a TreeWalker rooted at a
+// text node yields nothing, so every plain-text segment of a fragment was skipped. The
+// caret then failed to be restored at all and the browser dropped it at the start of the
+// paragraph -- which is what threw the cursor back to the beginning of the sentence.
+function resolveIn(roots, offset) {
+  let acc = 0, lastText = null;
+  const clamp = (n, off) => ({ node: n, offset: Math.max(0, Math.min(off, n.length)) });
+  const visit = (node) => {
+    if (!node) return null;
+    if (node.nodeType === 3) {
+      lastText = node;
+      if (offset <= acc + node.length) return clamp(node, offset - acc);
+      acc += node.length;
+      return null;
     }
-  }
-  return false;
+    for (const child of node.childNodes) { const hit = visit(child); if (hit) return hit; }
+    return null;
+  };
+  for (const root of roots) { const hit = visit(root); if (hit) return hit; }
+  // never leave the caret stranded: fall back to the end of the rewritten text
+  return lastText ? clamp(lastText, lastText.length) : null;
 }
 // Strip squiggle wrappers, re-parenting the EXISTING text node (not a fresh copy) so a
 // selection anchored inside a flagged word survives and keeps pointing at the same node.
@@ -5668,10 +5672,15 @@ function markSpellingErrors() {
   spellMarking = true;
   try {
     const sel = window.getSelection();
-    let caret = null;
-    if (sel.rangeCount && sel.anchorNode && sel.anchorNode.nodeType === 3 && editor.contains(sel.anchorNode)) {
-      caret = { node: sel.anchorNode, offset: sel.anchorOffset };
+    // Capture BOTH ends of the selection, not just the caret. Restoring only the anchor
+    // clamped a highlighted range down to the anchor's word whenever the pass ran.
+    let anchor = null, focus = null;
+    if (sel.rangeCount && sel.anchorNode && sel.focusNode
+        && editor.contains(sel.anchorNode) && editor.contains(sel.focusNode)) {
+      anchor = { node: sel.anchorNode, offset: sel.anchorOffset };
+      focus = { node: sel.focusNode, offset: sel.focusOffset };
     }
+    let rewrote = false;
     // start from a clean slate: unwrap first, then re-wrap whatever is still wrong, so a
     // word fixed by a suggestion does not keep its (now wrong) squiggle
     unwrapSpell(editor);
@@ -5702,12 +5711,26 @@ function markSpellingErrors() {
       frag.selectNodeContents(node);
       const parts = frag.createContextualFragment(html);
       const roots = [...parts.childNodes];
-      const caretHere = caret && caret.node === node ? caret.offset : null;
+      const anchorHere = anchor && anchor.node === node ? anchor.offset : null;
+      const focusHere = focus && focus.node === node ? focus.offset : null;
       node.replaceWith(parts);
-      if (caretHere !== null) {
-        setCaretIn(roots, caretHere);
-        caret = null; // re-anchored to a fresh node; later rewrites cannot move it
+      rewrote = true;
+      // re-anchor to the fresh nodes immediately, so a later node's rewrite cannot move them
+      if (anchorHere !== null) {
+        const p = resolveIn(roots, anchorHere);
+        anchor = p ? { node: p.node, offset: p.offset } : { node: null, offset: 0 };
       }
+      if (focusHere !== null) {
+        const p = resolveIn(roots, focusHere);
+        focus = p ? { node: p.node, offset: p.offset } : { node: null, offset: 0 };
+      }
+    }
+    // put the selection back now that every rewrite is done
+    if (rewrote && anchor && focus && anchor.node && focus.node
+        && editor.contains(anchor.node) && editor.contains(focus.node)) {
+      const r = document.createRange();
+      r.setStart(anchor.node, anchor.offset); r.setEnd(focus.node, focus.offset);
+      sel.removeAllRanges(); sel.addRange(r);
     }
     return res;
   } finally {
@@ -5838,12 +5861,15 @@ function doAutoCorrectReplace() {
   document.execCommand('insertText', false, replacement);
   // execCommand parks the caret at the end of the inserted text, which is *before* the
   // delimiter the user just typed — so "hello |" became "Hello| ". Put it back after it.
+  // Only when it kept the same text node: if it swapped the node, `endOff` no longer means
+  // anything and yanking the caret would be worse than leaving the browser's own position.
   const after = sel.getRangeAt(0);
-  const node = after.startContainer;
-  const want = Math.min(Math.max(endOff + replacement.length - word.length, 0), node.textContent.length);
-  if (after.startOffset !== want) {
-    const r2 = document.createRange(); r2.setStart(node, want); r2.collapse(true);
-    sel.removeAllRanges(); sel.addRange(r2);
+  if (after.startContainer === start && start.isConnected) {
+    const want = Math.min(Math.max(endOff + replacement.length - word.length, 0), start.textContent.length);
+    if (after.startOffset !== want) {
+      const r2 = document.createRange(); r2.setStart(start, want); r2.collapse(true);
+      sel.removeAllRanges(); sel.addRange(r2);
+    }
   }
   rememberEditorSelection();
   saveUndo(); updateStatus();
