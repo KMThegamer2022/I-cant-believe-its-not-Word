@@ -101,7 +101,8 @@ checkActiveButtons();
 // ═══════════════ THEME / PAGE MODE / SETTINGS ═══════════════
 const DEFAULT_SETTINGS = {
   theme: 'dark', pagemode: 'dark', name: '', miniToolbar: true, spellcheck: true,
-  paragraphMarks: false, autosave: false, autosaveInterval: 2, textSpacing: false, saveformat: 'docx'
+  paragraphMarks: false, autosave: false, autosaveInterval: 2, textSpacing: false, saveformat: 'docx',
+  animations: true
 };
 let SETTINGS = Object.assign({}, DEFAULT_SETTINGS);
 let settingsSnapshot = null;
@@ -118,6 +119,21 @@ try {
 function resolveTheme(pref) {
   if (pref === 'system') return (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
   return pref === 'light' ? 'light' : 'dark';
+}
+// Animations follow the OS "reduce motion" preference unless the user overrides it in Settings.
+function applyMotionPref(on, persist) {
+  if (on !== null) SETTINGS.animations = !!on;
+  const systemReduced = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const value = on === null ? (systemReduced ? 'off' : 'on') : (on ? 'on' : 'off');
+  document.documentElement.setAttribute('data-motion', value);
+  if (persist !== false) persistSettings();
+}
+applyMotionPref(SETTINGS.animations, false);
+if (window.matchMedia) {
+  const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const onChange = () => applyMotionPref(null, false); // follow the OS again
+  if (mq.addEventListener) mq.addEventListener('change', onChange);
+  else if (mq.addListener) mq.addListener(onChange);
 }
 function applyThemePref(pref, persist) {
   SETTINGS.theme = pref;
@@ -148,6 +164,7 @@ function persistSettings() {
 function applyAllSettings() {
   applyThemePref(SETTINGS.theme, false);
   setPageMode(SETTINGS.pagemode, false);
+  applyMotionPref(SETTINGS.animations, false);
   if (editor) {
     editor.spellcheck = !!SETTINGS.spellcheck;
     applyTextSpacing(!!SETTINGS.textSpacing, false);
@@ -207,6 +224,7 @@ function settingsPanel(name, el) {
       break;
     case 'display':
       p.innerHTML = '<h3>Display</h3>' +
+        row('Animations', 'Smooth transitions for tabs, menus and dialogs. Turn off for a static interface — this also follows your system\u2019s Reduce Motion setting.', '<select id="set-animations" onchange="applyMotionPref(this.value===\'on\',false)"><option value="on"' + (SETTINGS.animations ? ' selected' : '') + '>On</option><option value="off"' + (!SETTINGS.animations ? ' selected' : '') + '>Off</option></select>') +
         row('Show paragraph marks', 'Display pilcrows (¶) at the end of paragraphs.', cb('paragraphmarks', SETTINGS.paragraphMarks)) +
         row('Show accessibility score in status bar', '', cb('statusaccess', true)) +
         row('Show word and character counts in status bar', '', cb('statuscounts', true));
@@ -231,7 +249,7 @@ function settingsPanel(name, el) {
       break;
     case 'about':
       p.innerHTML = '<h3>About</h3>' +
-        '<div class="st-row"><div><div>I can\'t believe it\'s not Word</div><div class="st-desc">Version v5.0 — single-file HTML word processor.</div></div></div>' +
+        '<div class="st-row"><div><div>I can\'t believe it\'s not Word</div><div class="st-desc">Version v5.1 — single-file HTML word processor.</div></div></div>' +
         '<div class="st-row"><div><div>Warning</div><div class="st-desc">This is NOT a replacement for Microsoft Word. It is very broken. Report bugs in the GitHub Issues tab.</div></div></div>' +
         '<div class="st-row"><div><div>Stored data</div><div class="st-desc">Documents and settings stay in your browser\'s local storage. Nothing is uploaded anywhere.</div></div><div><button class="btn" onclick="clearAllData()">Clear all data</button></div></div>';
       break;
@@ -248,6 +266,7 @@ function collectSettings() {
   const as = v('autosave'); if (as !== null) SETTINGS.autosave = as;
   const asi = v('autosave-interval'); if (asi) SETTINGS.autosaveInterval = +asi;
   const sf = v('saveformat'); if (sf) SETTINGS.saveformat = sf;
+  const an = v('animations'); if (an) applyMotionPref(an === 'on', false);
   const ts = v('textspacing'); if (ts !== null) applyTextSpacing(ts, false);
 }
 function clearAllData() {

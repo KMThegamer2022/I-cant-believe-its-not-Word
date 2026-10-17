@@ -61,6 +61,13 @@
   --ok:#5cb85c;
   --warn:#e0a020;
   --heading-color:#7baaf7;
+  /* ── Motion tokens (shared by both themes; see MOTION section below) ── */
+  --dur-1:90ms; --dur-2:150ms; --dur-3:210ms; --dur-4:300ms;
+  --ease-out:cubic-bezier(.22,1,.36,1);
+  --ease-in:cubic-bezier(.55,0,.45,1);
+  --ease-inout:cubic-bezier(.65,0,.35,1);
+  --spring:cubic-bezier(.34,1.4,.64,1);
+  --lift:2px;
 }
 /* ═══════════ LIGHT THEME ═══════════ */
 html[data-theme="light"]{
@@ -213,12 +220,11 @@ html[data-pagemode="light"] #editor-page .page-break::after{background:#fff}
 #mini-toolbar .mt-sep{width:1px;height:20px;background:var(--border);margin:0 3px}
 /* ── Toasts ── */
 #toast-container{position:fixed;right:18px;bottom:44px;z-index:9500;display:flex;flex-direction:column;gap:8px;pointer-events:none}
-.toast{background:var(--panel-bg);border:1px solid var(--border);border-left:4px solid var(--blue);color:var(--text);padding:10px 16px;border-radius:8px;box-shadow:var(--shadow);font-size:12.5px;min-width:240px;max-width:360px;animation:toast-in .22s ease;pointer-events:auto}
+.toast{background:var(--panel-bg);border:1px solid var(--border);border-left:4px solid var(--blue);color:var(--text);padding:10px 16px;border-radius:8px;box-shadow:var(--shadow);font-size:12.5px;min-width:240px;max-width:360px;pointer-events:auto}
 .toast.ok{border-left-color:var(--ok)}
 .toast.err{border-left-color:var(--danger)}
 .toast.warn{border-left-color:var(--warn)}
 .toast b{display:block;margin-bottom:2px}
-@keyframes toast-in{from{transform:translateX(40px);opacity:0}to{transform:none;opacity:1}}
 /* ── Settings dialog ── */
 #settings-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:6000;justify-content:center;align-items:center}
 #settings-box{background:var(--panel-bg);color:var(--text);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);width:720px;max-width:94vw;max-height:86vh;display:flex;flex-direction:column;overflow:hidden}
@@ -257,9 +263,135 @@ html[data-pagemode="light"] #editor-page .page-break::after{background:#fff}
 label{cursor:pointer}
 input[type=range]{accent-color:var(--blue)}
 ::placeholder{color:var(--text-2)}
+/* ════════════════════════════════════════════════════════════════════════════
+   MOTION
+   One place for every animation in the app. All of it is switched off by
+   html[data-motion="off"], which the Settings toggle and prefers-reduced-motion
+   both set, so nothing below is mandatory for the UI to be usable.
+   ════════════════════════════════════════════════════════════════════════════ */
+@keyframes fade-in{from{opacity:0}to{opacity:1}}
+@keyframes ribbon-in{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+@keyframes menu-in{from{opacity:0;transform:translateY(-7px) scale(.965)}to{opacity:1;transform:none}}
+@keyframes menu-in-down{from{opacity:0;transform:translateY(7px) scale(.965)}to{opacity:1;transform:none}}
+@keyframes pop-in{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes slide-in-right{from{opacity:0;transform:translateX(22px)}to{opacity:1;transform:none}}
+@keyframes slide-in-left{from{opacity:0;transform:translateX(-22px)}to{opacity:1;transform:none}}
+@keyframes slide-down{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:none}}
+@keyframes scale-in{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
+@keyframes toast-in{from{opacity:0;transform:translateX(44px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes toast-out{to{opacity:0;transform:translateX(44px) scale(.96)}}
+@keyframes underline-in{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes pulse-once{0%{box-shadow:0 0 0 0 var(--blue-hover)}100%{box-shadow:0 0 0 9px transparent}}
+@keyframes sheet-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* ── Buttons: lift on hover, sink on press ── */
+.rbtn,.btn,.ticon,#qat button,.ac-tab,.sn-item,.cm-item,.spell-item,.actions-item,
+.ac-chip,.ereplace button,.ap-issue .ap-fix,#mini-toolbar .mt-btn{
+  transition:background-color var(--dur-1) var(--ease-out),
+             color var(--dur-1) var(--ease-out),
+             border-color var(--dur-1) var(--ease-out),
+             box-shadow var(--dur-2) var(--ease-out),
+             transform var(--dur-1) var(--ease-out);
+}
+.rbtn:hover,.btn:hover,.ticon:hover,#qat button:hover,.ac-tab:hover,.sn-item:hover,
+.cm-item:hover,.spell-item:hover,.actions-item:hover,#mini-toolbar .mt-btn:hover{
+  transform:translateY(calc(-1 * var(--lift)));
+}
+.rbtn:active,.btn:active,.ticon:active,#qat button:active,.ac-chip:active,
+.ereplace button:active,.ap-issue .ap-fix:active{transform:translateY(0) scale(.97)}
+.rbtn.large:hover{transform:translateY(calc(-1 * var(--lift)))}
+
+/* Keyboard users get a clear ring; mouse users don't see it. */
+.rbtn:focus-visible,.btn:focus-visible,.ticon:focus-visible,#qat button:focus-visible,
+.ac-tab:focus-visible,.sn-item:focus-visible,.cm-item:focus-visible,.tab:focus-visible,
+.rselect:focus-visible,.rinput:focus-visible,#doc-title input:focus-visible,
+#find-replace-bar button:focus-visible,#statusbar button:focus-visible{
+  outline:2px solid var(--blue-light);outline-offset:1px;
+}
+
+/* ── Ribbon tab switching ── */
+#ribbon-tabs .tab{transition:color var(--dur-2) var(--ease-out),background-color var(--dur-2) var(--ease-out)}
+#ribbon-tabs .tab.active::after{animation:underline-in var(--dur-3) var(--ease-out);transform-origin:center}
+/* cascade the groups so the ribbon "wipes" in left-to-right. Safe to animate transform
+   here because open menus are re-parented into #menu-layer, out of this subtree. */
+.ribbon-panel.active > *{animation:ribbon-in var(--dur-3) var(--ease-out) both}
+.ribbon-panel.active > *:nth-child(1){animation-delay:0ms}
+.ribbon-panel.active > *:nth-child(2){animation-delay:22ms}
+.ribbon-panel.active > *:nth-child(3){animation-delay:44ms}
+.ribbon-panel.active > *:nth-child(4){animation-delay:66ms}
+.ribbon-panel.active > *:nth-child(5){animation-delay:88ms}
+.ribbon-panel.active > *:nth-child(6){animation-delay:110ms}
+.ribbon-panel.active > *:nth-child(7){animation-delay:132ms}
+.ribbon-panel.active > *:nth-child(8){animation-delay:154ms}
+.ribbon-panel.active > *:nth-child(n+9){animation-delay:176ms}
+
+/* ── Dropdown menus, context menu, mini toolbar ── */
+/* Menus are moved into #menu-layer on <body> while open, so only transform is animated. */
+#menu-layer>.dropdown-menu{pointer-events:auto}
+.dropdown-menu.show,.dropdown-menu.color-picker.show{animation:menu-in var(--dur-2) var(--ease-out);transform-origin:top left}
+#context-menu{animation:scale-in var(--dur-2) var(--ease-out);transform-origin:top left}
+#mini-toolbar{animation:pop-in var(--dur-2) var(--ease-out)}
+.dropdown-menu button,.cp-row,.cp-more,.cp-custom{transition:background-color var(--dur-1) var(--ease-out),transform var(--dur-1) var(--ease-out)}
+.dropdown-menu button:hover,.cp-row:hover,.cp-more:hover,.cp-custom:hover{transform:translateX(2px)}
+.cp-swatch,.color-grid .swatch{transition:transform var(--dur-2) var(--spring),box-shadow var(--dur-2) var(--ease-out)}
+
+/* ── Overlays ── */
+#modal-overlay,#settings-overlay{animation:fade-in var(--dur-2) var(--ease-out)}
+#modal-box,#settings-box{animation:pop-in var(--dur-3) var(--ease-out)}
+#backstage{animation:slide-in-left var(--dur-3) var(--ease-out)}
+#backstage .bs-nav{transition:background-color var(--dur-2) var(--ease-out),padding-left var(--dur-2) var(--ease-out),color var(--dur-2) var(--ease-out)}
+#backstage .bs-nav:hover{padding-left:26px}
+#settings-nav .sn-item{transition:background-color var(--dur-2) var(--ease-out),border-color var(--dur-2) var(--ease-out),transform var(--dur-1) var(--ease-out)}
+.ac-tabpanel.active{animation:sheet-in var(--dur-3) var(--ease-out)}
+.ac-tab{position:relative}
+.ac-tab.active::after{content:'';position:absolute;left:16px;right:16px;bottom:0;height:2px;background:var(--blue);border-radius:2px}
+
+/* ── Floating bits ── */
+#table-picker{animation:pop-in var(--dur-2) var(--ease-out)}
+#find-replace-bar{animation:slide-down var(--dur-3) var(--ease-out)}
+#access-pane,#nav-pane,#comments-pane,#editor-pane{animation:slide-in-right var(--dur-3) var(--ease-out)}
+.toast{animation:toast-in var(--dur-3) var(--ease-out)}
+.toast.leaving{animation:toast-out var(--dur-2) var(--ease-in) forwards}
+.ecard{animation:sheet-in var(--dur-3) var(--ease-out)}
+.ecard:nth-child(2){animation-delay:40ms}
+.ecard:nth-child(3){animation-delay:80ms}
+#autosave-toggle::after{box-shadow:0 0 0 0 rgba(92,184,92,.5)}
+#autosave-toggle.on::after{animation:pulse-once var(--dur-4) var(--ease-out)}
+
+/* ── Chrome ── */
+::-webkit-scrollbar-thumb{transition:background var(--dur-2) var(--ease-out)}
+::-webkit-scrollbar-thumb:hover{background:#6a6a6a;background-clip:content-box}
+#doc-title input{transition:border-color var(--dur-2) var(--ease-out),background-color var(--dur-2) var(--ease-out)}
+.rselect,.rinput,#settings-panel select,#settings-panel input[type=text],.modal select,.modal input{
+  transition:border-color var(--dur-2) var(--ease-out),box-shadow var(--dur-2) var(--ease-out);
+}
+.rselect:hover,.rinput:hover,#settings-panel select:hover{border-color:var(--blue)}
+.ecard:hover,.ap-issue:hover{border-color:var(--blue)}
+/* Theme swap cross-fades instead of snapping */
+html,body,#ribbon,#ribbon-tabs,#titlebar,#statusbar,#editor-page,.pane,#backstage{
+  transition:background-color var(--dur-3) var(--ease-out),color var(--dur-3) var(--ease-out),border-color var(--dur-3) var(--ease-out);
+}
+
+/* ── Reduced motion: system preference, or the in-app Settings toggle ── */
+@media (prefers-reduced-motion:reduce){
+  html:not([data-motion="on"]) *,
+  html:not([data-motion="on"]) *::before,
+  html:not([data-motion="on"]) *::after{
+    animation-duration:.001ms!important;animation-iteration-count:1!important;
+    transition-duration:.001ms!important;scroll-behavior:auto!important;
+  }
+}
+html[data-motion="off"] *,
+html[data-motion="off"] *::before,
+html[data-motion="off"] *::after{
+  animation-duration:.001ms!important;animation-iteration-count:1!important;
+  transition-duration:.001ms!important;scroll-behavior:auto!important;
+}
+
 /* ── Print: only the document ── */
 @media print{
-  html,body{height:auto!important;overflow:visible!important;background:#fff!important}
+  html,body{height:auto!important;overflow:visible!important;background:#fff!important;animation:none!important;transition:none!important}
+  *,*::before,*::after{animation:none!important;transition:none!important}
   #titlebar,#ribbon-tabs,#ribbon,#statusbar,#backstage,#modal-overlay,#settings-overlay,#context-menu,#mini-toolbar,#toast-container,#find-replace-bar,#table-picker,#nav-pane,#comments-pane,#editor-pane,#access-pane,#draw-indicator,#ruler,#access-watermark{display:none!important}
   #main-area{display:block!important;overflow:visible!important}
   #page-container{overflow:visible!important;background:#fff!important;padding:0!important}
@@ -1493,6 +1625,7 @@ function stepFontSize(steps) {
   applyFontSize(curPt);
 }
 function changeCase(type) {
+  closeDropdowns();
   editor.focus();
   restoreEditorSelection();
   const sel = window.getSelection();
@@ -1566,6 +1699,9 @@ function togglePilcrow() {
   }
 }
 function setLineSpacing(v) {
+  closeDropdowns();
+  editor.focus();
+  restoreEditorSelection();
   const sel = window.getSelection();
   if (!sel.rangeCount) return;
   let node = sel.anchorNode;
@@ -1574,6 +1710,9 @@ function setLineSpacing(v) {
   saveUndo();
 }
 function setParaSpacing(b, a) {
+  closeDropdowns();
+  editor.focus();
+  restoreEditorSelection();
   const sel = window.getSelection();
   if (!sel.rangeCount) return;
   let node = sel.anchorNode;
@@ -2171,7 +2310,8 @@ checkActiveButtons();
 // ═══════════════ THEME / PAGE MODE / SETTINGS ═══════════════
 const DEFAULT_SETTINGS = {
   theme: 'dark', pagemode: 'dark', name: '', miniToolbar: true, spellcheck: true,
-  paragraphMarks: false, autosave: false, autosaveInterval: 2, textSpacing: false, saveformat: 'docx'
+  paragraphMarks: false, autosave: false, autosaveInterval: 2, textSpacing: false, saveformat: 'docx',
+  animations: true
 };
 let SETTINGS = Object.assign({}, DEFAULT_SETTINGS);
 let settingsSnapshot = null;
@@ -2188,6 +2328,21 @@ try {
 function resolveTheme(pref) {
   if (pref === 'system') return (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
   return pref === 'light' ? 'light' : 'dark';
+}
+// Animations follow the OS "reduce motion" preference unless the user overrides it in Settings.
+function applyMotionPref(on, persist) {
+  if (on !== null) SETTINGS.animations = !!on;
+  const systemReduced = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const value = on === null ? (systemReduced ? 'off' : 'on') : (on ? 'on' : 'off');
+  document.documentElement.setAttribute('data-motion', value);
+  if (persist !== false) persistSettings();
+}
+applyMotionPref(SETTINGS.animations, false);
+if (window.matchMedia) {
+  const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const onChange = () => applyMotionPref(null, false); // follow the OS again
+  if (mq.addEventListener) mq.addEventListener('change', onChange);
+  else if (mq.addListener) mq.addListener(onChange);
 }
 function applyThemePref(pref, persist) {
   SETTINGS.theme = pref;
@@ -2218,6 +2373,7 @@ function persistSettings() {
 function applyAllSettings() {
   applyThemePref(SETTINGS.theme, false);
   setPageMode(SETTINGS.pagemode, false);
+  applyMotionPref(SETTINGS.animations, false);
   if (editor) {
     editor.spellcheck = !!SETTINGS.spellcheck;
     applyTextSpacing(!!SETTINGS.textSpacing, false);
@@ -2277,6 +2433,7 @@ function settingsPanel(name, el) {
       break;
     case 'display':
       p.innerHTML = '<h3>Display</h3>' +
+        row('Animations', 'Smooth transitions for tabs, menus and dialogs. Turn off for a static interface — this also follows your system\u2019s Reduce Motion setting.', '<select id="set-animations" onchange="applyMotionPref(this.value===\'on\',false)"><option value="on"' + (SETTINGS.animations ? ' selected' : '') + '>On</option><option value="off"' + (!SETTINGS.animations ? ' selected' : '') + '>Off</option></select>') +
         row('Show paragraph marks', 'Display pilcrows (¶) at the end of paragraphs.', cb('paragraphmarks', SETTINGS.paragraphMarks)) +
         row('Show accessibility score in status bar', '', cb('statusaccess', true)) +
         row('Show word and character counts in status bar', '', cb('statuscounts', true));
@@ -2301,7 +2458,7 @@ function settingsPanel(name, el) {
       break;
     case 'about':
       p.innerHTML = '<h3>About</h3>' +
-        '<div class="st-row"><div><div>I can\'t believe it\'s not Word</div><div class="st-desc">Version v5.0 — single-file HTML word processor.</div></div></div>' +
+        '<div class="st-row"><div><div>I can\'t believe it\'s not Word</div><div class="st-desc">Version v5.1 — single-file HTML word processor.</div></div></div>' +
         '<div class="st-row"><div><div>Warning</div><div class="st-desc">This is NOT a replacement for Microsoft Word. It is very broken. Report bugs in the GitHub Issues tab.</div></div></div>' +
         '<div class="st-row"><div><div>Stored data</div><div class="st-desc">Documents and settings stay in your browser\'s local storage. Nothing is uploaded anywhere.</div></div><div><button class="btn" onclick="clearAllData()">Clear all data</button></div></div>';
       break;
@@ -2318,6 +2475,7 @@ function collectSettings() {
   const as = v('autosave'); if (as !== null) SETTINGS.autosave = as;
   const asi = v('autosave-interval'); if (asi) SETTINGS.autosaveInterval = +asi;
   const sf = v('saveformat'); if (sf) SETTINGS.saveformat = sf;
+  const an = v('animations'); if (an) applyMotionPref(an === 'on', false);
   const ts = v('textspacing'); if (ts !== null) applyTextSpacing(ts, false);
 }
 function clearAllData() {
@@ -3489,6 +3647,8 @@ function generateColorSwatches(fnName) {
 // Paragraph shading tints the paragraph block, not the text inside it (unlike Highlight).
 function applyShading(color) {
   closeDropdowns();
+  editor.focus();
+  restoreEditorSelection();
   const sel = window.getSelection();
   if (!sel.rangeCount || sel.isCollapsed) { showToast('Select a paragraph to shade', 'warn'); return; }
   editor.focus();
@@ -3539,8 +3699,22 @@ function closeModal() { document.getElementById('modal-overlay').style.display =
 document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
 
 // Dropdown helpers.
-// #ribbon is a horizontal scroll container (overflow-x:auto), which also clips overflow-y —
-// so an open menu is switched to position:fixed and placed with viewport coordinates from its trigger.
+//
+// An open menu is moved into a fixed-position layer on <body>. That keeps it clear of two
+// ribbon problems: #ribbon is a horizontal scroller so it clips overflow-y, and any
+// animation on a ribbon group makes that group a stacking context, which would trap the
+// menu's z-index inside it and drop the menu behind the document. The layer removes both
+// dependencies at once, so the ribbon can be animated freely.
+function menuLayer() {
+  let l = document.getElementById('menu-layer');
+  if (!l) {
+    l = document.createElement('div');
+    l.id = 'menu-layer';
+    l.style.cssText = 'position:fixed;inset:0;z-index:7000;pointer-events:none';
+    document.body.appendChild(l);
+  }
+  return l;
+}
 function positionMenu(menu, btn) {
   const b = btn.getBoundingClientRect();
   menu.style.top = '0px'; menu.style.left = '0px';
@@ -3558,8 +3732,10 @@ function positionMenu(menu, btn) {
 }
 function openMenu(menu, btn) {
   if (!menu) return;
+  if (!menu._home) menu._home = { parent: menu.parentNode, next: menu.nextSibling };
   menu.classList.add('show');
   menu._trigger = btn || null;
+  menuLayer().appendChild(menu);
   if (btn) positionMenu(menu, btn);
   else menu.style.top = menu.style.left = '';
 }
@@ -3569,6 +3745,11 @@ function closeMenu(menu) {
   menu.style.top = '';
   menu.style.left = '';
   menu._trigger = null;
+  const home = menu._home;
+  if (home && home.parent && home.parent.isConnected && menu.parentNode !== home.parent) {
+    const next = home.next && home.next.parentNode === home.parent ? home.next : null;
+    home.parent.insertBefore(menu, next);
+  }
 }
 function toggleDropdown(btn, menuId) {
   const menu = document.getElementById(menuId);
@@ -3581,7 +3762,10 @@ function closeDropdowns() { document.querySelectorAll('.dropdown-menu.show').for
 function repositionOpenMenus() {
   document.querySelectorAll('.dropdown-menu.show').forEach(m => m._trigger ? positionMenu(m, m._trigger) : closeMenu(m));
 }
-document.addEventListener('click', (e) => { if (!e.target.closest('.dropdown')) closeDropdowns(); });
+document.addEventListener('click', (e) => {
+  // an open menu may be parked in #menu-layer, so check for the menu itself too
+  if (!e.target.closest('.dropdown') && !e.target.closest('.dropdown-menu')) closeDropdowns();
+});
 document.getElementById('ribbon')?.addEventListener('scroll', repositionOpenMenus, { passive: true });
 window.addEventListener('resize', repositionOpenMenus);
 
@@ -3593,7 +3777,17 @@ function showToast(msg, type, ttl) {
   t.className = 'toast' + (type ? ' ' + type : '');
   t.innerHTML = msg;
   c.appendChild(t);
-  setTimeout(() => { t.style.transition = 'opacity .3s,transform .3s'; t.style.opacity = '0'; t.style.transform = 'translateX(30px)'; setTimeout(() => t.remove(), 320); }, ttl || 3400);
+  setTimeout(() => { dismissToast(t); }, ttl || 3400);
+}
+// Play the exit animation, then remove. Falls back to an immediate remove when
+// animations are off (the keyframe is neutralised, so nothing would ever fire).
+function dismissToast(t) {
+  if (!t || !t.parentNode) return;
+  t.classList.add('leaving');
+  let done = false;
+  const remove = () => { if (!done) { done = true; t.remove(); } };
+  t.addEventListener('animationend', remove, { once: true });
+  setTimeout(remove, 400);
 }
 
 // ═══════════════ RIGHT-CLICK CONTEXT MENU ═══════════════
@@ -4159,18 +4353,20 @@ function showTraining() {
     '<li>Save real <b>.docx</b> files from File &gt; Save As.</li></ol>');
 }
 function showWhatsNew() {
-  showModal("What's New in v5.0",
+  showModal("What's New in v5.1",
     '<ul style="padding-left:18px;line-height:1.9">' +
-    '<li>Dark mode by default (change it in Settings)</li>' +
-    '<li>Custom right-click menu with Accessibility Assistant</li>' +
-    '<li>Page / word / character counts in the status bar</li>' +
-    '<li>Working Save: real .docx, .rtf, .txt, .html export</li>' +
-    '<li>Open .docx files from your device</li>' +
-    '<li>Fixed AutoSave with restore-on-reload</li>' +
-    '<li>Share sheet integration (Web Share API)</li>' +
-    '<li>New Help tab + contextual Picture Format tab</li>' +
-    '<li>Mini formatting toolbar on text selection</li>' +
-    '<li>Toast notifications instead of alert boxes</li></ul>');
+    '<li><b>Animated interface</b> — tab switches, menus, dialogs and panes, with a Settings toggle that follows your system\u2019s Reduce Motion setting</li>' +
+    '<li><b>Spell checker rebuilt</b> — ~14,500 word dictionary (was 294), ranked suggestions, working right-click spelling menu</li>' +
+    '<li><b>AutoCorrect &amp; AutoFormat</b> — options dialog, rules, math autocorrect and document-wide AutoFormat</li>' +
+    '<li><b>Editor pane</b> — spelling, grammar and conciseness cards with one-click fixes</li>' +
+    '<li><b>Fixed: ribbon dropdowns were cut off</b> by the ribbon\u2019s scroll container</li>' +
+    '<li><b>Fixed: Insert Table did nothing</b> on a fresh document — ribbon commands lost the editor selection</li>' +
+    '<li><b>Fixed: Font size, Format Painter, Change Case and Replace were silently broken</b> (Selection used where Range was required)</li>' +
+    '<li><b>Fixed: colour and highlight swatches now follow your selection</b></li>' +
+    '<li>Spell-check markup no longer leaks into saved files or the .docx</li>' +
+    '<li>Enter no longer throws the cursor back to the top of the document</li>' +
+    '<li>All the v5.0 features below still work</li>' +
+    '<li style="margin-top:6px;color:var(--text-2)">Dark mode by default, real .docx save/open, AutoSave restore, contextual Picture Format tab, Accessibility Assistant and Settings dialog</li></ul>');
 }
 function showShortcuts() {
   showModal('Keyboard Shortcuts',
@@ -5318,7 +5514,7 @@ function buildRtf() {
 
 // ═══════════════ INIT ═══════════════
 updateStatus();
-console.log("I can't believe it's not Word v5.0 — Loaded successfully!");
+console.log("I can't believe it's not Word v5.1 — Loaded successfully!");
 setTimeout(function () { try { maybeRestoreAutosave(); } catch (e) {} }, 600);
 </script>
 </body>
@@ -6177,22 +6373,31 @@ function applyColorSwatch(color, type) {
   type === 'fontcolor' ? setFontColor(color) : setHighlight(color);
 }
 // 'Automatic' / 'No Color' pass 'inherit' / 'transparent' through the same path
+// execCommand needs a live selection in the editor; clicking a ribbon control drops it.
+// These bypass cmd(), so they restore the remembered selection themselves.
+function focusEditorForCommand() {
+  editor.focus();
+  restoreEditorSelection();
+}
+// 'Automatic' / 'No Color' pass 'inherit' / 'transparent' through the same path
 function setFontColor(color) {
   closeColorPickers();
-  editor.focus();
+  focusEditorForCommand();
   document.execCommand('styleWithCSS', false, true);
   document.execCommand('foreColor', false, color === 'inherit' ? 'inherit' : color);
   document.execCommand('styleWithCSS', false, false);
+  rememberEditorSelection();
   saveUndo(); updateStatus();
   setRibbonSwatch('fontcolor', color === 'inherit' ? '#c00000' : color);
   showToast('Font color applied', 'ok');
 }
 function setHighlight(color) {
   closeColorPickers();
-  editor.focus();
+  focusEditorForCommand();
   document.execCommand('styleWithCSS', false, true);
   document.execCommand('hiliteColor', false, (!color || color === 'transparent') ? 'transparent' : color);
   document.execCommand('styleWithCSS', false, false);
+  rememberEditorSelection();
   saveUndo(); updateStatus();
   setRibbonSwatch('highlight', color === 'transparent' ? '#ffff00' : color);
   showToast('Highlight color applied', 'ok');
@@ -6212,9 +6417,9 @@ function showGradientMessage() {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') closeColorPickers();
 });
-// close pickers when clicking outside
+// close pickers when clicking outside (the picker itself lives in #menu-layer while open)
 document.addEventListener('mousedown', (e) => {
-  if (!e.target.closest('.dropdown') && !e.target.closest('.color-picker')) closeColorPickers();
+  if (!e.target.closest('.dropdown') && !e.target.closest('.dropdown-menu') && !e.target.closest('.color-picker')) closeColorPickers();
 });
 
 // ═══════ INIT ═══════

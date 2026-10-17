@@ -851,22 +851,31 @@ function applyColorSwatch(color, type) {
   type === 'fontcolor' ? setFontColor(color) : setHighlight(color);
 }
 // 'Automatic' / 'No Color' pass 'inherit' / 'transparent' through the same path
+// execCommand needs a live selection in the editor; clicking a ribbon control drops it.
+// These bypass cmd(), so they restore the remembered selection themselves.
+function focusEditorForCommand() {
+  editor.focus();
+  restoreEditorSelection();
+}
+// 'Automatic' / 'No Color' pass 'inherit' / 'transparent' through the same path
 function setFontColor(color) {
   closeColorPickers();
-  editor.focus();
+  focusEditorForCommand();
   document.execCommand('styleWithCSS', false, true);
   document.execCommand('foreColor', false, color === 'inherit' ? 'inherit' : color);
   document.execCommand('styleWithCSS', false, false);
+  rememberEditorSelection();
   saveUndo(); updateStatus();
   setRibbonSwatch('fontcolor', color === 'inherit' ? '#c00000' : color);
   showToast('Font color applied', 'ok');
 }
 function setHighlight(color) {
   closeColorPickers();
-  editor.focus();
+  focusEditorForCommand();
   document.execCommand('styleWithCSS', false, true);
   document.execCommand('hiliteColor', false, (!color || color === 'transparent') ? 'transparent' : color);
   document.execCommand('styleWithCSS', false, false);
+  rememberEditorSelection();
   saveUndo(); updateStatus();
   setRibbonSwatch('highlight', color === 'transparent' ? '#ffff00' : color);
   showToast('Highlight color applied', 'ok');
@@ -886,9 +895,9 @@ function showGradientMessage() {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') closeColorPickers();
 });
-// close pickers when clicking outside
+// close pickers when clicking outside (the picker itself lives in #menu-layer while open)
 document.addEventListener('mousedown', (e) => {
-  if (!e.target.closest('.dropdown') && !e.target.closest('.color-picker')) closeColorPickers();
+  if (!e.target.closest('.dropdown') && !e.target.closest('.dropdown-menu') && !e.target.closest('.color-picker')) closeColorPickers();
 });
 
 // ═══════ INIT ═══════

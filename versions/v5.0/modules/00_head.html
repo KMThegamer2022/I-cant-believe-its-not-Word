@@ -61,6 +61,13 @@
   --ok:#5cb85c;
   --warn:#e0a020;
   --heading-color:#7baaf7;
+  /* ── Motion tokens (shared by both themes; see MOTION section below) ── */
+  --dur-1:90ms; --dur-2:150ms; --dur-3:210ms; --dur-4:300ms;
+  --ease-out:cubic-bezier(.22,1,.36,1);
+  --ease-in:cubic-bezier(.55,0,.45,1);
+  --ease-inout:cubic-bezier(.65,0,.35,1);
+  --spring:cubic-bezier(.34,1.4,.64,1);
+  --lift:2px;
 }
 /* ═══════════ LIGHT THEME ═══════════ */
 html[data-theme="light"]{
@@ -213,12 +220,11 @@ html[data-pagemode="light"] #editor-page .page-break::after{background:#fff}
 #mini-toolbar .mt-sep{width:1px;height:20px;background:var(--border);margin:0 3px}
 /* ── Toasts ── */
 #toast-container{position:fixed;right:18px;bottom:44px;z-index:9500;display:flex;flex-direction:column;gap:8px;pointer-events:none}
-.toast{background:var(--panel-bg);border:1px solid var(--border);border-left:4px solid var(--blue);color:var(--text);padding:10px 16px;border-radius:8px;box-shadow:var(--shadow);font-size:12.5px;min-width:240px;max-width:360px;animation:toast-in .22s ease;pointer-events:auto}
+.toast{background:var(--panel-bg);border:1px solid var(--border);border-left:4px solid var(--blue);color:var(--text);padding:10px 16px;border-radius:8px;box-shadow:var(--shadow);font-size:12.5px;min-width:240px;max-width:360px;pointer-events:auto}
 .toast.ok{border-left-color:var(--ok)}
 .toast.err{border-left-color:var(--danger)}
 .toast.warn{border-left-color:var(--warn)}
 .toast b{display:block;margin-bottom:2px}
-@keyframes toast-in{from{transform:translateX(40px);opacity:0}to{transform:none;opacity:1}}
 /* ── Settings dialog ── */
 #settings-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:6000;justify-content:center;align-items:center}
 #settings-box{background:var(--panel-bg);color:var(--text);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);width:720px;max-width:94vw;max-height:86vh;display:flex;flex-direction:column;overflow:hidden}
@@ -257,9 +263,135 @@ html[data-pagemode="light"] #editor-page .page-break::after{background:#fff}
 label{cursor:pointer}
 input[type=range]{accent-color:var(--blue)}
 ::placeholder{color:var(--text-2)}
+/* ════════════════════════════════════════════════════════════════════════════
+   MOTION
+   One place for every animation in the app. All of it is switched off by
+   html[data-motion="off"], which the Settings toggle and prefers-reduced-motion
+   both set, so nothing below is mandatory for the UI to be usable.
+   ════════════════════════════════════════════════════════════════════════════ */
+@keyframes fade-in{from{opacity:0}to{opacity:1}}
+@keyframes ribbon-in{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+@keyframes menu-in{from{opacity:0;transform:translateY(-7px) scale(.965)}to{opacity:1;transform:none}}
+@keyframes menu-in-down{from{opacity:0;transform:translateY(7px) scale(.965)}to{opacity:1;transform:none}}
+@keyframes pop-in{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes slide-in-right{from{opacity:0;transform:translateX(22px)}to{opacity:1;transform:none}}
+@keyframes slide-in-left{from{opacity:0;transform:translateX(-22px)}to{opacity:1;transform:none}}
+@keyframes slide-down{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:none}}
+@keyframes scale-in{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
+@keyframes toast-in{from{opacity:0;transform:translateX(44px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes toast-out{to{opacity:0;transform:translateX(44px) scale(.96)}}
+@keyframes underline-in{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes pulse-once{0%{box-shadow:0 0 0 0 var(--blue-hover)}100%{box-shadow:0 0 0 9px transparent}}
+@keyframes sheet-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* ── Buttons: lift on hover, sink on press ── */
+.rbtn,.btn,.ticon,#qat button,.ac-tab,.sn-item,.cm-item,.spell-item,.actions-item,
+.ac-chip,.ereplace button,.ap-issue .ap-fix,#mini-toolbar .mt-btn{
+  transition:background-color var(--dur-1) var(--ease-out),
+             color var(--dur-1) var(--ease-out),
+             border-color var(--dur-1) var(--ease-out),
+             box-shadow var(--dur-2) var(--ease-out),
+             transform var(--dur-1) var(--ease-out);
+}
+.rbtn:hover,.btn:hover,.ticon:hover,#qat button:hover,.ac-tab:hover,.sn-item:hover,
+.cm-item:hover,.spell-item:hover,.actions-item:hover,#mini-toolbar .mt-btn:hover{
+  transform:translateY(calc(-1 * var(--lift)));
+}
+.rbtn:active,.btn:active,.ticon:active,#qat button:active,.ac-chip:active,
+.ereplace button:active,.ap-issue .ap-fix:active{transform:translateY(0) scale(.97)}
+.rbtn.large:hover{transform:translateY(calc(-1 * var(--lift)))}
+
+/* Keyboard users get a clear ring; mouse users don't see it. */
+.rbtn:focus-visible,.btn:focus-visible,.ticon:focus-visible,#qat button:focus-visible,
+.ac-tab:focus-visible,.sn-item:focus-visible,.cm-item:focus-visible,.tab:focus-visible,
+.rselect:focus-visible,.rinput:focus-visible,#doc-title input:focus-visible,
+#find-replace-bar button:focus-visible,#statusbar button:focus-visible{
+  outline:2px solid var(--blue-light);outline-offset:1px;
+}
+
+/* ── Ribbon tab switching ── */
+#ribbon-tabs .tab{transition:color var(--dur-2) var(--ease-out),background-color var(--dur-2) var(--ease-out)}
+#ribbon-tabs .tab.active::after{animation:underline-in var(--dur-3) var(--ease-out);transform-origin:center}
+/* cascade the groups so the ribbon "wipes" in left-to-right. Safe to animate transform
+   here because open menus are re-parented into #menu-layer, out of this subtree. */
+.ribbon-panel.active > *{animation:ribbon-in var(--dur-3) var(--ease-out) both}
+.ribbon-panel.active > *:nth-child(1){animation-delay:0ms}
+.ribbon-panel.active > *:nth-child(2){animation-delay:22ms}
+.ribbon-panel.active > *:nth-child(3){animation-delay:44ms}
+.ribbon-panel.active > *:nth-child(4){animation-delay:66ms}
+.ribbon-panel.active > *:nth-child(5){animation-delay:88ms}
+.ribbon-panel.active > *:nth-child(6){animation-delay:110ms}
+.ribbon-panel.active > *:nth-child(7){animation-delay:132ms}
+.ribbon-panel.active > *:nth-child(8){animation-delay:154ms}
+.ribbon-panel.active > *:nth-child(n+9){animation-delay:176ms}
+
+/* ── Dropdown menus, context menu, mini toolbar ── */
+/* Menus are moved into #menu-layer on <body> while open, so only transform is animated. */
+#menu-layer>.dropdown-menu{pointer-events:auto}
+.dropdown-menu.show,.dropdown-menu.color-picker.show{animation:menu-in var(--dur-2) var(--ease-out);transform-origin:top left}
+#context-menu{animation:scale-in var(--dur-2) var(--ease-out);transform-origin:top left}
+#mini-toolbar{animation:pop-in var(--dur-2) var(--ease-out)}
+.dropdown-menu button,.cp-row,.cp-more,.cp-custom{transition:background-color var(--dur-1) var(--ease-out),transform var(--dur-1) var(--ease-out)}
+.dropdown-menu button:hover,.cp-row:hover,.cp-more:hover,.cp-custom:hover{transform:translateX(2px)}
+.cp-swatch,.color-grid .swatch{transition:transform var(--dur-2) var(--spring),box-shadow var(--dur-2) var(--ease-out)}
+
+/* ── Overlays ── */
+#modal-overlay,#settings-overlay{animation:fade-in var(--dur-2) var(--ease-out)}
+#modal-box,#settings-box{animation:pop-in var(--dur-3) var(--ease-out)}
+#backstage{animation:slide-in-left var(--dur-3) var(--ease-out)}
+#backstage .bs-nav{transition:background-color var(--dur-2) var(--ease-out),padding-left var(--dur-2) var(--ease-out),color var(--dur-2) var(--ease-out)}
+#backstage .bs-nav:hover{padding-left:26px}
+#settings-nav .sn-item{transition:background-color var(--dur-2) var(--ease-out),border-color var(--dur-2) var(--ease-out),transform var(--dur-1) var(--ease-out)}
+.ac-tabpanel.active{animation:sheet-in var(--dur-3) var(--ease-out)}
+.ac-tab{position:relative}
+.ac-tab.active::after{content:'';position:absolute;left:16px;right:16px;bottom:0;height:2px;background:var(--blue);border-radius:2px}
+
+/* ── Floating bits ── */
+#table-picker{animation:pop-in var(--dur-2) var(--ease-out)}
+#find-replace-bar{animation:slide-down var(--dur-3) var(--ease-out)}
+#access-pane,#nav-pane,#comments-pane,#editor-pane{animation:slide-in-right var(--dur-3) var(--ease-out)}
+.toast{animation:toast-in var(--dur-3) var(--ease-out)}
+.toast.leaving{animation:toast-out var(--dur-2) var(--ease-in) forwards}
+.ecard{animation:sheet-in var(--dur-3) var(--ease-out)}
+.ecard:nth-child(2){animation-delay:40ms}
+.ecard:nth-child(3){animation-delay:80ms}
+#autosave-toggle::after{box-shadow:0 0 0 0 rgba(92,184,92,.5)}
+#autosave-toggle.on::after{animation:pulse-once var(--dur-4) var(--ease-out)}
+
+/* ── Chrome ── */
+::-webkit-scrollbar-thumb{transition:background var(--dur-2) var(--ease-out)}
+::-webkit-scrollbar-thumb:hover{background:#6a6a6a;background-clip:content-box}
+#doc-title input{transition:border-color var(--dur-2) var(--ease-out),background-color var(--dur-2) var(--ease-out)}
+.rselect,.rinput,#settings-panel select,#settings-panel input[type=text],.modal select,.modal input{
+  transition:border-color var(--dur-2) var(--ease-out),box-shadow var(--dur-2) var(--ease-out);
+}
+.rselect:hover,.rinput:hover,#settings-panel select:hover{border-color:var(--blue)}
+.ecard:hover,.ap-issue:hover{border-color:var(--blue)}
+/* Theme swap cross-fades instead of snapping */
+html,body,#ribbon,#ribbon-tabs,#titlebar,#statusbar,#editor-page,.pane,#backstage{
+  transition:background-color var(--dur-3) var(--ease-out),color var(--dur-3) var(--ease-out),border-color var(--dur-3) var(--ease-out);
+}
+
+/* ── Reduced motion: system preference, or the in-app Settings toggle ── */
+@media (prefers-reduced-motion:reduce){
+  html:not([data-motion="on"]) *,
+  html:not([data-motion="on"]) *::before,
+  html:not([data-motion="on"]) *::after{
+    animation-duration:.001ms!important;animation-iteration-count:1!important;
+    transition-duration:.001ms!important;scroll-behavior:auto!important;
+  }
+}
+html[data-motion="off"] *,
+html[data-motion="off"] *::before,
+html[data-motion="off"] *::after{
+  animation-duration:.001ms!important;animation-iteration-count:1!important;
+  transition-duration:.001ms!important;scroll-behavior:auto!important;
+}
+
 /* ── Print: only the document ── */
 @media print{
-  html,body{height:auto!important;overflow:visible!important;background:#fff!important}
+  html,body{height:auto!important;overflow:visible!important;background:#fff!important;animation:none!important;transition:none!important}
+  *,*::before,*::after{animation:none!important;transition:none!important}
   #titlebar,#ribbon-tabs,#ribbon,#statusbar,#backstage,#modal-overlay,#settings-overlay,#context-menu,#mini-toolbar,#toast-container,#find-replace-bar,#table-picker,#nav-pane,#comments-pane,#editor-pane,#access-pane,#draw-indicator,#ruler,#access-watermark{display:none!important}
   #main-area{display:block!important;overflow:visible!important}
   #page-container{overflow:visible!important;background:#fff!important;padding:0!important}

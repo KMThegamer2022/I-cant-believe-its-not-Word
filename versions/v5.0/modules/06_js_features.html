@@ -716,6 +716,8 @@ function generateColorSwatches(fnName) {
 // Paragraph shading tints the paragraph block, not the text inside it (unlike Highlight).
 function applyShading(color) {
   closeDropdowns();
+  editor.focus();
+  restoreEditorSelection();
   const sel = window.getSelection();
   if (!sel.rangeCount || sel.isCollapsed) { showToast('Select a paragraph to shade', 'warn'); return; }
   editor.focus();
@@ -766,8 +768,22 @@ function closeModal() { document.getElementById('modal-overlay').style.display =
 document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
 
 // Dropdown helpers.
-// #ribbon is a horizontal scroll container (overflow-x:auto), which also clips overflow-y —
-// so an open menu is switched to position:fixed and placed with viewport coordinates from its trigger.
+//
+// An open menu is moved into a fixed-position layer on <body>. That keeps it clear of two
+// ribbon problems: #ribbon is a horizontal scroller so it clips overflow-y, and any
+// animation on a ribbon group makes that group a stacking context, which would trap the
+// menu's z-index inside it and drop the menu behind the document. The layer removes both
+// dependencies at once, so the ribbon can be animated freely.
+function menuLayer() {
+  let l = document.getElementById('menu-layer');
+  if (!l) {
+    l = document.createElement('div');
+    l.id = 'menu-layer';
+    l.style.cssText = 'position:fixed;inset:0;z-index:7000;pointer-events:none';
+    document.body.appendChild(l);
+  }
+  return l;
+}
 function positionMenu(menu, btn) {
   const b = btn.getBoundingClientRect();
   menu.style.top = '0px'; menu.style.left = '0px';
@@ -785,8 +801,10 @@ function positionMenu(menu, btn) {
 }
 function openMenu(menu, btn) {
   if (!menu) return;
+  if (!menu._home) menu._home = { parent: menu.parentNode, next: menu.nextSibling };
   menu.classList.add('show');
   menu._trigger = btn || null;
+  menuLayer().appendChild(menu);
   if (btn) positionMenu(menu, btn);
   else menu.style.top = menu.style.left = '';
 }
@@ -796,6 +814,11 @@ function closeMenu(menu) {
   menu.style.top = '';
   menu.style.left = '';
   menu._trigger = null;
+  const home = menu._home;
+  if (home && home.parent && home.parent.isConnected && menu.parentNode !== home.parent) {
+    const next = home.next && home.next.parentNode === home.parent ? home.next : null;
+    home.parent.insertBefore(menu, next);
+  }
 }
 function toggleDropdown(btn, menuId) {
   const menu = document.getElementById(menuId);
@@ -808,7 +831,10 @@ function closeDropdowns() { document.querySelectorAll('.dropdown-menu.show').for
 function repositionOpenMenus() {
   document.querySelectorAll('.dropdown-menu.show').forEach(m => m._trigger ? positionMenu(m, m._trigger) : closeMenu(m));
 }
-document.addEventListener('click', (e) => { if (!e.target.closest('.dropdown')) closeDropdowns(); });
+document.addEventListener('click', (e) => {
+  // an open menu may be parked in #menu-layer, so check for the menu itself too
+  if (!e.target.closest('.dropdown') && !e.target.closest('.dropdown-menu')) closeDropdowns();
+});
 document.getElementById('ribbon')?.addEventListener('scroll', repositionOpenMenus, { passive: true });
 window.addEventListener('resize', repositionOpenMenus);
 
@@ -820,7 +846,17 @@ function showToast(msg, type, ttl) {
   t.className = 'toast' + (type ? ' ' + type : '');
   t.innerHTML = msg;
   c.appendChild(t);
-  setTimeout(() => { t.style.transition = 'opacity .3s,transform .3s'; t.style.opacity = '0'; t.style.transform = 'translateX(30px)'; setTimeout(() => t.remove(), 320); }, ttl || 3400);
+  setTimeout(() => { dismissToast(t); }, ttl || 3400);
+}
+// Play the exit animation, then remove. Falls back to an immediate remove when
+// animations are off (the keyframe is neutralised, so nothing would ever fire).
+function dismissToast(t) {
+  if (!t || !t.parentNode) return;
+  t.classList.add('leaving');
+  let done = false;
+  const remove = () => { if (!done) { done = true; t.remove(); } };
+  t.addEventListener('animationend', remove, { once: true });
+  setTimeout(remove, 400);
 }
 
 // ═══════════════ RIGHT-CLICK CONTEXT MENU ═══════════════
@@ -1386,18 +1422,20 @@ function showTraining() {
     '<li>Save real <b>.docx</b> files from File &gt; Save As.</li></ol>');
 }
 function showWhatsNew() {
-  showModal("What's New in v5.0",
+  showModal("What's New in v5.1",
     '<ul style="padding-left:18px;line-height:1.9">' +
-    '<li>Dark mode by default (change it in Settings)</li>' +
-    '<li>Custom right-click menu with Accessibility Assistant</li>' +
-    '<li>Page / word / character counts in the status bar</li>' +
-    '<li>Working Save: real .docx, .rtf, .txt, .html export</li>' +
-    '<li>Open .docx files from your device</li>' +
-    '<li>Fixed AutoSave with restore-on-reload</li>' +
-    '<li>Share sheet integration (Web Share API)</li>' +
-    '<li>New Help tab + contextual Picture Format tab</li>' +
-    '<li>Mini formatting toolbar on text selection</li>' +
-    '<li>Toast notifications instead of alert boxes</li></ul>');
+    '<li><b>Animated interface</b> — tab switches, menus, dialogs and panes, with a Settings toggle that follows your system\u2019s Reduce Motion setting</li>' +
+    '<li><b>Spell checker rebuilt</b> — ~14,500 word dictionary (was 294), ranked suggestions, working right-click spelling menu</li>' +
+    '<li><b>AutoCorrect &amp; AutoFormat</b> — options dialog, rules, math autocorrect and document-wide AutoFormat</li>' +
+    '<li><b>Editor pane</b> — spelling, grammar and conciseness cards with one-click fixes</li>' +
+    '<li><b>Fixed: ribbon dropdowns were cut off</b> by the ribbon\u2019s scroll container</li>' +
+    '<li><b>Fixed: Insert Table did nothing</b> on a fresh document — ribbon commands lost the editor selection</li>' +
+    '<li><b>Fixed: Font size, Format Painter, Change Case and Replace were silently broken</b> (Selection used where Range was required)</li>' +
+    '<li><b>Fixed: colour and highlight swatches now follow your selection</b></li>' +
+    '<li>Spell-check markup no longer leaks into saved files or the .docx</li>' +
+    '<li>Enter no longer throws the cursor back to the top of the document</li>' +
+    '<li>All the v5.0 features below still work</li>' +
+    '<li style="margin-top:6px;color:var(--text-2)">Dark mode by default, real .docx save/open, AutoSave restore, contextual Picture Format tab, Accessibility Assistant and Settings dialog</li></ul>');
 }
 function showShortcuts() {
   showModal('Keyboard Shortcuts',

@@ -108,6 +108,7 @@ function stepFontSize(steps) {
   applyFontSize(curPt);
 }
 function changeCase(type) {
+  closeDropdowns();
   editor.focus();
   restoreEditorSelection();
   const sel = window.getSelection();
@@ -181,6 +182,9 @@ function togglePilcrow() {
   }
 }
 function setLineSpacing(v) {
+  closeDropdowns();
+  editor.focus();
+  restoreEditorSelection();
   const sel = window.getSelection();
   if (!sel.rangeCount) return;
   let node = sel.anchorNode;
@@ -189,6 +193,9 @@ function setLineSpacing(v) {
   saveUndo();
 }
 function setParaSpacing(b, a) {
+  closeDropdowns();
+  editor.focus();
+  restoreEditorSelection();
   const sel = window.getSelection();
   if (!sel.rangeCount) return;
   let node = sel.anchorNode;

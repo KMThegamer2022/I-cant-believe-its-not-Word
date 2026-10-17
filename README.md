@@ -10,7 +10,7 @@
 >
 > **Do NOT use this for important documents.** There is no cloud backup, no real auto-save to a server, no collaboration, and no guarantee your work won't disappear. Save early, save often, and keep your own backups.
 >
-> **Do NOT expect full Word compatibility.** v5.0 writes and reads *real* .docx (OOXML) for common content, but it is not a complete implementation — SmartArt, charts, footnotes, section breaks, tracked changes and embedded fonts are **not** supported, and complex documents may not round-trip cleanly. It will not interoperate with Microsoft 365.
+> **Do NOT expect full Word compatibility.** v5.1 writes and reads *real* .docx (OOXML) for common content, but it is not a complete implementation — SmartArt, charts, footnotes, section breaks, tracked changes and embedded fonts are **not** supported, and complex documents may not round-trip cleanly. It will not interoperate with Microsoft 365.
 >
 > **Found a bug?** [Open an issue!](../../issues) — That's literally how this project improves.
 >
@@ -28,12 +28,16 @@ A web-based word processor that tries really hard to look and feel like Microsof
 |------|--------|-------|
 | Ribbon tabs (all 10) | ✅ | Switch correctly since v4.0 |
 | Rich text editing | ✅ | Bold, italic, underline, etc. |
-| Font controls | ✅ | Family, size, colors, effects |
+| Font controls | ✅ | Family, size, colors, effects — **fixed in v5.1** (size silently did nothing) |
 | Paragraph controls | ✅ | Alignment, lists, indent, spacing |
 | Styles (Heading 1-3, Title) | ✅ | Applied correctly |
-| Tables | ✅ | Grid picker insertion, exported to .docx |
+| Tables | ✅ | Grid picker insertion — **fixed in v5.1** (did nothing on a fresh document), exported to .docx |
 | Images | ✅ | Insert from device, exported to .docx |
 | **Dark mode (default)** | ✅ | New in v5.0, toggled in Settings/theme cycle |
+| **Animations** | ✅ | Tabs, menus, dialogs, panes — Settings → Display, or Off via the OS Reduce Motion setting — new in v5.1 |
+| **Spell checker** | ✅ | ~14,500 word offline dictionary, ranked suggestions, right-click spelling menu — rebuilt in v5.1 |
+| **AutoCorrect / AutoFormat** | ✅ | Options dialog, replace-as-you-type, math rules, document-wide AutoFormat — new in v5.1 |
+| **Editor pane** | ✅ | Spelling/grammar/conciseness cards with one-click fixes — new in v5.1 |
 | **Save / Save As (.docx)** | ✅ | Real OOXML, opens in Word — new in v5.0 |
 | **Open (.docx)** | ✅ | Reads headings/lists/tables/images — new in v5.0 |
 | **AutoSave + Restore** | ✅ | Non-blocking banner on reload — fixed in v5.0 |
@@ -45,7 +49,7 @@ A web-based word processor that tries really hard to look and feel like Microsof
 | **Sub/superscript shortcuts** | ✅ | ⌘⇧+ / Ctrl⇧+ superscript, ⌘⇧- / Ctrl⇧- subscript |
 | Shapes & SmartArt | ⚠️ | Basic SVG shapes only |
 | Charts | ⚠️ | Canvas-drawn, not data-driven |
-| Find & Replace | ✅ | Works |
+| Find & Replace | ✅ | Works — **fixed in v5.1** (Range API misuse) |
 | Comments | ✅ | Basic sidebar |
 | Track Changes | ⚠️ | Visual only, no real tracking |
 | Draw tab | ✅ | Pen/highlighter/eraser, page-only, Esc to exit |
@@ -113,7 +117,8 @@ python3 build.py --list   # list all versions
 | v2.0 | ⚠️ Less broken | Fixed tabs/layout, removed Copilot. |
 | v3.0 | — | Internal only, never released. |
 | v4.0 | ⚠️ Mostly working | Tabs switch, backstage works, drawing is page-only. |
-| **v5.0** | ✅ **Current** | **Biggest upgrade yet — dark mode, real .docx save/open, share-as-.docx, AutoSave restore, contextual Picture tab, Accessibility Assistant, Settings dialog, sub/superscript shortcuts, bundled icon.** |
+| **v5.0** | ✅ | Biggest upgrade yet — dark mode, real .docx save/open, share-as-.docx, AutoSave restore, contextual Picture tab, Accessibility Assistant, Settings dialog, sub/superscript shortcuts, bundled icon. |
+| **v5.1** | ✅ **Current** | **Animated interface + bug-fix release. Animations across tabs, menus, dialogs and panes (with a Settings toggle honouring OS Reduce Motion). Rebuilt spell checker with a ~14,500 word dictionary, ranked suggestions, AutoCorrect/AutoFormat options dialog and an Editor pane. Fixed: ribbon dropdowns clipped by the ribbon scroller, Insert Table (and every ribbon command) dead on a fresh document, Font Size / Format Painter / Change Case / Replace silently broken, colour+highlight swatches not following the selection, spell markup leaking into saved files and .docx, Enter throwing the cursor to the top of the document.** |
 
 ### Planned for v6.0
 - Better .docx fidelity (footnotes, section breaks, tracked changes)
