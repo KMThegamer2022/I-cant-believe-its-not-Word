@@ -5816,30 +5816,52 @@ function doAutoCorrectReplace() {
   let wordStart = probe;
   while (wordStart > 0 && /[A-Za-z0-9']/.test(text[wordStart - 1])) wordStart--;
   const word = text.slice(wordStart, probe);
-  if (!word || word.length < 2) return;
+  // Single-letter words Word still fixes: "i" anywhere, "a" only at a sentence start.
+  const standaloneI = word === 'i', standaloneA = word === 'a';
+  if ((!word || word.length < 2) && !standaloneI && !standaloneA) return;
   // only auto-correct completed words (followed by whitespace) to avoid mid-word edits
   if (probe < text.length && !/\s/.test(text[probe])) return;
   const prevChar = wordStart > 0 ? text[wordStart - 1] : '';
-  const replacement = autocorrectWord(word, prevChar, text[probe] || '');
+  let replacement = autocorrectWord(word, prevChar, text[probe] || '');
+  // Capitalise first letter of sentences. The AC_SET.sentenceCase option existed but
+  // nothing ever read it, so this never actually ran.
+  if (!replacement && AC_SET.sentenceCase) {
+    const cap = capitalizeWord(word);
+    if (cap === word) return;                        // already capitalised
+    if (isFirstLetterExc(word)) return;              // user listed this as an exception
+    if (!standaloneI && !isSentenceStart(start, wordStart)) return;
+    replacement = cap;
+  }
   if (!replacement) return;
   const r = document.createRange(); r.setStart(start, wordStart); r.setEnd(start, probe);
   sel.removeAllRanges(); sel.addRange(r);
   document.execCommand('insertText', false, replacement);
+  // execCommand parks the caret at the end of the inserted text, which is *before* the
+  // delimiter the user just typed — so "hello |" became "Hello| ". Put it back after it.
+  const after = sel.getRangeAt(0);
+  const node = after.startContainer;
+  const want = Math.min(Math.max(endOff + replacement.length - word.length, 0), node.textContent.length);
+  if (after.startOffset !== want) {
+    const r2 = document.createRange(); r2.setStart(node, want); r2.collapse(true);
+    sel.removeAllRanges(); sel.addRange(r2);
+  }
+  rememberEditorSelection();
   saveUndo(); updateStatus();
-  setCaretOffset(getCaretOffset());
   if (AC_SET.showSmartButton) showAutoCorrectSmartButton(word, replacement);
 }
 let smartBtnTimer = null;
 function showAutoCorrectSmartButton(orig, repl) {
   if (smartBtnTimer) clearTimeout(smartBtnTimer);
-  const btn = document.getElementById('ac-smart-btn');
+  // Re-read after creating: the element is looked up again below, so a stale null
+  // here used to throw on the very first AutoCorrect of a session.
+  let btn = document.getElementById('ac-smart-btn');
   if (!btn) {
-    const b = document.createElement('button');
-    b.id = 'ac-smart-btn';
-    b.style.cssText = 'position:fixed;background:#fff;border:1px solid #999;border-radius:12px;padding:4px 10px;font-size:12px;color:#111;z-index:10000;box-shadow:0 2px 8px rgba(0,0,0,.25);cursor:pointer;pointer-events:auto';
-    b.onclick = (e) => { e.stopPropagation(); undoLastAC(); hideSmartBtn(); };
-    b.title = 'Undo AutoCorrect / stop rule';
-    document.body.appendChild(b);
+    btn = document.createElement('button');
+    btn.id = 'ac-smart-btn';
+    btn.style.cssText = 'position:fixed;background:#fff;border:1px solid #999;border-radius:12px;padding:4px 10px;font-size:12px;color:#111;z-index:10000;box-shadow:0 2px 8px rgba(0,0,0,.25);cursor:pointer;pointer-events:auto';
+    btn.onclick = (e) => { e.stopPropagation(); undoLastAC(); hideSmartBtn(); };
+    btn.title = 'Undo AutoCorrect / stop rule';
+    document.body.appendChild(btn);
   }
   const rect = editor.getBoundingClientRect();
   btn.style.left = (rect.left + 8) + 'px'; btn.style.top = (rect.top + 8) + 'px';
@@ -5850,17 +5872,63 @@ function showAutoCorrectSmartButton(orig, repl) {
 function hideSmartBtn() { const b = document.getElementById('ac-smart-btn'); if (b) b.style.display = 'none'; }
 function undoLastAC() { doUndo(); hideSmartBtn(); showToast('AutoCorrect undone', 'ok'); }
 
-// ═══════ SENTENCE CASE & TABLE CELL CAPS (on terminal punctuation / cell entry) ═══════
-function capitalizeSentenceAfter(text, pos) {
-  // pos is index of terminal punctuation . ! ?
-  let i = pos + 1;
-  while (i < text.length && /\s/.test(text[i])) i++;
-  if (i < text.length && /[a-z]/.test(text[i])) return { at: i, to: text[i].toUpperCase() };
-  return null;
+// ═══════ SENTENCE CASE ═══════
+// Runs from doAutoCorrectReplace, i.e. once a whole word has been typed and
+// followed by a space — the same trigger Word uses.
+//
+// ABBREV: words that end in a period but do NOT end a sentence. Anything with a
+// dot in it ("e.g.", "U.S.") counts as an initialism, and a lone capital letter
+// ("J. R. R.") as a personal initial.
+const ABBREV = ['mr','mrs','ms','dr','prof','sr','jr','st','mt','ft','rev','hon','gen','col','capt',
+  'ltd','inc','co','corp','dept','est','fig','figs','no','nos','vol','pp','ed','al','approx','ave','rd','blvd','apt'];
+function isAbbrevBefore(text, dotIndex) {
+  let e = dotIndex;
+  while (e > 0 && /[A-Za-z.]/.test(text[e - 1])) e--;
+  const token = text.slice(e, dotIndex).toLowerCase();
+  if (!token) return false;
+  if (token.indexOf('.') >= 0) return true;
+  if (ABBREV.indexOf(token) >= 0) return true;
+  // single capital letter before the dot => a personal initial, e.g. "J."
+  return token.length === 1 && token === text[e];
 }
-// Triggered when user types . ! ? followed by a letter — handled in handleAutoCorrectOnInput via word boundaries is weak;
-// instead handle on keydown for terminal punctuation + space below.
-
+// True when this text node is the first content in its block (a new paragraph).
+function startsBlock(node) {
+  let n = node;
+  while (n && n !== editor) {
+    const parent = n.parentNode;
+    if (!parent) return false;
+    let prev = n.previousSibling, sawContent = false;
+    while (prev) {
+      if (prev.textContent && prev.textContent.trim()) { sawContent = true; break; }
+      prev = prev.previousSibling;
+    }
+    if (sawContent) return false;
+    n = parent;
+    if (n !== editor && n.nodeType === 1 && /^(P|DIV|LI|H[1-6]|TD|TH|BLOCKQUOTE|QUOTE|SECTION)$/.test(n.tagName)) return true;
+  }
+  return false;
+}
+// Does the word beginning at `wordStart` in `node` start a new sentence?
+function isSentenceStart(node, wordStart) {
+  const text = node.textContent;
+  let i = wordStart - 1;
+  // step back over whitespace and closing quotes/brackets left by the previous sentence
+  while (i >= 0 && /[\s"'’”)\]]/.test(text[i])) i--;
+  if (i < 0) return startsBlock(node);
+  if (/[.!?]/.test(text[i])) {
+    // 'he said "no".' — a closing quote directly before the dot means the sentence
+    // ended, rather than an abbreviation like "no." (as in "No. 5").
+    if (/["'’”)\]]/.test(text[i - 1] || '')) return true;
+    return !isAbbrevBefore(text, i);
+  }
+  return false;
+}
+// Upper-case the first LETTER of a word (it may start with a quote or bracket).
+function capitalizeWord(w) {
+  const m = /[A-Za-z]/.exec(w);
+  if (!m) return w;
+  return w.slice(0, m.index) + w[m.index].toUpperCase() + w.slice(m.index + 1);
+}
 // ═══════ MATH AUTOCORRECT ═══════
 const MATH_MAP = {
   '\\alpha':'α','\\beta':'β','\\gamma':'γ','\\delta':'δ','\\epsilon':'ε','\\zeta':'ζ','\\eta':'η','\\theta':'θ','\\iota':'ι','\\kappa':'κ','\\lambda':'λ','\\mu':'μ','\\nu':'ν','\\xi':'ξ','\\omicron':'ο','\\pi':'π','\\rho':'ρ','\\sigma':'σ','\\tau':'τ','\\upsilon':'υ','\\phi':'φ','\\chi':'χ','\\psi':'ψ','\\omega':'ω','\\Omega':'Ω',
