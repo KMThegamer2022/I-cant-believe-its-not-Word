@@ -416,11 +416,26 @@ html[data-motion="off"] *::after{
 }
 
 /* ═══════════════ SPELL CHECK MARKUP ═══════════════ */
-.icw-spell{position:relative;color:#c00}
-.icw-spell::after{content:'';position:absolute;left:0;right:0;bottom:0;height:1px;background:repeating-linear-gradient(#c00 0,#c00 1px,transparent 1px,transparent 2px);pointer-events:none}
-.icw-grammar{position:relative;color:#7b1fa2}
-.icw-grammar::after{content:'';position:absolute;left:0;right:0;bottom:1px;height:1px;background:repeating-linear-gradient(#7b1fa2 0,#7b1fa2 1px,transparent 1px,transparent 2px);pointer-events:none}
-.icw-ignore{text-decoration:none;color:inherit}
+/* Only the squiggle marks a misspelling -- the text keeps whatever colour it already
+   had, so a typo no longer repaints the whole sentence. text-decoration is used rather
+   than a positioned ::after so the wave follows the text across line breaks, scales with
+   the zoom level, and adds no positioning context for animations and menus to fight.
+   Browsers without wavy support fall back to a solid line in the same colour. */
+.icw-spell{
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+  text-decoration-color: #c00;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+.icw-grammar{
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+  text-decoration-color: #7b1fa2;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+.icw-ignore{color:inherit}
 
 /* ═══════════════ ENHANCED COLOR PALETTE PICKERS ═══════════════ */
 /* NB: must stay display:none until .show — otherwise it overrides .dropdown-menu{display:none} and is always visible */
