@@ -2,10 +2,24 @@
 // ═══════════════ STATUS BAR / COUNTS ═══════════════
 // switchTab, closeBackstage, showBackstagePanel are defined in module 00 (standalone scripts)
 let zoomLevel = 1; // declared early: updateStatus() runs at load time below
+// Drives the CSS empty-document placeholder. <br> and the ink canvas contribute no
+// text, so an untouched page correctly counts as zero words / zero characters.
+function updateEmptyState() {
+  const text = (editor.innerText || '').replace(/\u00a0/g, ' ').trim();
+  editor.classList.toggle('is-empty', text === '');
+  // Focus is tracked with a class rather than relying on :focus, so the placeholder
+  // reliably disappears the moment the page is clicked into.
+  editor.classList.toggle('is-focused', document.activeElement === editor);
+}
+// focus/blur do not bubble and can be skipped when focus moves programmatically, so
+// listen for the bubbling equivalents plus a click/keypress as a backstop.
+['focusin', 'focusout', 'pointerup', 'keyup', 'click'].forEach(t => editor.addEventListener(t, updateEmptyState));
 function updateStatus() {
+  updateEmptyState();
   const text = editor.innerText || '';
   const words = text.trim() ? text.trim().split(/\s+/).length : 0;
-  const chars = text.length;
+  const isEmpty = !text.trim();
+  const chars = isEmpty ? 0 : text.length;
   const charsNoSpace = text.replace(/\s/g, '').length;
   const paras = editor.querySelectorAll('p,h1,h2,h3,h4,h5,h6,li,blockquote').length;
   const zoom = (typeof zoomLevel !== 'undefined' && zoomLevel) ? zoomLevel : 1;

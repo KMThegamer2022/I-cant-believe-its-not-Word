@@ -164,7 +164,8 @@ function openLocalFile() {
   inp.click();
 }
 function newDoc() {
-  const hasContent = editor.innerText.trim() && editor.innerText.trim() !== 'Start typing your document here...';
+  // the empty-page placeholder is CSS, so any text at all is real user content
+  const hasContent = !!(editor.innerText || '').trim();
   if (hasContent && !confirm('Create a new document? Unsaved changes will be lost.')) return;
   editor.innerHTML = '<p><br></p>';
   document.getElementById('docname').value = 'Document' + (Math.floor(Math.random() * 999) + 1);

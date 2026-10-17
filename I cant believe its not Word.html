@@ -201,6 +201,19 @@ html[data-pagemode="light"] #editor-page .page-break::after{background:#fff}
 /* paragraphs created with Enter were flush against each other with no breathing room */
 #editor-page p{margin:0 0 .55em}
 #editor-page h1,#editor-page h2,#editor-page h3{color:var(--heading-color)}
+/* ── Empty-document placeholder ── */
+/* Drawn by CSS rather than being real <p> content, so it never reaches a saved file,
+   the .docx, the word count or the spell checker. Fades out while the editor has focus,
+   so it disappears the moment you click into the page. Offsets match #editor-page padding. */
+#editor-page.is-empty::before{
+  content:"Start typing your document here…";
+  position:absolute;top:72px;left:72px;
+  color:var(--text-2);pointer-events:none;user-select:none;
+  transition:opacity var(--dur-2) var(--ease-out);
+}
+#editor-page.is-empty.is-focused::before,
+#editor-page.is-empty:focus::before{opacity:0}
+
 /* ── Panels / panes / dialogs share dark surfaces ── */
 .pane{background:var(--panel-bg);color:var(--text);border-color:var(--border)}
 /* ── Context menu ── */
@@ -392,6 +405,7 @@ html[data-motion="off"] *::after{
 @media print{
   html,body{height:auto!important;overflow:visible!important;background:#fff!important;animation:none!important;transition:none!important}
   *,*::before,*::after{animation:none!important;transition:none!important}
+  #editor-page.is-empty::before{display:none!important}
   #titlebar,#ribbon-tabs,#ribbon,#statusbar,#backstage,#modal-overlay,#settings-overlay,#context-menu,#mini-toolbar,#toast-container,#find-replace-bar,#table-picker,#nav-pane,#comments-pane,#editor-pane,#access-pane,#draw-indicator,#ruler,#access-watermark{display:none!important}
   #main-area{display:block!important;overflow:visible!important}
   #page-container{overflow:visible!important;background:#fff!important;padding:0!important}
@@ -1312,8 +1326,8 @@ console.log('Backstage functions loaded OK');
   </div>
   <!-- Page Container -->
   <div id="page-container" style="flex:1;overflow:auto;background:var(--canvas-bg);padding:20px">
-    <div id="editor-page" style="background:var(--page);width:816px;min-height:1056px;margin:0 auto;box-shadow:0 2px 14px rgba(0,0,0,.5);padding:72px;position:relative;outline:none;font-size:12pt;line-height:1.15" contenteditable="true" spellcheck="true">
-      <p>Start typing your document here...</p>
+    <div id="editor-page" class="is-empty" style="background:var(--page);width:816px;min-height:1056px;margin:0 auto;box-shadow:0 2px 14px rgba(0,0,0,.5);padding:72px;position:relative;outline:none;font-size:12pt;line-height:1.15" contenteditable="true" spellcheck="true">
+      <p><br></p>
       <canvas id="ink-canvas" style="display:none;position:absolute;top:0;left:0;pointer-events:none;z-index:50"></canvas>
     </div>
   </div>
@@ -2211,10 +2225,24 @@ function insertSectionBreak() { insertPageBreak(); }
 // ═══════════════ STATUS BAR / COUNTS ═══════════════
 // switchTab, closeBackstage, showBackstagePanel are defined in module 00 (standalone scripts)
 let zoomLevel = 1; // declared early: updateStatus() runs at load time below
+// Drives the CSS empty-document placeholder. <br> and the ink canvas contribute no
+// text, so an untouched page correctly counts as zero words / zero characters.
+function updateEmptyState() {
+  const text = (editor.innerText || '').replace(/\u00a0/g, ' ').trim();
+  editor.classList.toggle('is-empty', text === '');
+  // Focus is tracked with a class rather than relying on :focus, so the placeholder
+  // reliably disappears the moment the page is clicked into.
+  editor.classList.toggle('is-focused', document.activeElement === editor);
+}
+// focus/blur do not bubble and can be skipped when focus moves programmatically, so
+// listen for the bubbling equivalents plus a click/keypress as a backstop.
+['focusin', 'focusout', 'pointerup', 'keyup', 'click'].forEach(t => editor.addEventListener(t, updateEmptyState));
 function updateStatus() {
+  updateEmptyState();
   const text = editor.innerText || '';
   const words = text.trim() ? text.trim().split(/\s+/).length : 0;
-  const chars = text.length;
+  const isEmpty = !text.trim();
+  const chars = isEmpty ? 0 : text.length;
   const charsNoSpace = text.replace(/\s/g, '').length;
   const paras = editor.querySelectorAll('p,h1,h2,h3,h4,h5,h6,li,blockquote').length;
   const zoom = (typeof zoomLevel !== 'undefined' && zoomLevel) ? zoomLevel : 1;
@@ -4604,7 +4632,8 @@ function openLocalFile() {
   inp.click();
 }
 function newDoc() {
-  const hasContent = editor.innerText.trim() && editor.innerText.trim() !== 'Start typing your document here...';
+  // the empty-page placeholder is CSS, so any text at all is real user content
+  const hasContent = !!(editor.innerText || '').trim();
   if (hasContent && !confirm('Create a new document? Unsaved changes will be lost.')) return;
   editor.innerHTML = '<p><br></p>';
   document.getElementById('docname').value = 'Document' + (Math.floor(Math.random() * 999) + 1);

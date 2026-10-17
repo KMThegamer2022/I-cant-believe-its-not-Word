@@ -201,6 +201,19 @@ html[data-pagemode="light"] #editor-page .page-break::after{background:#fff}
 /* paragraphs created with Enter were flush against each other with no breathing room */
 #editor-page p{margin:0 0 .55em}
 #editor-page h1,#editor-page h2,#editor-page h3{color:var(--heading-color)}
+/* ── Empty-document placeholder ── */
+/* Drawn by CSS rather than being real <p> content, so it never reaches a saved file,
+   the .docx, the word count or the spell checker. Fades out while the editor has focus,
+   so it disappears the moment you click into the page. Offsets match #editor-page padding. */
+#editor-page.is-empty::before{
+  content:"Start typing your document here…";
+  position:absolute;top:72px;left:72px;
+  color:var(--text-2);pointer-events:none;user-select:none;
+  transition:opacity var(--dur-2) var(--ease-out);
+}
+#editor-page.is-empty.is-focused::before,
+#editor-page.is-empty:focus::before{opacity:0}
+
 /* ── Panels / panes / dialogs share dark surfaces ── */
 .pane{background:var(--panel-bg);color:var(--text);border-color:var(--border)}
 /* ── Context menu ── */
@@ -392,6 +405,7 @@ html[data-motion="off"] *::after{
 @media print{
   html,body{height:auto!important;overflow:visible!important;background:#fff!important;animation:none!important;transition:none!important}
   *,*::before,*::after{animation:none!important;transition:none!important}
+  #editor-page.is-empty::before{display:none!important}
   #titlebar,#ribbon-tabs,#ribbon,#statusbar,#backstage,#modal-overlay,#settings-overlay,#context-menu,#mini-toolbar,#toast-container,#find-replace-bar,#table-picker,#nav-pane,#comments-pane,#editor-pane,#access-pane,#draw-indicator,#ruler,#access-watermark{display:none!important}
   #main-area{display:block!important;overflow:visible!important}
   #page-container{overflow:visible!important;background:#fff!important;padding:0!important}
